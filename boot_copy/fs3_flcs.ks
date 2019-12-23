@@ -11,6 +11,8 @@ function has_connection_to_base {
 
 WAIT UNTIL SHIP:LOADED.
 IF has_connection_to_base() {
+    COPYPATH("0:/koslib/param/fs3.ks","param").
+
     COPYPATH("0:/koslib/util/common.ks","util_common").
 
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
@@ -58,6 +60,7 @@ global main_engine_name is "turboJet".
 global main_engine_num is 1.
 global MAIN_ENGINES is LIST().
 
+run once "param".
 run once "util_common".
 
 run once "util_wp".

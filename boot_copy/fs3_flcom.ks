@@ -13,13 +13,16 @@ function has_connection_to_base {
 
 WAIT UNTIL SHIP:LOADED.
 IF has_connection_to_base() {
+    COPYPATH("0:/koslib/param/fs3.ks","param").
     COPYPATH("0:/koslib/util/common.ks","util_common").
+    
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
     COPYPATH("0:/koslib/util/shbus_tx.ks","util_shbus_tx").
     print "loaded resources from base".
 }
 
+run once "param".
 run once "util_common".
 run once "util_fldr".
 run once "util_wp".

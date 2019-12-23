@@ -59,7 +59,7 @@ local function map_throttle {
                     SET u0i TO u0i - (V_SET-vel).
                     SET u0 TO MAX_TMR*(K_throttle*(V_SET-vel) + K_throttlei*u0i).
                 }
-                SET my_throttle TO MAX(u0,0.001).
+                SET my_throttle TO min(1.0, max(u0,0.001)).
 
                 IF V_SET > 345 AND MAIN_ENGINES[0]:MODE = "Dry"
                 { MAIN_ENGINES[0]:TOGGLEMODE(). }
