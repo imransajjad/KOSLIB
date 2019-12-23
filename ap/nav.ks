@@ -1,0 +1,233 @@
+
+GLOBAL AP_NAV_ENABLED IS TRUE.
+
+// required global, will not modify
+// roll, pitch, yaw
+// vel
+// vel_pitch, vel_bear
+// pilot_input_u0, pilot_input_u1, pilot_input_u2, pilot_input_u3
+
+local K_pitch is 0.025.
+local K_yaw is 0.01.
+local K_roll is 0.01.
+local K_head is 4.5.
+local roll_w_min is 2.0.
+local roll_w_max is 10.0.
+local bank_max is 90.
+
+local ETA_CLOSE is FALSE.
+
+local VSET_MAN is FALSE.
+local PSET_MAN is FALSE.
+local HSET_MAN is FALSE.
+
+local V_SET is -1.0.
+local P_SET is 0.0.
+local R_SET is 0.0.
+local H_SET is 90.0.
+
+IF SHIP:AIRSPEED > 1.0 {
+    set V_SET to vel.
+    set P_SET to vel_pitch.
+    set H_SET to vel_bear.
+    set R_SET to 0.0.
+}
+
+local real_geodistance is 0.0.
+
+FUNCTION ap_nav_do_flcs {
+
+    set DELTA_ROTATION to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(HEADING(H_SET, P_SET)).
+
+    set head_error to wrap_angle_until(H_SET - vel_bear).
+    //set head_error to wrap_angle_until(DELTA_ROTATION:yaw).
+    //set roll_target to R_SET + sat( K_head*head_error, bank_max).
+    //set roll_target to sat( R_SET + wrap_angle_until(DELTA_ROTATION:roll), bank_max).
+
+    set have_roll_pitch to haversine(vel_pitch,vel_bear,P_SET,H_SET).
+
+    set roll_w to outerweight(head_error, roll_w_min, roll_w_max).
+    //set roll_w to outerweight(have_roll_pitch[1], roll_w_min, roll_w_max).
+
+    set roll_target to R_SET + 
+        roll_w*wrap_angle_until(have_roll_pitch[0]) +
+        (1-roll_w)*sat( K_head*head_error, bank_max).
+
+    //print roll_w.
+    //print roll_target.
+    //print have_roll_pitch.
+
+    set nav_u1 to sat(K_pitch*wrap_angle_until(-DELTA_ROTATION:pitch),1.0).
+    set nav_u2 to (1-roll_w)*sat(K_yaw*wrap_angle_until(DELTA_ROTATION:yaw),1.0).
+    set nav_u3 to sat(K_roll*(roll_target - roll), 1.0).
+
+    do_flcs(nav_u1,nav_u2,nav_u3).
+    //do_flcs(pilot_input_u1,pilot_input_u2,pilot_input_u3).
+}
+
+
+FUNCTION ap_nav_disp {
+    // for waypoint in waypoint_queue, set pitch, heading to waypoint, ELSE
+    // manually control heading.
+
+    // in flcs mode"
+    //      if wp exists, set nav to wp, set dnav to no set
+    //      else do nothing
+    // if vel mode
+    //      if wp exists, set nav to wp, set dvel to manual, set dpitch dbear to no set.
+    //      else,           set nav to current heading, set dvel to manual.
+    // if nav mode
+    //      if wp exists, set nav to wp, set dnav to no set
+    //      else,           set dnav to manual
+
+    set PSET_MAN to false.
+    set HSET_MAN to false.
+    set VSET_MAN to false.
+
+    IF (UTIL_WP_ENABLED and util_wp_queue_length() > 0) {
+        local cur_wayp is util_wp_queue_first().
+        set V_SET to cur_wayp[1].
+
+
+        if cur_wayp:length = 3 or cur_wayp:length = 4 {
+            //set alt_target to cur_wayp[0].
+            //set vel_target to cur_wayp[1].
+
+            set max_climb to 30.
+            set level_radius to (max(vel,1.0)^2)/(0.5*g0).
+            set linear_climb_boundary to level_radius*(1-cos(max_climb)).
+            set local_climb_boundary to 0.1*level_radius.
+            set local_gain to arccos(1-abs(local_climb_boundary)/level_radius)/local_climb_boundary.
+            set hdiff to cur_wayp[0] - ship:ALTITUDE.
+
+            if abs(hdiff) > linear_climb_boundary {
+                set P_SET to max_climb*sat(hdiff,1).
+                set P_SET to vel_pitch+sat(P_SET-vel_pitch, 3.0).
+            } else if abs(hdiff) > local_climb_boundary {
+                set P_SET to arccos(1-abs(hdiff)/level_radius)*sat(hdiff,1).
+            } else {
+                set P_SET to local_gain*hdiff.
+                // still haven't dealt with coriolis+centrifugal force
+            }
+        }
+        
+        if cur_wayp:length = 3 {
+            // altitude, velocity, delta_heading
+
+            set H_SET to vel_bear.
+            set R_SET to cur_wayp[2].
+
+        } else if cur_wayp:length = 4 {
+            // altitude, velocity, lat, long
+            set geo_target to LATLNG(cur_wayp[2],cur_wayp[3]).
+            set H_SET to geo_target:HEADING.
+
+            set R_SET to 0.
+            // still haven't dealt with coriolis force
+        } else if cur_wayp:length = 6 {
+            // altitude, velocity, lat, long, final_pitch, final_heading
+            set wp_vec to LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]).
+
+            set wp_ang to heading(cur_wayp[5],cur_wayp[4]):vector.
+            set rot_mat to rotatefromto(wp_ang,wp_vec).
+            set guide_vec to rot_mat*rot_mat*heading(cur_wayp[5],cur_wayp[4]).
+        
+
+            set guide_vec_py to R(90,0,0)*(-SHIP:UP)*guide_vec.
+            set P_SET to (mod(guide_vec_py:pitch+90,180)-90).
+            set H_SET to (360-guide_vec_py:yaw).
+            set R_SET to 0.
+
+        }
+
+        if cur_wayp:length > 3 {
+
+            local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
+            local DIRECT_DISTANCE is geo_target:altitudeposition(cur_wayp[0]):MAG.
+
+            local arc_radius is (KERBIN:RADIUS+ship:altitude).
+            set real_geodistance TO
+                2*arc_radius*DEG2RAD*ARCSIN(DIRECT_DISTANCE/2/arc_radius).
+
+
+            //set P_SET to arctan2( cur_wayp[0]-ship:altitude,  real_geodistance).
+            //set H_SET to geo_target:HEADING.
+
+            IF (real_geodistance/vel < 10) AND NOT ETA_CLOSE{
+                SET ETA_CLOSE TO TRUE.
+                PRINT "ETA 10s".
+            }
+            IF (real_geodistance/vel < 3) {
+                SET ETA_CLOSE TO FALSE.
+                PRINT "Reached Waypoint " + util_wp_queue_length().
+                util_wp_done().
+            }
+        }
+    }
+    ELSE {
+        IF AP_FLCS_CHECK() {
+            SET P_SET TO vel_pitch.
+            SET H_SET TO vel_bear.
+            SET V_SET TO vel.
+        } ELSE IF AP_VEL_CHECK() {
+            SET P_SET TO vel_pitch.
+            SET H_SET TO vel_bear.
+            SET VSET_MAN TO TRUE.
+        } ELSE IF AP_NAV_CHECK() {
+            SET PSET_MAN TO TRUE.
+            SET HSET_MAN TO TRUE.
+            SET VSET_MAN TO TRUE.
+        }
+        set real_geodistance to 0.0.
+    }
+
+    IF VSET_MAN AND is_active_vessel() {
+        SET INC TO 2.7*deadzone(2*pilot_input_u0-1,0.1).
+        IF INC <> 0 {
+            SET V_SET To MIN(MAX(V_SET+INC,-1),1000).
+            //vec_info_draw().
+        }
+    }
+    IF PSET_MAN{
+        SET INC TO 2.0*deadzone(pilot_input_u1,0.25).
+        IF INC <> 0 {
+            SET P_SET To sat(P_SET + INC, 90).
+            //vec_info_draw().
+        }
+    }
+    IF HSET_MAN{
+        SET INC TO 4.0*deadzone(pilot_input_u3,0.25).
+        IF INC <> 0 {
+            SET H_SET To wrap_angle_until(H_SET + INC).
+            //vec_info_draw().
+        }
+    }
+}
+
+function ap_nav_get_data {
+    return list(V_SET,H_SET,P_SET,R_SET).
+}
+
+function ap_nav_get_direction {
+    return heading(H_SET,P_SET).
+}
+
+function ap_nav_get_head {
+    return H_SET.
+}
+
+function ap_nav_get_pitch {
+    return P_SET.
+}
+
+function ap_nav_get_vel {
+    return V_SET.
+}
+
+function ap_nav_get_roll {
+    return R_SET.
+}
+
+function ap_nav_get_distance {
+    return real_geodistance.
+}
