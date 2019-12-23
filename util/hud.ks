@@ -38,7 +38,7 @@ FUNCTION util_hud_vec_info {
         set guide_tri_b:wiping to false.
 
     }
-    IF vec_info_timeout <= 0  or vel < 1.0 {
+    IF MAPVIEW or vec_info_timeout <= 0  or vel < 1.0 {
         set vec_info_timeout TO 0.
 
         set guide_tri_l:show to false.
@@ -114,7 +114,7 @@ function util_hud_info {
 
     }
 
-    if AG and is_active_vessel() {
+    if not MAPVIEW and AG and is_active_vessel() {
 
         set nav_heading to ap_nav_get_direction().
         set nav_vel to ap_nav_get_vel().

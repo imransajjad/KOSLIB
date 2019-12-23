@@ -24,9 +24,11 @@ local function string_acro {
 }
 
 local function list_logs {
-    cd("logs").
-    LIST files.
-    cd("..").
+    if exists("logs"){
+        cd("logs").
+        LIST files.
+        cd("..").
+    }
 }
 
 local function has_connection_to_base {
@@ -43,14 +45,26 @@ local function send_logs {
         PRINT "send_logs: no connection to KSC".
         RETURN.
     }
-    cd("logs").
-    LIST files IN FLIST.
-    FOR F in FLIST {
-        PRINT "send_logs: "+F.
-        COPYPATH(F,"0:/logs/"+F).
-        DELETEPATH(F).
+    if exists("logs"){
+        cd("logs").
+        LIST files IN FLIST.
+        FOR F in FLIST {
+            PRINT "send_logs: "+F.
+            COPYPATH(F,"0:/logs/"+F).
+            DELETEPATH(F).
+        }
+        cd("..").
     }
-    cd("..").
+}
+
+local function print_pos_info {
+    print "time " + round_dec(TIME:SECONDS,3).
+    print "dur " + round_dec(Tdur,3).
+    print "dt  " + round_dec(Ts,3).
+    print "lat  " + SHIP:GEOPOSITION:LAT.
+    print "lng  " + SHIP:GEOPOSITION:LNG.
+    print "h    " + SHIP:ALTITUDE.
+    print "vs   " + SHIP:AIRSPEED.
 }
 
 local function start_logging {
@@ -119,7 +133,7 @@ local function start_logging {
 
     SET starttime to TIME:SECONDS.
     UNTIL TIME:SECONDS-starttime > Tdur {
-        LOG TIME:SECONDS-starttime+","+u0+","+u1+","+u2+","+u3+
+        LOG TIME:SECONDS+","+u0+","+u1+","+u2+","+u3+
             ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
             ","+thrust+","+pitch+","+yaw+","+roll+
             ","+vel_pitch+","+vel_bear+
@@ -141,7 +155,7 @@ function util_fldr_get_help_str {
         "logtag [TAG].  set log tag.",
         "log.  start_logging().",
         "testlog.  start_test_log().",
-        "listlogs.  list_logs().",
+        "listloginfo.  list_logs().",
         "sendlogs.  send_logs().",
         "logstp(...).  send_pulse_time(...).",
         "logsu0(...).  send_throttle_seq(...).",
@@ -179,11 +193,11 @@ function util_fldr_parse_command {
     } ELSE IF commtext:STARTSWITH("testlog.") {
         util_shbus_tx_msg("FLDR_RUN_TEST").
         start_logging().
-    } ELSE IF commtext:STARTSWITH("listlogs.") {
+    } ELSE IF commtext:STARTSWITH("listloginfo.") {
+        print_pos_info().
         list_logs().
     } ELSE IF commtext:STARTSWITH("sendlogs.") {
         send_logs().
-
     } ELSE IF commtext:STARTSWITH("logstp(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
         SET Tdur TO listsum(args)+Tdel.

@@ -29,8 +29,34 @@ local function print_help {
     print_help_str(util_wp_get_help_str()).
 }
 
+local function get_single_command_end {
+    parameter commtextfull.
+
+    local brackount is 0.
+    local index is 0.
+    until index = commtextfull:LENGTH {
+        if commtextfull[index] = "(" { set brackount to brackount+1.}
+        if commtextfull[index] = ")" { set brackount to brackount-1.}
+        if commtextfull[index] = "." and brackount = 0 {
+            return index.
+        }
+        set index to index + 1.
+    }
+    return -1.
+}
+
 local function parse_command {
-    PARAMETER commtext.
+    parameter commtextfull.
+    if commtextfull = "" {
+        return true.
+    }
+
+    local first_end is get_single_command_end(commtextfull).
+    local commtext is commtextfull:SUBSTRING(0,first_end+1).
+    local commtextnext is "".
+    if commtextfull:length > first_end+1 {
+        set commtextnext to commtextfull:SUBSTRING(first_end+1,commtextfull:length-first_end-1).
+    }
 
     if commtext:STARTSWITH("hello") {
         util_shbus_tx_msg("hello from FLCOM").
@@ -48,7 +74,7 @@ local function parse_command {
         PRINT "Could not parse command.".
         return false.
     }
-    return true.
+    return parse_command(commtextnext).
 }
 
 function util_shbus_tx_msg {
@@ -75,7 +101,7 @@ local INPUT_STRING is "".
 local OLD_INPUT_STRING is "".
 
 function util_shbus_get_input {
-    PRINT "":PADLEFT(TERMINAL:WIDTH) AT(0,0).
+    PRINT "":PADLEFT(TERMINAL:WIDTH) AT(0,floor((8+INPUT_STRING:length)/TERMINAL:WIDTH)).
     PRINT "COMM->: "+INPUT_STRING AT(0,0).
     SET ch to TERMINAL:INPUT:getchar().
     IF ch = TERMINAL:INPUT:RETURN {
