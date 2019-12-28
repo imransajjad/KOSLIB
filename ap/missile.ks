@@ -60,26 +60,40 @@ local function get_parts_used {
 
 
 local function cargo_bay_open {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("CB_OPEN",list(core:tag))) {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("SYS_CB_OPEN",list(core:tag))) {
         print "could not CB_OPEN send message".
     }
 }
 local function cargo_bay_safe_close {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("PL_AWAY",list(core:tag))) {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("SYS_PL_AWAY",list(core:tag))) {
+        print "could not PL_AWAY send message".
+    }
+}
+
+local function send_q_unsafe {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSH",list(core:tag, "nQS"))) {
+        print "could not PL_AWAY send message".
+    }
+}
+
+local function send_rem_q_unsafe {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POP",list(core:tag))) {
         print "could not PL_AWAY send message".
     }
 }
 
 
-local Qsafe is FALSE.
+local Qsafe is TRUE.
 local function is_Qsafe {
     IF (ship:dynamicpressure > 0.75) AND (Qsafe){
         set Qsafe TO FALSE.
         print "above launch Q limit".
+        send_q_unsafe().
     }
     IF (ship:dynamicpressure < 0.75) AND (NOT Qsafe) {
         set Qsafe TO TRUE.
         print "Q safe".
+        send_rem_q_unsafe().
     }
 }
 
@@ -145,6 +159,7 @@ function ap_missile_wait {
 
 function ap_missile_setup_separate {
     get_target().
+    send_rem_q_unsafe().
     cargo_bay_open().
     wait 2.0.
     set pitch_init to pitch-5.

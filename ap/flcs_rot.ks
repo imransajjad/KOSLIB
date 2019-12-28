@@ -18,23 +18,40 @@ local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECT
 //RATE_DEG_MAX IS 45.
 //GLIMIT_MAX IS 12.
 //CORNER_VEL IS (GLIMIT_MAX*g0/(RATE_DEG_MAX*DEG2RAD)) ~ 145 m/s.
-local pratePID is PIDLOOP(0.8,0.9,0.01, -1.0,1.0).
-local lock prate_max to MIN(45*DEG2RAD*7.5*sqrt(LOADFACTOR), 12*g0/vel).
-// at 100% pilot input, I should be at max at 12g
+
+local CORNER_VEL is 145.
 
 
-//local rratePID is PIDLOOP(0.1,0.01,0.001, -1.0,1.0).
-local rratePID is PIDLOOP(0.1,0.011,0.001, -1.0,1.0).
-local lock rrate_max to MIN(2*PI/145*vel,2*PI).
+local pratePID is PIDLOOP(
+    AP_FLCS_ROT_PR_KP,
+    AP_FLCS_ROT_PR_KI,
+    AP_FLCS_ROT_PR_KD,
+    -1.0,1.0).
+local lock prate_max to MIN(
+    45*DEG2RAD*7.5*sqrt(LOADFACTOR),
+    AP_FLCS_ROT_GLIM_VERT*g0/vel).
 
-//local yratePID is PIDLOOP(1.5,0.0,0.00, -1.0,1.0).
-local yratePID is PIDLOOP(1.5,0.0,0.00, -1.0,1.0).
-local lock yrate_max to MIN(30*DEG2RAD*7.5*sqrt(LOADFACTOR), 2*g0/vel).
+local yratePID is PIDLOOP(
+    AP_FLCS_ROT_YR_KP,
+    AP_FLCS_ROT_YR_KI,
+    AP_FLCS_ROT_YR_KD,
+    -1.0,1.0).
+local lock yrate_max to MIN(
+    45*DEG2RAD*7.5*sqrt(LOADFACTOR),
+    AP_FLCS_ROT_GLIM_LAT*g0/vel).
+
+local rratePID is PIDLOOP(
+    AP_FLCS_ROT_RR_KP,
+    AP_FLCS_ROT_RR_KI,
+    AP_FLCS_ROT_RR_KD,
+    -1.0,1.0).
+local lock rrate_max to MIN(
+    3*PI/145*vel,
+    3*PI).
 
 local K_theta is 10.0.
 local Kd_theta is 2.8.
 
-local pitch_local_point is 0.
 local ROLL_I_ON is FALSE.
 
 local prev_AG is AG.
@@ -91,17 +108,22 @@ FUNCTION check_for_pitch_lock {
         }
     }
     IF SHIP:STATUS = "LANDED" AND pitch_lock_armed AND (NOT pitch_lock){
-        SET pitch_set_point TO pitch + SHIP:CONTROL:PITCH/K_theta.
-        //SET pratePID:SETPOINT TO 0.
-        //pratePID:RESET().
+        SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
+        SET pratePID:KP TO AP_FLCS_ROT_PR_KP_ALT.
+        
         PRINT "check_for_pitch_lock: pitch_locked".
-        PRINT "    pitch lock sp "+ round_dec(pitch_set_point,2).
+        PRINT "    pitch         "+ round_dec(pitch,2).
         PRINT "    v/vs at land  "+ round_dec(Vlast,2) + "/"+round_dec(Vslast,2).
         SET pitch_lock TO true.
         SET pitch_lock_armed TO false.
+  
+
     }
     IF pitch_lock AND 
     ((vel < 30) OR (ABS(pilot_input_u1) > 0.6) OR (pilot_input_u0 > 0.6)){
+        SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
+        SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
+
         SET pitch_set_point TO 0.
         SET pitch_lock TO false.
         PRINT "check_for_pitch_lock: pitch_unlocked".
@@ -149,29 +171,7 @@ FUNCTION do_flcs {
         SET rratePID:SETPOINT TO rrate_max*u3.
         SET SHIP:CONTROL:ROLL TO LF2G*rratePID:UPDATE(TIME:SECONDS, roll_rate)
             +SHIP:CONTROL:ROLLTRIM.
-        //IF pitch_lock {
-        //  SET pitch_set_point to pitch_set_point + 0.1*prate_max*u1.
-        //  SET SHIP:CONTROL:PITCH TO (pitch_set_point-pitch)*K_theta -
-        //      pitch_rate*Kd_theta.
 
-        //  SET pratePID:SETPOINT TO prate_max*deadzone(u1,0.1).
-        //  pratePID:UPDATE(TIME:SECONDS, pitch_rate).
-        //}
-        //ELSE {
-        //  SET pratePID:SETPOINT TO prate_max*u1.
-        //  SET SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
-        //      SHIP:CONTROL:PITCHTRIM.
-        //}
-        IF PITCH_LANDING_GAINS AND NOT pitch_lock {
-            SET PITCH_LANDING_GAINS TO FALSE.
-            SET pratePID:KI TO PITCH_NORMAL_KI.
-            SET pratePID:KP TO PITCH_NORMAL_KP.
-        }
-        ELSE IF NOT PITCH_LANDING_GAINS AND pitch_lock {
-            SET PITCH_LANDING_GAINS TO TRUE.
-            SET pratePID:KI TO K_theta.
-            SET pratePID:KP TO Kd_theta.
-        }
         SET pratePID:SETPOINT TO prate_max*u1.
         SET SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
             SHIP:CONTROL:PITCHTRIM.

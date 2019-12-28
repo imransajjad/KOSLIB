@@ -11,6 +11,8 @@ local vec_info_timeout is 0.
 local vec_info_init_draw is false.
 local hud_info_init_draw is false.
 
+local hud_text_dict_keys is list().
+local hud_text_dict_text is list().
 
 FUNCTION vec_info_draw {
     SET vec_info_timeout TO 10.
@@ -168,7 +170,10 @@ function util_hud_info {
         set hud_left_label:text to ap_mode_get_str() + char(10) +
             round_dec(vel,0) + vs_string + char(10) +
             round_dec(vel_pitch,2)+ char(10) +
-            round_dec(vel_bear,2).
+            round_dec(vel_bear,2) + char(10) +
+            hud_text_dict_text:join(char(10)).
+
+        
         if not hud_left:visible { hud_left:SHOW(). }
 
         
@@ -188,3 +193,53 @@ function util_hud_info {
         if hud_right:visible { hud_right:HIDE(). }
     }
 }
+
+function util_hud_add_text {
+    parameter key.
+    parameter text_in.
+    for h in hud_text_dict_keys {
+        if h[0] = key {
+            return.
+        }
+    }
+    hud_text_dict_keys:add(key).
+    hud_text_dict_text:add(text_in).
+}
+
+function util_hud_remove_text {
+    parameter key.
+
+    for index in RANGE(0, hud_text_dict_keys:length) {
+        if hud_text_dict_keys[index] = key {
+            hud_text_dict_keys:remove(index).
+            hud_text_dict_text:remove(index).
+            return.
+        }
+    }
+    print "util_hud_remove_text did not remove item".    
+}
+
+
+// RX SECTION
+
+function util_hud_decode_rx_msg {
+    parameter received.
+
+    set opcode to received:content[0].
+    if not opcode:startswith("HUD") {
+        return.
+    } else if received:content:length > 1 {
+        set data to received:content[1].
+    }
+    IF opcode = "HUD_PUSH" {
+        util_hud_add_text(data[0],data[1]).
+    } ELSE IF opcode = "HUD_POP" {
+        util_hud_remove_text(data[0]).
+    } else {
+        print "could not decode hud rx msg".
+        return false.
+    }
+    return true.
+}
+
+// RX SECTION END

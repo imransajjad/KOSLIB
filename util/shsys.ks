@@ -25,13 +25,18 @@ function util_shsys_decode_rx_msg {
     parameter received.
 
     set opcode to received:content[0].
+    if not opcode:startswith("SYS") {
+        return.
+    } else if received:content:length > 1 {
+        set data to received:content[1].
+    }
 
-    IF opcode:startswith("CB_OPEN") {
+    IF opcode:startswith("SYS_CB_OPEN") {
         set cargo_bay_opened_count to cargo_bay_opened_count + 1.
         set bays to true.
-    } ELSE IF opcode = "CB_CLOSE" {
+    } ELSE IF opcode = "SYS_CB_CLOSE" {
         set bays to false.
-    } ELSE IF opcode = "PL_AWAY" {
+    } ELSE IF opcode = "SYS_PL_AWAY" {
         wait 0.1.
         get_another_ship(ship:name+" Probe").
     } else {

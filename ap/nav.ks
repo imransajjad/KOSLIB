@@ -7,13 +7,6 @@ GLOBAL AP_NAV_ENABLED IS TRUE.
 // vel_pitch, vel_bear
 // pilot_input_u0, pilot_input_u1, pilot_input_u2, pilot_input_u3
 
-local K_pitch is 0.025.
-local K_yaw is 0.01.
-local K_roll is 0.01.
-local K_head is 4.5.
-local roll_w_min is 2.0.
-local roll_w_max is 10.0.
-local bank_max is 90.
 
 local ETA_CLOSE is FALSE.
 
@@ -35,34 +28,26 @@ IF SHIP:AIRSPEED > 1.0 {
 
 local real_geodistance is 0.0.
 
+local lock DELTA_ROTATION to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(HEADING(H_SET, P_SET)).
+
 FUNCTION ap_nav_do_flcs {
 
-    set DELTA_ROTATION to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(HEADING(H_SET, P_SET)).
 
-    set head_error to wrap_angle_until(H_SET - vel_bear).
-    //set head_error to wrap_angle_until(DELTA_ROTATION:yaw).
-    //set roll_target to R_SET + sat( K_head*head_error, bank_max).
-    //set roll_target to sat( R_SET + wrap_angle_until(DELTA_ROTATION:roll), bank_max).
+    local head_error is wrap_angle_until(H_SET - vel_bear).
 
-    set have_roll_pitch to haversine(vel_pitch,vel_bear,P_SET,H_SET).
+    local have_roll_pitch is haversine(vel_pitch,vel_bear,P_SET,H_SET).
 
-    set roll_w to outerweight(head_error, roll_w_min, roll_w_max).
-    //set roll_w to outerweight(have_roll_pitch[1], roll_w_min, roll_w_max).
+    local roll_w is outerweight(have_roll_pitch[1], AP_NAV_ROLL_W_MIN, AP_NAV_ROLL_W_MAX).
 
-    set roll_target to R_SET + 
+    local roll_target is R_SET + 
         roll_w*wrap_angle_until(have_roll_pitch[0]) +
-        (1-roll_w)*sat( K_head*head_error, bank_max).
+        (1-roll_w)*sat( AP_NAV_K_HEADING*head_error, AP_NAV_BANK_MAX).
 
-    //print roll_w.
-    //print roll_target.
-    //print have_roll_pitch.
-
-    set nav_u1 to sat(K_pitch*wrap_angle_until(-DELTA_ROTATION:pitch),1.0).
-    set nav_u2 to (1-roll_w)*sat(K_yaw*wrap_angle_until(DELTA_ROTATION:yaw),1.0).
-    set nav_u3 to sat(K_roll*(roll_target - roll), 1.0).
-
-    do_flcs(nav_u1,nav_u2,nav_u3).
-    //do_flcs(pilot_input_u1,pilot_input_u2,pilot_input_u3).
+    do_flcs(
+    sat(AP_NAV_K_PITCH*wrap_angle_until(-DELTA_ROTATION:pitch),1.0),
+    (1-roll_w)*sat(AP_NAV_K_YAW*wrap_angle_until(DELTA_ROTATION:yaw),1.0),
+    sat(AP_NAV_K_ROLL*(roll_target - roll), 1.0)
+    ).
 }
 
 
@@ -89,9 +74,8 @@ FUNCTION ap_nav_disp {
         set V_SET to cur_wayp[1].
 
 
+        // climb/descend to target altitude
         if cur_wayp:length = 3 or cur_wayp:length = 4 {
-            //set alt_target to cur_wayp[0].
-            //set vel_target to cur_wayp[1].
 
             set max_climb to 30.
             set level_radius to (max(vel,1.0)^2)/(0.5*g0).
@@ -111,6 +95,7 @@ FUNCTION ap_nav_disp {
             }
         }
         
+        // set roll and heading targets
         if cur_wayp:length = 3 {
             // altitude, velocity, delta_heading
 
@@ -124,7 +109,10 @@ FUNCTION ap_nav_disp {
 
             set R_SET to 0.
             // still haven't dealt with coriolis force
-        } else if cur_wayp:length = 6 {
+        }
+
+        // set everything if waypoint has target orientation
+        if cur_wayp:length = 6 {
             // altitude, velocity, lat, long, final_pitch, final_heading
             set wp_vec to LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]).
 
@@ -140,6 +128,7 @@ FUNCTION ap_nav_disp {
 
         }
 
+        // if waypoint has any form of destination
         if cur_wayp:length > 3 {
 
             local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
