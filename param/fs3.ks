@@ -46,7 +46,7 @@ set AP_FLCS_ROT_PR_KD_ALT to 0.01.
 
 
 set AP_NAV_K_PITCH to 0.025.
-set AP_NAV_K_YAW to 0.01.
+set AP_NAV_K_YAW to 0.03.
 set AP_NAV_K_ROLL to 0.003.
 set AP_NAV_K_HEADING to 4.5.
 set AP_NAV_ROLL_W_MIN to 10.0.

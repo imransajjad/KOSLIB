@@ -1,5 +1,8 @@
 
+// required module AP_MODE_ENABLED
 GLOBAL AP_NAV_ENABLED IS TRUE.
+IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
+
 
 // required global, will not modify
 // roll, pitch, yaw
@@ -45,7 +48,7 @@ FUNCTION ap_nav_do_flcs {
 
     do_flcs(
     sat(AP_NAV_K_PITCH*wrap_angle_until(-DELTA_ROTATION:pitch),1.0),
-    (1-roll_w)*sat(AP_NAV_K_YAW*wrap_angle_until(DELTA_ROTATION:yaw),1.0),
+    sat(AP_NAV_K_YAW*wrap_angle_until(DELTA_ROTATION:yaw),1.0),
     sat(AP_NAV_K_ROLL*(roll_target - roll), 1.0)
     ).
 }
@@ -134,7 +137,7 @@ FUNCTION ap_nav_disp {
             local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
             local DIRECT_DISTANCE is geo_target:altitudeposition(cur_wayp[0]):MAG.
 
-            local arc_radius is (KERBIN:RADIUS+ship:altitude).
+            local arc_radius is (ship:body:radius+ship:altitude).
             set real_geodistance TO
                 2*arc_radius*DEG2RAD*ARCSIN(DIRECT_DISTANCE/2/arc_radius).
 

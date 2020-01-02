@@ -71,13 +71,13 @@ local function cargo_bay_safe_close {
 }
 
 local function send_q_unsafe {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSH",list(core:tag, "nQS"))) {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, "nQS"))) {
         print "could not PL_AWAY send message".
     }
 }
 
 local function send_rem_q_unsafe {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POP",list(core:tag))) {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPL",list(core:tag))) {
         print "could not PL_AWAY send message".
     }
 }
@@ -162,9 +162,16 @@ function ap_missile_setup_separate {
     send_rem_q_unsafe().
     cargo_bay_open().
     wait 2.0.
-    set pitch_init to pitch-5.
-    set yaw_init to yaw.
-    set roll_init to roll.
+
+    set DELTA_FACE_AWAY to R(90,0,0)*(-ship:UP)*
+        angleaxis(5,ship:facing:starvector)*(ship:facing).
+    set pitch_init to (mod(DELTA_FACE_AWAY:pitch+90,180)-90).
+    set yaw_init to (360-DELTA_FACE_AWAY:yaw).
+    set roll_init to (180-DELTA_FACE_AWAY:roll).
+
+    print pitch_init.
+    print yaw_init.
+    print roll_init.
 
     cargo_bay_safe_close().
     decoupler_module:Doevent("decouple").

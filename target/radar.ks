@@ -1,5 +1,5 @@
 
-IF NOT (DEFINED TARGET_RADAR_ENABLED) { GLOBAL TARGET_RADAR_ENABLED IS true.}
+GLOBAL TARGET_RADAR_ENABLED IS true.
 
 lock AG to AG1.
 local prev_AG is AG.
@@ -13,21 +13,29 @@ local target_list is list().
 
 local status_str is "".
 
-local function x_to_term {
-    parameter x.
-    return min(TERMINAL:WIDTH-1, max(x,0)).
-}
-local function y_to_term {
-    parameter y.
-    return min(TERMINAL:HEIGHT-3, max(0, TERMINAL:HEIGHT-3-y )).
-}
-
 set scan_timeout_max to 10.
 
+local flcs_proc is processor("FLCS").
+local hudtext_sent is false.
 
 local debug_str is "".
 
 CLEARSCREEN.
+
+local function hudtext {
+    parameter ttext.
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHR",list(core:tag, ttext))) {
+        print "could not send message HUD_PUSHR".
+    }
+    set hudtext_sent to true.
+}
+
+local function hudtext_remove {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPR",list(core:tag))) {
+        print "could not send message HUD_POPR".
+    }
+    set hudtext_sent to false.
+}
 
 local function do_scan {
     //write_debug("Initiating Scan").
@@ -74,22 +82,22 @@ local function print_status {
 
     if next_lock_index > 0 {
         if scan_timeout > 0 {
-            print "tar: " + next_lock_index + "/" +target_list:length + "/scv" at(x_to_term(TERMINAL:WIDTH-15), y_to_term(1000)).
+            print "tar: " + next_lock_index + "/" +target_list:length + "/scv" at(TERMINAL:WIDTH-15, 0).
         } else {
-            print "tar: " + next_lock_index + "/" +target_list:length at(x_to_term(TERMINAL:WIDTH-15), y_to_term(1000)).
+            print "tar: " + next_lock_index + "/" +target_list:length at(TERMINAL:WIDTH-15, 0).
         }
     } else {
         if scan_timeout > 0 {
-            print "no tar/"+target_list:length + "/scv" at(x_to_term(TERMINAL:WIDTH-15), y_to_term(1000)).
+            print "no tar/"+target_list:length + "/scv" at(TERMINAL:WIDTH-15, 0).
         } else {
-            print "no tar/"+target_list:length at(x_to_term(TERMINAL:WIDTH-15), y_to_term(1000)).
+            print "no tar/"+target_list:length at(TERMINAL:WIDTH-15, 0).
         }
 
     }
 }
 
 local function do_debug_print {
-    print debug_str AT(0,TERMINAL:HEIGHT-2).
+    print debug_str AT(0,TERMINAL:HEIGHT-1).
     set debug_str to "".
 }
 
@@ -135,12 +143,12 @@ function get_screen_position {
     parameter min_dist.
     parameter max_dist.
 
-    local y is (dist-min_dist)/(max_dist-min_dist)*(TERMINAL:HEIGHT-2).
+    local y is (dist-min_dist)/(max_dist-min_dist)*(TERMINAL:HEIGHT-5).
     local x is (bear+max_angle)/(2*max_angle)*TERMINAL:WIDTH.
     local flag is (x >= 0 and x < TERMINAL:WIDTH).
     
-    set x to min(TERMINAL:WIDTH-1, max(x,0)).
-    set y to min(TERMINAL:HEIGHT-5, max(0, TERMINAL:HEIGHT-5-y )).
+    set x to min(TERMINAL:WIDTH, max(x,-1)).
+    set y to min(TERMINAL:HEIGHT-4, max(-1, TERMINAL:HEIGHT-5-y )).
     return list(x, y, flag).
 } 
 
@@ -173,20 +181,36 @@ function target_radar_draw_picture {
         }
     }
     if HASTARGET {
+        local dist_str is "".
+        local vel_str is round_dec((target:velocity:surface-ship:velocity:surface):mag,0).
+
+        if TARGET:distance < 1200 { set dist_str to ""+round_dec(TARGET:distance,1).}
+        else { set dist_str to ""+round_dec(TARGET:distance/1000,1) + "k".}
+
         local screen_pos is get_screen_position(TARGET:distance, TARGET:bearing, 2^min_distance_log, 2^max_distance_log).
-        if screen_pos[0] < TERMINAL:WIDTH-4 {
-            print "X|"+round_dec(TARGET:distance/1000,1) at(screen_pos[0],screen_pos[1]).
+        if screen_pos[0] >= 0 and screen_pos[0] < TERMINAL:WIDTH  and
+           screen_pos[1] >= 0 and screen_pos[1] < TERMINAL:HEIGHT-4 {
+            if screen_pos[0] < TERMINAL:WIDTH-dist_str:length-1 {
+                print "X|"+dist_str at(screen_pos[0],screen_pos[1]).
+                print vel_str at(screen_pos[0],screen_pos[1]+1).
+            } else {
+                print dist_str+"|X" at(screen_pos[0]-dist_str:length,screen_pos[1]).
+                print vel_str at(screen_pos[0]-dist_str:length,screen_pos[1]+1).
+            }
         } else {
-            print round_dec(TARGET:distance/1000,1)+"|X" at(screen_pos[0],screen_pos[1]).
+            print "X" at(screen_pos[0],screen_pos[1]).
         }
+
+        print TARGET:name at (0,TERMINAL:HEIGHT-4).
+        print dist_str at (0,TERMINAL:HEIGHT-3).
+        print vel_str at (0,TERMINAL:HEIGHT-2).
+        hudtext(dist_str + char(10) + vel_str).
+    } else if hudtext_sent {
+        hudtext_remove().
     }
     // print min max distance
-    print round_dec( (2^max_distance_log)/1000,1) AT(x_to_term(0),y_to_term(1000)).
-    print round_dec( (2^min_distance_log)/1000,1) AT(x_to_term(0),y_to_term(0)).
+    print round_dec( (2^max_distance_log)/1000,1) AT(0,0).
+    print round_dec( (2^min_distance_log)/1000,1) AT(0,TERMINAL:HEIGHT-5).
     do_debug_print().
     print_status().
-    IF HASTARGET {
-        print TARGET:name at (0,TERMINAL:HEIGHT-2).
-    }
-    //print_debug().
 }
