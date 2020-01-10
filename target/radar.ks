@@ -204,9 +204,9 @@ function target_radar_draw_picture {
         print TARGET:name at (0,TERMINAL:HEIGHT-4).
         print dist_str at (0,TERMINAL:HEIGHT-3).
         print vel_str at (0,TERMINAL:HEIGHT-2).
-        hudtext(dist_str + char(10) + vel_str).
+        //hudtext(dist_str + char(10) + vel_str).
     } else if hudtext_sent {
-        hudtext_remove().
+        //hudtext_remove().
     }
     // print min max distance
     print round_dec( (2^max_distance_log)/1000,1) AT(0,0).

@@ -20,6 +20,9 @@ local hud_info_init_draw is false.
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
+local text_bright is 1.0.
+
+local MAIN_ENGINES is get_engines(main_engine_name).
 
 FUNCTION vec_info_draw {
     SET vec_info_timeout TO 10.
@@ -113,9 +116,52 @@ function util_hud_info {
         set hud_right:draggable to false.
         set hud_right:x to 960+150.
         set hud_right:style:BG to "blank_tex".
+
         set hud_right_label to hud_right:ADDLABEL("").
         set hud_right_label:style:ALIGN to "RIGHT".
         set hud_right_label:style:textcolor to RGB(0,1,0).
+
+
+        //set hud_right_lbutton to hud_right:ADDBUTTON("").
+        //set hud_right_lbutton:style:BG to "blank_tex".
+        //set hud_right_lbutton:style:textcolor to RGB(0,1,0).
+        //set hud_right_lbutton:style:border:h to 0.
+        //set hud_right_lbutton:style:margin:h to 0.
+        //set hud_right_lbutton:style:padding:h to 0.
+        ////set hud_right_lbutton:x to 10.
+        //set hud_right_lbutton:style:width to 15.
+        ////set hud_right_lbutton:style:ALIGN to "RIGHT".
+        ////set hud_right_lbutton:style:border to 0.
+
+        //set hud_right_lbutton:onclick to {
+        //    set text_bright to text_bright + 0.25.
+        //    if text_bright > 1.0 {
+        //        set text_bright to 0.0.
+        //    }
+        //    set hud_left_label:style:textcolor to RGB(0,text_bright,0).
+        //    set hud_right_label:style:textcolor to RGB(0,text_bright,0).
+        //    set hud_right_lbutton:style:textcolor to RGB(0,text_bright,0).
+        //    set hud_right_dbutton:style:textcolor to RGB(0,text_bright,0).
+        //    set hud_right_lbutton:pressed to false.
+        //}.
+
+        //set hud_right_dbutton to hud_right:ADDBUTTON("").
+        //set hud_right_dbutton:style:BG to "blank_tex".
+        //set hud_right_dbutton:style:textcolor to RGB(0,1,0).
+        //set hud_right_dbutton:style:border:h to 0.
+        //set hud_right_dbutton:style:margin:h to 0.
+        //set hud_right_dbutton:style:padding:h to 0.
+        ////set hud_right_dbutton:x to 10.
+        //set hud_right_dbutton:style:width to 15.
+        ////set hud_right_dbutton:style:ALIGN to "RIGHT".
+        ////set hud_right_dbutton:style:border to 0.
+
+        //set hud_right_dbutton:onclick to {
+
+        //    set hud_left:draggable to not hud_left:draggable.
+        //    set hud_right:draggable to not hud_right:draggable.
+        //}.
+
 
         set hud_right:visible to false.
 
@@ -125,15 +171,12 @@ function util_hud_info {
 
     if not MAPVIEW and AG and is_active_vessel() {
 
-
-        if not (MAIN_ENGINES:length = 0) {
-            set engine_mode_str to MAIN_ENGINES[0]:mode[0].
-        } else {
-            set engine_mode_str to "".
-        }
-
         local stat_list is list().
-        local stat_str is "".
+        for me in MAIN_ENGINES {
+            if me:multimode {
+                stat_list:add(me:mode[0]).
+            }
+        }
         if GEAR {
             stat_list:add("G").
         }
@@ -142,9 +185,6 @@ function util_hud_info {
         }
         if LIGHTS {
             stat_list:add("L").
-        }
-        if stat_list:length > 0 {
-            set stat_str to stat_list:join("/").
         }
 
         local vs_string is "".
@@ -185,15 +225,26 @@ function util_hud_info {
         
         if not hud_left:visible { hud_left:SHOW(). }
 
-        
+        local tar_str is "".
+
+        if HASTARGET {
+            if TARGET:distance < 1200 {
+                set tar_str to "T"+round_dec(TARGET:distance,1).
+            } else {
+                set tar_str to "T"+round_dec(TARGET:distance/1000,1) + "k".
+            }
+            set tar_str to tar_str + "/" + 
+                round_dec((target:velocity:surface-ship:velocity:surface):mag,0)
+                + char(10).
+        }        
 
         set hud_right_label:text to "" +
             //round_dec(100*SHIP:CONTROL:MAINTHROTTLE,0)+
             round_dec(100*THROTTLE,0)+
-            engine_mode_str +char(10) +
+            stat_list:join("") +char(10) +
             round_dec(SHIP:ALTITUDE,0) + char(10) +
-            stat_str + char(10) +
             eta_str + char(10) +
+            tar_str +
             hud_text_dict_right:values:join(char(10)).
 
         if not hud_right:visible { hud_right:SHOW(). }
@@ -203,6 +254,26 @@ function util_hud_info {
         if hud_left:visible { hud_left:HIDE(). }
         if hud_right:visible { hud_right:HIDE(). }
     }
+}
+
+function util_hud_push_left {
+    parameter key.
+    parameter val.
+    if hud_text_dict_left:haskey(key) {
+        set hud_text_dict_left[key] to val.
+    } else {
+        hud_text_dict_left:add(key,val).
+    }   
+}
+
+function util_hud_push_right {
+    parameter key.
+    parameter val.
+    if hud_text_dict_right:haskey(key) {
+        set hud_text_dict_right[key] to val.
+    } else {
+        hud_text_dict_right:add(key,val).
+    }   
 }
 
 
@@ -218,17 +289,9 @@ function util_hud_decode_rx_msg {
         set data to received:content[1].
     }
     if opcode = "HUD_PUSHL" {
-        if hud_text_dict_left:haskey(data[0]) {
-            set hud_text_dict_left[data[0]] to data[1].
-        } else {
-            hud_text_dict_left:add(data[0],data[1]).
-        }
+        util_hud_push_left(data[0],data[1]).
     } else if opcode = "HUD_PUSHR" {
-        if hud_text_dict_right:haskey(data[0]) {
-            set hud_text_dict_right[data[0]] to data[1].
-        } else {
-            hud_text_dict_right:add(data[0],data[1]).
-        }
+        util_hud_push_right(data[0],data[1]).
     } else if opcode = "HUD_POPL" {
         hud_text_dict_left:remove(data[0]).
     } else if opcode = "HUD_POPR" {

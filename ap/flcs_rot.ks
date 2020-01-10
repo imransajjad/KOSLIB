@@ -21,6 +21,10 @@ local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECT
 
 local CORNER_VEL is 145.
 
+local CORNER_Q is (CORNER_VEL/345)^2.
+local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/CORNER_VEL).
+local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/CORNER_VEL).
+
 
 local pratePID is PIDLOOP(
     AP_FLCS_ROT_PR_KP,
@@ -28,7 +32,7 @@ local pratePID is PIDLOOP(
     AP_FLCS_ROT_PR_KD,
     -1.0,1.0).
 local lock prate_max to MIN(
-    45*DEG2RAD*7.5*sqrt(LOADFACTOR),
+    W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
     AP_FLCS_ROT_GLIM_VERT*g0/vel).
 
 local yratePID is PIDLOOP(
@@ -37,7 +41,7 @@ local yratePID is PIDLOOP(
     AP_FLCS_ROT_YR_KD,
     -1.0,1.0).
 local lock yrate_max to MIN(
-    45*DEG2RAD*7.5*sqrt(LOADFACTOR),
+    W_L_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
     AP_FLCS_ROT_GLIM_LAT*g0/vel).
 
 local rratePID is PIDLOOP(
@@ -46,8 +50,8 @@ local rratePID is PIDLOOP(
     AP_FLCS_ROT_RR_KD,
     -1.0,1.0).
 local lock rrate_max to MIN(
-    3*PI/145*vel,
-    3*PI).
+    4*PI*(vel/CORNER_VEL),
+    4*PI).
 
 local K_theta is 10.0.
 local Kd_theta is 2.8.
@@ -60,7 +64,7 @@ local gain is 1.0.
 local SASon is false.
 
 
-FUNCTION gain_schedule {
+local function gain_schedule {
     //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
     if prev_AG <> AG {
         if AG {
@@ -77,7 +81,7 @@ FUNCTION gain_schedule {
 LOCK LF2G TO gain_schedule().
 
 
-FUNCTION check_for_sas {
+local function check_for_sas {
     IF SAS AND NOT SASon {
         SET SASon to true.
         SET PITCH_PID_I TO 0.0.
@@ -99,7 +103,7 @@ SET pitch_lock_armed TO false.
 SET pitch_lock TO false.
 SET Vlast TO 0.0.
 SET Vslast TO 0.0.
-FUNCTION check_for_pitch_lock {
+local function check_for_pitch_lock {
     IF GEAR AND NOT pitch_lock_armed AND (SHIP:STATUS = "FLYING"){
         PRINT "check_for_pitch_lock: pitch_lock_armed".
         SET pitch_lock_armed TO true.
@@ -144,7 +148,7 @@ SET PITCH_NORMAL_KP TO pratePID:KP.
 
 SET rratePID_KI TO rratePID:KI.
 SET ROLL_I_ON TO TRUE.
-FUNCTION check_for_cog_offset {
+local function check_for_cog_offset {
     IF (ABS(LATOFS) > 0.01) AND NOT ROLL_I_ON {
         SET ROLL_I_ON TO TRUE.
         SET rratePID:KI TO rratePID_KI.
@@ -155,7 +159,14 @@ FUNCTION check_for_cog_offset {
     }
 }
 
-FUNCTION do_flcs {
+local function hud_print {
+    local ttext is ""+round_dec(RAD2DEG*prate_max, 1).
+    IF NOT processor("FLCS"):CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, ttext))) {
+        print "could not HUD_PUSHL send message".
+    }
+}
+
+function ap_flcs_rot {
     PARAMETER u1. // pitch
     PARAMETER u2. // yaw
     PARAMETER u3. // roll
@@ -163,6 +174,7 @@ FUNCTION do_flcs {
     check_for_sas().
     check_for_pitch_lock().
     check_for_cog_offset().
+    //hud_print().
 
     IF NOT SASon {
         SET yratePID:SETPOINT TO yrate_max*u2.
@@ -185,8 +197,4 @@ FUNCTION do_flcs {
             }
         }
     }
-}
-
-FUNCTION do_flcs_pilot {
-    do_flcs(pilot_input_u1, pilot_input_u2, pilot_input_u3).
 }

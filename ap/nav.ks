@@ -33,7 +33,7 @@ local real_geodistance is 0.0.
 
 local lock DELTA_ROTATION to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(HEADING(H_SET, P_SET)).
 
-FUNCTION ap_nav_do_flcs {
+FUNCTION ap_nav_do_flcs_rot {
 
 
     local head_error is wrap_angle_until(H_SET - vel_bear).
@@ -46,7 +46,7 @@ FUNCTION ap_nav_do_flcs {
         roll_w*wrap_angle_until(have_roll_pitch[0]) +
         (1-roll_w)*sat( AP_NAV_K_HEADING*head_error, AP_NAV_BANK_MAX).
 
-    do_flcs(
+    ap_flcs_rot(
     sat(AP_NAV_K_PITCH*wrap_angle_until(-DELTA_ROTATION:pitch),1.0),
     sat(AP_NAV_K_YAW*wrap_angle_until(DELTA_ROTATION:yaw),1.0),
     sat(AP_NAV_K_ROLL*(roll_target - roll), 1.0)

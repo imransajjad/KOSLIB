@@ -5,12 +5,18 @@
 
 GLOBAL UTIL_FLDR_ENABLED IS true.
 
+local lock AG to AG5.
+local PREV_AG is AG5.
 
-local Ts is 0.02.
-local Tdur is 5.00.
-local Tdel is 0.00.
+
+local Ts is UTIL_FLDR_TS.
+local Tdur is UTIL_FLDR_TDUR.
+local Tdel is UTIL_FLDR_TDEL.
 
 local logtag to "".
+local filename is "".
+
+local MAIN_ENGINES is get_engines(main_engine_name).
 
 // TX SECTION
 
@@ -29,15 +35,6 @@ local function list_logs {
         LIST files.
         cd("..").
     }
-}
-
-local function has_connection_to_base {
-    if addons:available("RT") {
-        return addons:RT:AVAILABLE AND addons:RT:HASKSCCONNECTION(SHIP).
-    } else {
-        return true.
-    }
-    return false.
 }
 
 local function send_logs {
@@ -89,11 +86,19 @@ local function start_logging {
     LOCAL LOCK DELTA_SRFPRO_UP TO R(90,0,0)*(-SHIP:UP)*(SHIP:SRFPROGRADE).
     LOCAL LOCK vel_pitch TO DEG2RAD*(mod(DELTA_SRFPRO_UP:pitch+90,180)-90).
     LOCAL LOCK vel_bear TO DEG2RAD*(360-DELTA_SRFPRO_UP:yaw).
+    
+    local get_thrust is {
+        local total_thrust is 0.
+        for e in MAIN_ENGINES {
+            set total_thrust to total_thrust+e:MAXTHRUST.
+        }
+        return total_thrust.
+    }.
+    LOCAL LOCK thrust TO get_thrust().
+    LOCAL LOCK thrust_vector TO (get_thrust()/SHIP:MASS)*SHIP:FACING:FOREVECTOR.
 
-    LOCAL LOCK thrust TO MAIN_ENGINE:THRUST.
     LOCAL LOCK dynamic_pres TO SHIP:DYNAMICPRESSURE.
 
-    LOCAL LOCK thrust_vector TO (MAIN_ENGINE:THRUST/SHIP:MASS)*SHIP:FACING:FOREVECTOR.
 
     LOCAL LOCK DELTA_ALPHA TO R(0,0,RAD2DEG*roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
     LOCAL LOCK alpha TO -DEG2RAD*(mod(DELTA_ALPHA:PITCH+180,360)-180).
@@ -101,16 +106,22 @@ local function start_logging {
 
     LOCAL LOCK VEL_FROM_FACE TO R(0,0,RAD2DEG*roll)*(-SHIP:SRFPROGRADE).
 
-    LOCAL LOCK Aup TO SHIP:MASS*(VEL_FROM_FACE*(SHIP:SENSORS:ACC-SHIP:SENSORS:GRAV-thrust_vector)):Y.
-    LOCAL LOCK Afore TO SHIP:MASS*(VEL_FROM_FACE*(SHIP:SENSORS:ACC-SHIP:SENSORS:GRAV-thrust_vector)):Z.
-    LOCAL LOCK Alat TO SHIP:MASS*(VEL_FROM_FACE*(SHIP:SENSORS:ACC-SHIP:SENSORS:GRAV-thrust_vector)):X.
+    LOCK Aup TO SHIP:MASS*(VEL_FROM_FACE*(SHIP:SENSORS:ACC-SHIP:SENSORS:GRAV-thrust_vector)):Y.
+    LOCK Afore TO SHIP:MASS*(VEL_FROM_FACE*(SHIP:SENSORS:ACC-SHIP:SENSORS:GRAV-thrust_vector)):Z.
+    LOCK Alat TO SHIP:MASS*(VEL_FROM_FACE*(SHIP:SENSORS:ACC-SHIP:SENSORS:GRAV-thrust_vector)):X.
 
     LOCAL LOCK lat TO SHIP:GEOPOSITION:LAT.
     LOCAL LOCK lng TO SHIP:GEOPOSITION:LNG.
 
-    IF has_connection_to_base() { SET VOL TO "0".} ELSE {SET VOL TO "1".}
-    SET filename TO VOL+":/logs/log_"+string_acro(SHIP:NAME)+"_"+TIME:CALENDAR:REPLACE(":","")+
+    
+
+    if has_connection_to_base(){
+        set filename to "0:/logs/log_"+string_acro(SHIP:NAME)+"_"+TIME:CALENDAR:REPLACE(":","")+
             "_"+TIME:CLOCK:REPLACE(":","")+logtag+".csv".
+    } else {
+        set filename to "1:/logs/log_"+string_acro(SHIP:NAME)+"_"+TIME:CALENDAR:REPLACE(":","")+
+            "_"+TIME:CLOCK:REPLACE(":","")+logtag+".csv".
+    }
 
     SET filename TO filename:REPLACE(" ", "_").
     SET filename TO filename:REPLACE(",", "").
@@ -118,18 +129,6 @@ local function start_logging {
 
     LOG "t,u0,u1,u2,u3,y0,y1,y2,y3,ft,p,y,r,vp,vh,afore,aup,alat,alpha,beta,h,m,q,lat,lng" to filename.
     LOG "" to filename.
-
-
-    //PRINT "start,"+ round_dec(vel,1) + "," + round_dec(h,1) + "," + 
-    //      round_dec(m,2) + "," + MAIN_ENGINE:PRIMARYMODE + ","+ TIME:CLOCK.
-    PRINT round_dec(u0,2)+", "+
-            round_dec(u1,2)+", "+
-            round_dec(u2,2)+", "+
-            round_dec(u3,2).
-    PRINT   round_dec(vel,2)+","+
-            round_dec(pitch_rate,2)+","+
-            round_dec(yaw_rate,2)+","+
-            round_dec(roll_rate,2).
 
     SET starttime to TIME:SECONDS.
     UNTIL TIME:SECONDS-starttime > Tdur {
@@ -143,9 +142,20 @@ local function start_logging {
             ","+lat+","+lng
              to filename.
         WAIT Ts.
+        if check_for_stop_logging() {
+            break.
+        }
     }
 
     PRINT "log written to "+ filename.
+}
+
+local function check_for_stop_logging {
+     if AG <> PREV_AG {
+        set PREV_AG to AG.
+        return true.
+    }
+    return false.
 }
 
 function util_fldr_get_help_str {
@@ -304,3 +314,12 @@ function util_fldr_decode_rx_msg {
 }
 
 // RX SECTION END
+
+// log on action group
+function util_fldr_log_on_ag {
+    if AG <> PREV_AG {
+        set PREV_AG to AG.
+        start_logging().
+    }
+    wait Ts.
+}

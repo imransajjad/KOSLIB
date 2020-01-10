@@ -72,13 +72,13 @@ local function cargo_bay_safe_close {
 
 local function send_q_unsafe {
     IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, "nQS"))) {
-        print "could not PL_AWAY send message".
+        print "could not HUD_PUSHL send message".
     }
 }
 
 local function send_rem_q_unsafe {
     IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPL",list(core:tag))) {
-        print "could not PL_AWAY send message".
+        print "could not HUD_POPL send message".
     }
 }
 
@@ -249,6 +249,7 @@ function ap_missile_guide {
         print "entering terminal guidance".
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
+        set my_throttle to 1.0.
 
         until FALSE{
             wait Ts.
