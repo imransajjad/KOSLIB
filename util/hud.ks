@@ -13,8 +13,6 @@ local PREV_AG is AG.
 
 CLEARVECDRAWS().
 
-local nav_vel is 0.
-local vec_info_timeout is 0.
 local vec_info_init_draw is false.
 local hud_info_init_draw is false.
 
@@ -22,11 +20,9 @@ local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
 local display_set is -1.
+local to_draw_vec is false.
 
-FUNCTION vec_info_draw {
-    SET vec_info_timeout TO 10.
-}
-FUNCTION util_hud_vec_info {
+local function util_hud_vec_info {
 
     set guide_far to 750.
     set guide_width to 1.0.
@@ -49,18 +45,16 @@ FUNCTION util_hud_vec_info {
         set guide_tri_b:wiping to false.
 
     }
-    IF MAPVIEW or vec_info_timeout <= 0  or vel < 1.0 {
-        set vec_info_timeout TO 0.
+    IF not to_draw_vec or MAPVIEW or vel < 1.0 {
 
         set guide_tri_l:show to false.
         set guide_tri_r:show to false.
         set guide_tri_b:show to false.
         return.
     } ELSE {
-        set vec_info_timeout to vec_info_timeout -1.
 
-        set nav_heading to ap_nav_get_direction().
-        set nav_vel to ap_nav_get_vel().
+        local nav_heading is ap_nav_get_direction().
+        local nav_vel is ap_nav_get_vel().
 
         set guide_tri_l:start to guide_far*nav_heading:vector.
         set guide_tri_l:vec to -guide_far*sin(1.0)*
@@ -83,14 +77,15 @@ FUNCTION util_hud_vec_info {
         local v_color_g is min(1,max(0,1-abs(nav_vel - vel)/100 )).
         local v_color_b is min(1,max(0,(nav_vel - vel)/100 )).
 
-        set guide_tri_l:color to RGB(sqrt(v_color_r),sqrt(v_color_g),sqrt(v_color_b)).
+        set guide_tri_l:color to RGB( min(1,max(0,(display_set/4)*sqrt(v_color_r))),
+                                    min(1,max(0,(display_set/4)*sqrt(v_color_g))),
+                                    min(1,max(0,(display_set/4)*sqrt(v_color_b)))).
         set guide_tri_r:color to guide_tri_l:color.
         set guide_tri_b:color to guide_tri_l:color.
 
         set guide_tri_l:show to true.
         set guide_tri_r:show to true.
         set guide_tri_b:show to true.
-
     }
 }
 
@@ -101,7 +96,7 @@ function util_hud_info {
         set hud_info_init_draw to true.
 
 
-        set hud_left to GUI(101,150).
+        set hud_left to GUI(151,150).
         set hud_left:draggable to false.
         set hud_left:x to 960-150-101.
         set hud_left:style:BG to "blank_tex".
@@ -122,6 +117,29 @@ function util_hud_info {
 
         set hud_right:visible to false.
 
+    }
+
+    if not (PREV_AG = AG) {
+        set PREV_AG to AG.
+        set display_set to display_set+1.
+        if display_set = 6 { set display_set to -1.}
+
+        if display_set < 0 {
+            set hud_left:draggable to false.
+            set hud_right:draggable to false.
+            if hud_left:visible { hud_left:HIDE(). }
+            if hud_right:visible { hud_right:HIDE(). }
+
+        } else if display_set < 5 {
+            set hud_left_label:style:textcolor to RGB(0,display_set/4,0).
+            set hud_right_label:style:textcolor to RGB(0,display_set/4,0).
+
+        } else if display_set < 6 {
+            set hud_left:draggable to true.
+            set hud_right:draggable to true.
+            set hud_left_label:style:textcolor to RGB(1,1,1).
+            set hud_right_label:style:textcolor to RGB(1,1,1).
+        }
     }
 
     if display_set >= 0 and not MAPVIEW and is_active_vessel() {
@@ -156,31 +174,17 @@ function util_hud_info {
 
         if not hud_left:visible { hud_left:SHOW(). }
         if not hud_right:visible { hud_right:SHOW(). }
+
+
+        set to_draw_vec to (UTIL_WP_ENABLED and util_wp_queue_length() > 0) or 
+            (AP_MODE_ENABLED and AP_NAV_CHECK()).
     }
     else {
         if hud_left:visible { hud_left:HIDE(). }
         if hud_right:visible { hud_right:HIDE(). }
+        set to_draw_vec to false.
     }
-    if not (PREV_AG = AG) {
-        set PREV_AG to AG.
-        set display_set to display_set+1.
-        if display_set = 6 { set display_set to -1.}
-
-        if display_set < 0 {
-            set hud_left:draggable to false.
-            set hud_right:draggable to false.
-            if hud_left:visible { hud_left:HIDE(). }
-            if hud_right:visible { hud_right:HIDE(). }
-        } else if display_set < 5 {
-            set hud_left_label:style:textcolor to RGB(0,display_set/4,0).
-            set hud_right_label:style:textcolor to RGB(0,display_set/4,0).
-        } else if display_set < 6 {
-            set hud_left:draggable to true.
-            set hud_right:draggable to true.
-            set hud_left_label:style:textcolor to RGB(1,1,1).
-            set hud_right_label:style:textcolor to RGB(1,1,1).
-        }
-    }
+    util_hud_vec_info().
 }
 
 function util_hud_push_left {

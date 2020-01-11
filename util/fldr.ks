@@ -160,6 +160,8 @@ local function check_for_stop_logging {
 
 function util_fldr_get_help_str {
     return list(
+        " ",
+        "UTIL_FLDR running on "+core:tag,
         "logtime(...)  set_log_duration(dur).",
         "logdt(...)  set_log_deltat(Ts).",
         "logtag [TAG].  set log tag.",
@@ -172,8 +174,7 @@ function util_fldr_get_help_str {
         "logsu1(...).  send_pitch_seq(...).",
         "logsu2(...).  send_yaw_seq(...).",
         "logsu3(...).  send_roll_seq(...).",
-        "logsupr.  print test sequences",
-        ""
+        "logsupr.  print test sequences"
         ).
 }
 

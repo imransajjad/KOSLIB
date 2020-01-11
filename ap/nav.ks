@@ -233,6 +233,6 @@ function ap_nav_status_string {
         }
     }
     return ""+vs_string+ 
-    (choose char(10)+"("+round_dec(P_SET,2)+","+round_dec(H_SET,2)+")"
+    (choose char(10)+"["+round_dec(P_SET,2)+","+round(H_SET)+"]"
         if AP_NAV_CHECK() else "").
 }

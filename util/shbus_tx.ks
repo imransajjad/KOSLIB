@@ -7,26 +7,58 @@ GLOBAL UTIL_SHBUS_TX_ENABLED IS true.
 
 // SET FLCS_PROC TO 0. required global.
 
-local HELP_COMM_LIST is LIST(
-"hello.  send_hello().",
-"inv.  invalid message.",
-""
-).
+local lock H to terminal:height.
+local lock W to terminal:width.
 
-local function print_help_str {
-    parameter help_text is HELP_COMM_LIST.
-    SET i TO help_text:ITERATOR.
-    UNTIL NOT i:NEXT {
-        PRINT "  "+i:VALUE.
+global HELP_LIST is LIST(
+" ",
+"SHBUS_TX running on "+core:tag,
+"run a command using the following syntax",
+"...",
+"help.  help page 0.",
+"help(n).  help page n.",
+"command.",
+"command_with_num_args(1,2,3).",
+"command_with_str_arg string.",
+"chained_command_1.chained_command_2(3,2,1).",
+"hello.  send hello to flcs.",
+"inv.  invalid message.").
+
+if UTIL_FLDR_ENABLED {
+    local newlist is util_wp_get_help_str().
+    for i in range(0,newlist:length) {
+        HELP_LIST:add(newlist[i]).
     }
-    
+
+}
+if UTIL_WP_ENABLED {
+    local newlist is util_fldr_get_help_str().
+    for i in range(0,newlist:length) {
+        HELP_LIST:add(newlist[i]).
+    }
 }
 
 local function print_help {
-    PRINT "list of valid commands: ".
-    print_help_str().
-    print_help_str(util_fldr_get_help_str()).
-    print_help_str(util_wp_get_help_str()).
+    parameter start is 0.
+    parameter len is H-3.
+
+    for i in range(start,start+len) {
+        if i < HELP_LIST:length {
+            print HELP_LIST[i].
+        }
+    }
+}
+
+local function print_help_by_tag {
+    parameter tag.
+    local do_print is false.
+    for i in range(0,HELP_LIST:length) {
+        if HELP_LIST[i]:startswith(tag) { set do_print to true.}
+        if HELP_LIST[i]:startswith(" ") { set do_print to false.}
+        if do_print {
+            print HELP_LIST[i].
+        }
+    }
 }
 
 local function get_single_command_end {
@@ -61,17 +93,23 @@ local function parse_command {
     if commtext:STARTSWITH("hello") {
         util_shbus_tx_msg("hello from FLCOM").
     } else if  commtext:STARTSWITH("help") {
-        print_help().
+        if commtext:contains(" ") {
+            print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
+        } else if commtext:length > 5 {
+            print_help(util_shbus_raw_input_to_args(commtext)[0]).
+        } else {
+            print_help(0).
+        }
     } else if commtext:STARTSWITH("inv."){
         util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
     } else if UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {
-        print "fldr parsed".
+        print("fldr parsed").
     } else if UTIL_WP_ENABLED and util_wp_parse_command(commtext) {
-        print "wp parsed".
+        print("wp parsed").
     //} else if util_dev_parse_command(commtext) {
     //  print "dev parsed".
     } else {
-        PRINT "Could not parse command.".
+        print("Could not parse command.").
         return false.
     }
     return parse_command(commtextnext).
@@ -80,7 +118,7 @@ local function parse_command {
 function util_shbus_tx_msg {
     PARAMETER opcode_in, data_in is LIST(0).
     IF NOT FLCS_PROC:CONNECTION:SENDMESSAGE(LIST(opcode_in,data_in)) {
-        PRINT "could not send message "+ arg_in.
+        print("could not send message "+ arg_in).
     }
 }
 
@@ -97,23 +135,59 @@ function util_shbus_raw_input_to_args {
     return numlist.
 }
 
+local COMM_STRING is core:tag+":~$".
 local INPUT_STRING is "".
 local OLD_INPUT_STRING is "".
 
+local lock str_length to COMM_STRING:length + INPUT_STRING:length.
+local lock num_lines to 1+floor(str_length/W).
+local current_line is H-1.
+local max_lines is 1.
+
+local function print_overflowed_line {
+
+    set max_lines to max(max_lines,num_lines).
+    local the_line is min(current_line, H-num_lines).
+    if the_line < current_line {
+        print " ".
+        set current_line to the_line.
+    }
+    
+    set PAD_STRING to "":PADLEFT( W-mod(str_length,W)-1).
+    if the_line +num_lines < H {
+        set PAD_STRING to PAD_STRING + " ".
+    }
+    print COMM_STRING+INPUT_STRING+PAD_STRING AT(0, the_line).
+
+}
+
+local function print_lowest_line_again {
+    if (max_lines = num_lines) {
+        local start is (num_lines-1)*W.
+        print (COMM_STRING+INPUT_STRING):substring(start, str_length-start).
+    }
+}
+
+CLEARSCREEN.
+print_help(0).
+
 function util_shbus_get_input {
-    PRINT "":PADLEFT(TERMINAL:WIDTH) AT(0,floor((8+INPUT_STRING:length)/TERMINAL:WIDTH)).
-    PRINT "COMM->: "+INPUT_STRING AT(0,0).
+    print_overflowed_line().
+
+
     SET ch to TERMINAL:INPUT:getchar().
     IF ch = TERMINAL:INPUT:RETURN {
-        //PRINT "You Typed " +INPUT_STRING.
+        
+        print_lowest_line_again().
         parse_command(INPUT_STRING).
+        
         SET OLD_INPUT_STRING TO INPUT_STRING.
         SET INPUT_STRING TO "".
+        set current_line to H-1.
+        set max_lines to 1.
     } ELSE IF ch = terminal:input:UPCURSORONE {
-        //CLEARSCREEN.
         SET INPUT_STRING TO OLD_INPUT_STRING.
     } ELSE IF ch = terminal:input:BACKSPACE {
-        //CLEARSCREEN.
         IF (INPUT_STRING:LENGTH > 0) {
             SET INPUT_STRING TO INPUT_STRING:REMOVE(INPUT_STRING:LENGTH-1 ,1).
         }

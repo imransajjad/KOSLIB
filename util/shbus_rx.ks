@@ -41,9 +41,6 @@ function util_shbus_check_for_messages {
             "("+ received_msg:SENDER+"): " + received_msg:CONTENT.
         }
     }
-    IF UTIL_SHSYS_ENABLED {
-        util_shsys_check().
-    }
 }
 
 

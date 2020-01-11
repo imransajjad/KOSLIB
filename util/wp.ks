@@ -48,12 +48,13 @@ local function waypoints_purge {
 
 function util_wp_get_help_str {
     return LIST(
+        " ",
+        "UTIL_WP running on "+core:tag,
         "wpo(index,#WP#).   overwrite wp.",
         "wpi(index,#WP#).   insert wp.",
         "wpr(index).        remove wp .",
         "wpqp.      print wp list.",
         "wpqd.      purge wp list.",
-        " ",
         "wpf(#WP#).  add wp to first .",
         "wpa(#WP#).  add wp to last .",
         "wpu(#WP#).  first wp overwrite.",
@@ -66,8 +67,7 @@ function util_wp_get_help_str {
         "#WP# = alt,vel",
         "#WP# = alt,vel,roll",
         "#WP# = alt,vel,lat,lng",
-        "#WP# = alt,vel,lat,lng,pitch,bear",
-        ""
+        "#WP# = alt,vel,lat,lng,pitch,bear"
         ).
 }
 
