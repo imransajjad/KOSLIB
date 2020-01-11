@@ -1,10 +1,10 @@
 
 GLOBAL UTIL_SHSYS_ENABLED IS true.
 
-// required global "cargo_bay_tag"
-
 set cargo_bay_opened_count to 0.
 set other_ships to UNIQUESET().
+
+local MAIN_ENGINES is get_engines(main_engine_name).
 
 local function get_another_ship {
     parameter namestr.
@@ -65,4 +65,23 @@ function util_shsys_check {
             other_ships:remove(oship_remove).
         }
     }
+}
+
+function util_shsys_status_string {
+    local stat_list is list().
+    for me in MAIN_ENGINES {
+        if me:multimode {
+            stat_list:add(me:mode[0]).
+        }
+    }
+    if GEAR {
+        stat_list:add("G").
+    }
+    if BRAKES {
+        stat_list:add("B").
+    }
+    if LIGHTS {
+        stat_list:add("L").
+    }
+    return stat_list:join("").
 }

@@ -24,14 +24,16 @@ CLEARSCREEN.
 
 local function hudtext {
     parameter ttext.
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHR",list(core:tag, ttext))) {
+    if hudtext_sent { return.}
+    if not flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHR",list(core:tag, ttext))) {
         print "could not send message HUD_PUSHR".
     }
     set hudtext_sent to true.
 }
 
 local function hudtext_remove {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPR",list(core:tag))) {
+    if not hudtext_sent { return.}
+    if not flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPR",list(core:tag))) {
         print "could not send message HUD_POPR".
     }
     set hudtext_sent to false.
@@ -110,6 +112,7 @@ function target_radar_update_target{
                 do_scan().
                 if target_list:length > 0 {
                     set scan_timeout to scan_timeout_max.
+                    hudtext("sR"+target_list:length ).
                 }
             } else {
                 print_debug("unlock for newscan").
@@ -133,6 +136,9 @@ function target_radar_update_target{
         }
     }
     set scan_timeout to max(0, scan_timeout - Ts).
+    if scan_timeout = 0 {
+        hudtext_remove().
+    }
 }
 
 
@@ -204,9 +210,6 @@ function target_radar_draw_picture {
         print TARGET:name at (0,TERMINAL:HEIGHT-4).
         print dist_str at (0,TERMINAL:HEIGHT-3).
         print vel_str at (0,TERMINAL:HEIGHT-2).
-        //hudtext(dist_str + char(10) + vel_str).
-    } else if hudtext_sent {
-        //hudtext_remove().
     }
     // print min max distance
     print round_dec( (2^max_distance_log)/1000,1) AT(0,0).

@@ -5,6 +5,8 @@
 
 GLOBAL UTIL_WP_ENABLED IS true.
 
+IF NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED IS false.}
+
 // TX SECTION
 
 // many commands are mostly permutations of these
@@ -308,14 +310,23 @@ function util_wp_queue_length {
     return WAYPOINT_QUEUE:LENGTH.
 }
 
-//function util_wp_queue_last {
-//  return WAYPOINT_QUEUE[WAYPOINT_QUEUE:LENGTH-1].
-//}
+function util_wp_queue_last {
+  return WAYPOINT_QUEUE[WAYPOINT_QUEUE:LENGTH-1].
+}
 
 function util_wp_queue_first {
     return WAYPOINT_QUEUE[0].
 }
 
+function util_wp_status_string {
+    if WAYPOINT_QUEUE:LENGTH > 0 {
+        return "WP" + WAYPOINT_QUEUE:LENGTH +" "+ 
+            (choose round_dec(min(9999,ap_nav_get_distance()/max(vel,0.0001)),0)+"s"
+                if AP_NAV_ENABLED else "").
+    } else {
+        return "".
+    }
+}
 
 // Returns true if message was decoded successfully
 // Otherwise false

@@ -1,4 +1,6 @@
 
+GLOBAL AP_FLCS_ROT_ENABLED IS true.
+
 // USES AG6
 
 local lock AG to AG6.
@@ -25,6 +27,8 @@ local CORNER_Q is (CORNER_VEL/345)^2.
 local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/CORNER_VEL).
 local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/CORNER_VEL).
 
+local lock GLimiter to ( W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q) >
+    AP_FLCS_ROT_GLIM_VERT*g0/vel).
 
 local pratePID is PIDLOOP(
     AP_FLCS_ROT_PR_KP,
@@ -159,13 +163,6 @@ local function check_for_cog_offset {
     }
 }
 
-local function hud_print {
-    local ttext is ""+round_dec(RAD2DEG*prate_max, 1).
-    IF NOT processor("FLCS"):CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, ttext))) {
-        print "could not HUD_PUSHL send message".
-    }
-}
-
 function ap_flcs_rot {
     PARAMETER u1. // pitch
     PARAMETER u2. // yaw
@@ -174,27 +171,32 @@ function ap_flcs_rot {
     check_for_sas().
     check_for_pitch_lock().
     check_for_cog_offset().
-    //hud_print().
 
-    IF NOT SASon {
-        SET yratePID:SETPOINT TO yrate_max*u2.
-        SET SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
+    IF not SASon {
+
+        set pratePID:SETPOINT TO prate_max*u1.
+        set yratePID:SETPOINT TO yrate_max*u2.
+        set rratePID:SETPOINT TO rrate_max*u3.
+
+        set SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
             +SHIP:CONTROL:YAWTRIM.
-        SET rratePID:SETPOINT TO rrate_max*u3.
-        SET SHIP:CONTROL:ROLL TO LF2G*rratePID:UPDATE(TIME:SECONDS, roll_rate)
+        set SHIP:CONTROL:ROLL TO LF2G*rratePID:UPDATE(TIME:SECONDS, roll_rate)
             +SHIP:CONTROL:ROLLTRIM.
 
-        SET pratePID:SETPOINT TO prate_max*u1.
-        SET SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
+        set SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
             SHIP:CONTROL:PITCHTRIM.
 
         IF (BRAKES <> LAST_AGB) {
-            SET LAST_AGB TO BRAKES.
-            IF NOT LAST_AGB {
+            set LAST_AGB to BRAKES.
+            if not LAST_AGB {
                 rratePID:RESET().
                 yratePID:RESET().
                 pratePID:RESET().
             }
         }
     }
+}
+
+function ap_flcs_rot_status_string {
+    return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G").
 }

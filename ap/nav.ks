@@ -2,6 +2,7 @@
 // required module AP_MODE_ENABLED
 GLOBAL AP_NAV_ENABLED IS TRUE.
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
+IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 
 
 // required global, will not modify
@@ -17,12 +18,14 @@ local VSET_MAN is FALSE.
 local PSET_MAN is FALSE.
 local HSET_MAN is FALSE.
 
+local V_SET_PREV is -1.0.
 local V_SET is -1.0.
 local P_SET is 0.0.
 local R_SET is 0.0.
 local H_SET is 90.0.
 
 IF SHIP:AIRSPEED > 1.0 {
+    set V_SET_PREV to vel.
     set V_SET to vel.
     set P_SET to vel_pitch.
     set H_SET to vel_bear.
@@ -71,6 +74,8 @@ FUNCTION ap_nav_disp {
     set PSET_MAN to false.
     set HSET_MAN to false.
     set VSET_MAN to false.
+
+    set V_SET_PREV to V_SET.
 
     IF (UTIL_WP_ENABLED and util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
@@ -141,14 +146,6 @@ FUNCTION ap_nav_disp {
             set real_geodistance TO
                 2*arc_radius*DEG2RAD*ARCSIN(DIRECT_DISTANCE/2/arc_radius).
 
-
-            //set P_SET to arctan2( cur_wayp[0]-ship:altitude,  real_geodistance).
-            //set H_SET to geo_target:HEADING.
-
-            IF (real_geodistance/vel < 10) AND NOT ETA_CLOSE{
-                SET ETA_CLOSE TO TRUE.
-                PRINT "ETA 10s".
-            }
             IF (real_geodistance/vel < 3) {
                 SET ETA_CLOSE TO FALSE.
                 PRINT "Reached Waypoint " + util_wp_queue_length().
@@ -222,4 +219,20 @@ function ap_nav_get_roll {
 
 function ap_nav_get_distance {
     return real_geodistance.
+}
+
+function ap_nav_status_string {
+    local vs_string is "/"+round_dec(V_SET,0).
+    if AP_FLCS_CHECK() {
+        return "".
+    } else {
+        if (V_SET_PREV < V_SET){
+            set vs_string to vs_string + "+".
+        } else if (V_SET_PREV > V_SET){
+            set vs_string to vs_string + "-".
+        }
+    }
+    return ""+vs_string+ 
+    (choose char(10)+"("+round_dec(P_SET,2)+","+round_dec(H_SET,2)+")"
+        if AP_NAV_CHECK() else "").
 }
