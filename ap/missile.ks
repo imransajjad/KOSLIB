@@ -60,26 +60,40 @@ local function get_parts_used {
 
 
 local function cargo_bay_open {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("CB_OPEN",list(core:tag))) {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("SYS_CB_OPEN",list(core:tag))) {
         print "could not CB_OPEN send message".
     }
 }
 local function cargo_bay_safe_close {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("PL_AWAY",list(core:tag))) {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("SYS_PL_AWAY",list(core:tag))) {
         print "could not PL_AWAY send message".
     }
 }
 
+local function send_q_unsafe {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, "nQS"))) {
+        print "could not HUD_PUSHL send message".
+    }
+}
 
-local Qsafe is FALSE.
+local function send_rem_q_unsafe {
+    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPL",list(core:tag))) {
+        print "could not HUD_POPL send message".
+    }
+}
+
+
+local Qsafe is TRUE.
 local function is_Qsafe {
     IF (ship:dynamicpressure > 0.75) AND (Qsafe){
         set Qsafe TO FALSE.
         print "above launch Q limit".
+        send_q_unsafe().
     }
     IF (ship:dynamicpressure < 0.75) AND (NOT Qsafe) {
         set Qsafe TO TRUE.
         print "Q safe".
+        send_rem_q_unsafe().
     }
 }
 
@@ -145,11 +159,19 @@ function ap_missile_wait {
 
 function ap_missile_setup_separate {
     get_target().
+    send_rem_q_unsafe().
     cargo_bay_open().
     wait 2.0.
-    set pitch_init to pitch-5.
-    set yaw_init to yaw.
-    set roll_init to roll.
+
+    set DELTA_FACE_AWAY to R(90,0,0)*(-ship:UP)*
+        angleaxis(5,ship:facing:starvector)*(ship:facing).
+    set pitch_init to (mod(DELTA_FACE_AWAY:pitch+90,180)-90).
+    set yaw_init to (360-DELTA_FACE_AWAY:yaw).
+    set roll_init to (180-DELTA_FACE_AWAY:roll).
+
+    print pitch_init.
+    print yaw_init.
+    print roll_init.
 
     cargo_bay_safe_close().
     decoupler_module:Doevent("decouple").
@@ -201,6 +223,10 @@ function ap_missile_guide {
         print "eta Ap: "+ eta:apoapsis.
         print "Ap: "+ ship:ORBIT:apoapsis.
 
+        until false {
+            wait Ts.
+        }
+
     } else {
         print "entering guidance loop 1".
         lock steering TO heading(target_bear,30,0).
@@ -227,6 +253,7 @@ function ap_missile_guide {
         print "entering terminal guidance".
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
+        set my_throttle to 1.0.
 
         until FALSE{
             wait Ts.

@@ -1,5 +1,9 @@
 
+// required module AP_MODE_ENABLED
 GLOBAL AP_NAV_ENABLED IS TRUE.
+IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
+IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
+
 
 // required global, will not modify
 // roll, pitch, yaw
@@ -7,13 +11,6 @@ GLOBAL AP_NAV_ENABLED IS TRUE.
 // vel_pitch, vel_bear
 // pilot_input_u0, pilot_input_u1, pilot_input_u2, pilot_input_u3
 
-local K_pitch is 0.025.
-local K_yaw is 0.01.
-local K_roll is 0.01.
-local K_head is 4.5.
-local roll_w_min is 2.0.
-local roll_w_max is 10.0.
-local bank_max is 90.
 
 local ETA_CLOSE is FALSE.
 
@@ -21,12 +18,14 @@ local VSET_MAN is FALSE.
 local PSET_MAN is FALSE.
 local HSET_MAN is FALSE.
 
+local V_SET_PREV is -1.0.
 local V_SET is -1.0.
 local P_SET is 0.0.
 local R_SET is 0.0.
 local H_SET is 90.0.
 
 IF SHIP:AIRSPEED > 1.0 {
+    set V_SET_PREV to vel.
     set V_SET to vel.
     set P_SET to vel_pitch.
     set H_SET to vel_bear.
@@ -35,34 +34,26 @@ IF SHIP:AIRSPEED > 1.0 {
 
 local real_geodistance is 0.0.
 
-FUNCTION ap_nav_do_flcs {
+local lock DELTA_ROTATION to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(HEADING(H_SET, P_SET)).
 
-    set DELTA_ROTATION to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(HEADING(H_SET, P_SET)).
+FUNCTION ap_nav_do_flcs_rot {
 
-    set head_error to wrap_angle_until(H_SET - vel_bear).
-    //set head_error to wrap_angle_until(DELTA_ROTATION:yaw).
-    //set roll_target to R_SET + sat( K_head*head_error, bank_max).
-    //set roll_target to sat( R_SET + wrap_angle_until(DELTA_ROTATION:roll), bank_max).
 
-    set have_roll_pitch to haversine(vel_pitch,vel_bear,P_SET,H_SET).
+    local head_error is wrap_angle_until(H_SET - vel_bear).
 
-    set roll_w to outerweight(head_error, roll_w_min, roll_w_max).
-    //set roll_w to outerweight(have_roll_pitch[1], roll_w_min, roll_w_max).
+    local have_roll_pitch is haversine(vel_pitch,vel_bear,P_SET,H_SET).
 
-    set roll_target to R_SET + 
+    local roll_w is outerweight(have_roll_pitch[1], AP_NAV_ROLL_W_MIN, AP_NAV_ROLL_W_MAX).
+
+    local roll_target is R_SET + 
         roll_w*wrap_angle_until(have_roll_pitch[0]) +
-        (1-roll_w)*sat( K_head*head_error, bank_max).
+        (1-roll_w)*sat( AP_NAV_K_HEADING*head_error, AP_NAV_BANK_MAX).
 
-    //print roll_w.
-    //print roll_target.
-    //print have_roll_pitch.
-
-    set nav_u1 to sat(K_pitch*wrap_angle_until(-DELTA_ROTATION:pitch),1.0).
-    set nav_u2 to (1-roll_w)*sat(K_yaw*wrap_angle_until(DELTA_ROTATION:yaw),1.0).
-    set nav_u3 to sat(K_roll*(roll_target - roll), 1.0).
-
-    do_flcs(nav_u1,nav_u2,nav_u3).
-    //do_flcs(pilot_input_u1,pilot_input_u2,pilot_input_u3).
+    ap_flcs_rot(
+    sat(AP_NAV_K_PITCH*wrap_angle_until(-DELTA_ROTATION:pitch),1.0),
+    sat(AP_NAV_K_YAW*wrap_angle_until(DELTA_ROTATION:yaw),1.0),
+    sat(AP_NAV_K_ROLL*(roll_target - roll), 1.0)
+    ).
 }
 
 
@@ -84,14 +75,15 @@ FUNCTION ap_nav_disp {
     set HSET_MAN to false.
     set VSET_MAN to false.
 
+    set V_SET_PREV to V_SET.
+
     IF (UTIL_WP_ENABLED and util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
         set V_SET to cur_wayp[1].
 
 
+        // climb/descend to target altitude
         if cur_wayp:length = 3 or cur_wayp:length = 4 {
-            //set alt_target to cur_wayp[0].
-            //set vel_target to cur_wayp[1].
 
             set max_climb to 30.
             set level_radius to (max(vel,1.0)^2)/(0.5*g0).
@@ -111,6 +103,7 @@ FUNCTION ap_nav_disp {
             }
         }
         
+        // set roll and heading targets
         if cur_wayp:length = 3 {
             // altitude, velocity, delta_heading
 
@@ -124,7 +117,10 @@ FUNCTION ap_nav_disp {
 
             set R_SET to 0.
             // still haven't dealt with coriolis force
-        } else if cur_wayp:length = 6 {
+        }
+
+        // set everything if waypoint has target orientation
+        if cur_wayp:length = 6 {
             // altitude, velocity, lat, long, final_pitch, final_heading
             set wp_vec to LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]).
 
@@ -140,23 +136,16 @@ FUNCTION ap_nav_disp {
 
         }
 
+        // if waypoint has any form of destination
         if cur_wayp:length > 3 {
 
             local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
             local DIRECT_DISTANCE is geo_target:altitudeposition(cur_wayp[0]):MAG.
 
-            local arc_radius is (KERBIN:RADIUS+ship:altitude).
+            local arc_radius is (ship:body:radius+ship:altitude).
             set real_geodistance TO
                 2*arc_radius*DEG2RAD*ARCSIN(DIRECT_DISTANCE/2/arc_radius).
 
-
-            //set P_SET to arctan2( cur_wayp[0]-ship:altitude,  real_geodistance).
-            //set H_SET to geo_target:HEADING.
-
-            IF (real_geodistance/vel < 10) AND NOT ETA_CLOSE{
-                SET ETA_CLOSE TO TRUE.
-                PRINT "ETA 10s".
-            }
             IF (real_geodistance/vel < 3) {
                 SET ETA_CLOSE TO FALSE.
                 PRINT "Reached Waypoint " + util_wp_queue_length().
@@ -230,4 +219,20 @@ function ap_nav_get_roll {
 
 function ap_nav_get_distance {
     return real_geodistance.
+}
+
+function ap_nav_status_string {
+    local vs_string is "/"+round_dec(V_SET,0).
+    if AP_FLCS_CHECK() {
+        return "".
+    } else {
+        if (V_SET_PREV < V_SET){
+            set vs_string to vs_string + "+".
+        } else if (V_SET_PREV > V_SET){
+            set vs_string to vs_string + "-".
+        }
+    }
+    return ""+vs_string+ 
+    (choose char(10)+"["+round_dec(P_SET,2)+","+round(H_SET)+"]"
+        if AP_NAV_CHECK() else "").
 }

@@ -5,6 +5,8 @@
 
 GLOBAL UTIL_WP_ENABLED IS true.
 
+IF NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED IS false.}
+
 // TX SECTION
 
 // many commands are mostly permutations of these
@@ -46,12 +48,13 @@ local function waypoints_purge {
 
 function util_wp_get_help_str {
     return LIST(
+        " ",
+        "UTIL_WP running on "+core:tag,
         "wpo(index,#WP#).   overwrite wp.",
         "wpi(index,#WP#).   insert wp.",
         "wpr(index).        remove wp .",
         "wpqp.      print wp list.",
         "wpqd.      purge wp list.",
-        " ",
         "wpf(#WP#).  add wp to first .",
         "wpa(#WP#).  add wp to last .",
         "wpu(#WP#).  first wp overwrite.",
@@ -64,31 +67,9 @@ function util_wp_get_help_str {
         "#WP# = alt,vel",
         "#WP# = alt,vel,roll",
         "#WP# = alt,vel,lat,lng",
-        "#WP# = alt,vel,lat,lng,pitch,bear",
-        ""
+        "#WP# = alt,vel,lat,lng,pitch,bear"
         ).
 }
-
-
-SET landing_sequence_WP to LIST(
-        //list(-1, 1000,150, -0.3,-74.5),
-        list(-1, 1000,150, -0.45,-74.95),
-        list(-1, 500,100,  -0.15,-75.25,-10,0.0),
-        list(-1, 250,60,   -0.0485911247,-75.02,-5.0,90.4),
-        list(-1, -2),
-        list(-1, 75,60,    -0.0485911247,-74.73766837,-2.5,90.4),
-        list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
-        list(-1, -1)). // brakes
-        
-
-
-SET takeoff_sequence_WP to LIST(
-        list(-1, 70,1000,    -0.04878466546,-74.7079845610,-0.05,90.4),
-        list(-1, 70+35,1000,   -0.04878466546,-74.7079845610+0.060,2.5,90.4),
-        list(-1, -2),
-        list(-1, 70+100,1000,   -0.04878466546,-74.7079845610+0.24,2.5,90.4)
-        ).
-
 
 local function generate_takeoff_seq {
     local lat is ship:GEOPOSITION:LAT.
@@ -98,12 +79,22 @@ local function generate_takeoff_seq {
     local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
     print start_head.
 
+    if not ( DEFINED UTIL_WP_takeoff_distance ) {
+        set takeoff_sequence_WP to list().
+        return.
+    }
 
     set takeoff_sequence_WP to LIST(
-        list(-1, start_alt, 350, lat+RAD2DEG*400/KERBIN:radius*cos(start_head), lng+RAD2DEG*400/KERBIN:radius*sin(start_head)),
-        list(-1, start_alt+25, 350, lat+RAD2DEG*1000/KERBIN:radius*cos(start_head), lng+RAD2DEG*1000/KERBIN:radius*sin(start_head)),
+        list(-1, start_alt, 350,
+                lat+RAD2DEG*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
+                lng+RAD2DEG*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head)),
+        list(-1, start_alt+25, 350,
+                lat+RAD2DEG*5/2*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
+                lng+RAD2DEG*5/2*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head)),
         list(-1, -2),
-        list(-1, start_alt+50, 350, lat+RAD2DEG*2000/KERBIN:radius*cos(start_head), lng+RAD2DEG*2000/KERBIN:radius*sin(start_head))
+        list(-1, start_alt+50, 350,
+                lat+RAD2DEG*5*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
+                lng+RAD2DEG*5*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head))
         ).
 }
 
@@ -163,22 +154,24 @@ function util_wp_parse_command {
             PRINT "Could not find target".
         }
     } else if commtext:STARTSWITH("wpk("){
-        //waypoints_purge().
-        set landing_sequence_WP[0][1] to args[0].
-        set landing_sequence_WP[0][2] to args[1].
-        for wp_seq_i in landing_sequence_WP {
-            insert_waypoint(wp_seq_i).
+        if ( DEFINED UTIL_WP_landing_sequence) {
+            set UTIL_WP_landing_sequence[0][1] to args[0].
+            set UTIL_WP_landing_sequence[0][2] to args[1].
+            for wp_seq_i in UTIL_WP_landing_sequence {
+                insert_waypoint(wp_seq_i).
+            }
+        } else {
+            print "No landing sequence defined".
         }
     } else if commtext:STARTSWITH("wpto."){
-        generate_takeoff_seq().
-        waypoints_purge().
-
-        //set original_takeoff_point to takeoff_sequence_WP[0][4].
-        for wp_seq_i in takeoff_sequence_WP {
-            //if wp_seq_i:length >= 5 {
-            //  set wp_seq_i[4] to (wp_seq_i[4]+ship:GEOPOSITION:lng-(original_takeoff_point-0.016) ).
-            //}
-            insert_waypoint(wp_seq_i).
+        if ( DEFINED UTIL_WP_takeoff_distance) {
+            generate_takeoff_seq().
+            waypoints_purge().
+            for wp_seq_i in takeoff_sequence_WP {
+                insert_waypoint(wp_seq_i).
+            }
+        } else {
+            print "No takeoff distance defined.".
         }
     } ELSE {
         return false.
@@ -285,8 +278,14 @@ local function waypoint_update {
 
 local function waypoint_remove {
     PARAMETER POS.
-    IF WAYPOINT_QUEUE:LENGTH > POS {
+    IF WAYPOINT_QUEUE:LENGTH = 0 {
+        print "WPQ empty, returning".
+        return.
+    }
+    IF POS >= 0 and POS < WAYPOINT_QUEUE:LENGTH {
         WAYPOINT_QUEUE:REMOVE(POS).
+    } else if POS = -1{
+        WAYPOINT_QUEUE:REMOVE(WAYPOINT_QUEUE:LENGTH-1).
     } ELSE {
         PRINT "WP at pos " + POS +" does not exist".
     }
@@ -294,10 +293,9 @@ local function waypoint_remove {
 
 local function waypoint_queue_print {
     PRINT "WAYPOINT_QUEUE (" + WAYPOINT_QUEUE:LENGTH + ")".
-    SET i TO WAYPOINT_QUEUE:ITERATOR.
+    local i is WAYPOINT_QUEUE:ITERATOR.
     UNTIL NOT i:NEXT {
-        SET WP TO i:VALUE.
-        PRINT "WP: " + waypoint_print_str(WP).
+        PRINT "WP"+i:index+": " + waypoint_print_str(i:value).
     }
 }
 
@@ -317,14 +315,23 @@ function util_wp_queue_length {
     return WAYPOINT_QUEUE:LENGTH.
 }
 
-//function util_wp_queue_last {
-//  return WAYPOINT_QUEUE[WAYPOINT_QUEUE:LENGTH-1].
-//}
+function util_wp_queue_last {
+  return WAYPOINT_QUEUE[WAYPOINT_QUEUE:LENGTH-1].
+}
 
 function util_wp_queue_first {
     return WAYPOINT_QUEUE[0].
 }
 
+function util_wp_status_string {
+    if WAYPOINT_QUEUE:LENGTH > 0 {
+        return "WP" + WAYPOINT_QUEUE:LENGTH +" "+ 
+            (choose round_dec(min(9999,ap_nav_get_distance()/max(vel,0.0001)),0)+"s"
+                if AP_NAV_ENABLED else "").
+    } else {
+        return "".
+    }
+}
 
 // Returns true if message was decoded successfully
 // Otherwise false

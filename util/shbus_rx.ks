@@ -2,6 +2,7 @@
 IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
 IF NOT (DEFINED UTIL_FLDR_ENABLED) { GLOBAL UTIL_FLDR_ENABLED IS false.}
+IF NOT (DEFINED UTIL_HUD_ENABLED) { GLOBAL UTIL_HUD_ENABLED IS false.}
 GLOBAL UTIL_SHBUS_RX_ENABLED IS true.
 
 
@@ -33,13 +34,12 @@ function util_shbus_check_for_messages {
             print "fldr decoded".
         } else if UTIL_SHSYS_ENABLED and util_shsys_decode_rx_msg(received_msg) {
             print "shsys decoded".
+        } else if UTIL_HUD_ENABLED and util_hud_decode_rx_msg(received_msg) {
+            print "hud decoded".
         } else {
             print "Unexpected message from "+received_msg:SENDER:NAME +
             "("+ received_msg:SENDER+"): " + received_msg:CONTENT.
         }
-    }
-    IF UTIL_SHSYS_ENABLED {
-        util_shsys_check().
     }
 }
 

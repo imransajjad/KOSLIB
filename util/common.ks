@@ -100,7 +100,8 @@ function haversine {
     set fore to sin(lat0)*cos(dlong)*cos(lat1) - cos(lat0)*sin(lat1).
     set left to sin(dlong)*cos(lat1).
 
-    //print "" + round_dec(abs(arccos(top)),1) + "/" + round_dec(arctan2(fore,left),1).
+    // list[0] is roll
+    // list[1] is total angular difference
     return list(arctan2(-left,-fore) ,arccos(top)).
 
 }
@@ -121,4 +122,13 @@ function outerweight {
 
 function is_active_vessel {
     return (KUniverse:ActiveVessel = SHIP).
+}
+
+function get_engines {
+    parameter tag.
+    local main_engine_list is LIST().
+    for e in SHIP:PARTSDUBBED(tag){
+        main_engine_list:add(e).
+    }
+    return main_engine_list.
 }

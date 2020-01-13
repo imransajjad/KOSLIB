@@ -11,6 +11,8 @@ function has_connection_to_base {
 
 WAIT UNTIL SHIP:LOADED.
 IF has_connection_to_base() {
+    COPYPATH("0:/koslib/param/fs3.ks","param").
+
     COPYPATH("0:/koslib/util/common.ks","util_common").
 
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
@@ -37,7 +39,7 @@ SET KERBIN TO BODY("Kerbin").
 LOCK pilot_input_u0 TO SHIP:CONTROL:PILOTMAINTHROTTLE.
 LOCK pilot_input_u1 TO sat(3.0*SHIP:CONTROL:PILOTPITCH, 1.0).
 LOCK pilot_input_u2 TO sat(3.0*SHIP:CONTROL:PILOTYAW, 1.0).
-LOCK pilot_input_u3 TO sat(3.0*SHIP:CONTROL:PILOTROLL, 1.0).
+LOCK pilot_input_u3 TO sat(2.0*SHIP:CONTROL:PILOTROLL, 1.0).
 
 LOCK DELTA_FACE_UP TO R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
 LOCK pitch TO (mod(DELTA_FACE_UP:pitch+90,180)-90).
@@ -55,9 +57,8 @@ LOCK orb_vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK orb_vel_bear TO (360-DELTA_PRO_UP:yaw).
 
 global main_engine_name is "turboJet".
-global main_engine_num is 1.
-global MAIN_ENGINES is LIST().
 
+run once "param".
 run once "util_common".
 
 run once "util_wp".
@@ -80,7 +81,6 @@ GLOBAL BOOT_FS3_FLCS_ENABLED IS true.
 
 
 
-set MAIN_ENGINES to ap_engines_get_mains().
 
 if UTIL_SHBUS_RX_ENABLED {
     util_shbus_flush_messages(true).
@@ -97,13 +97,13 @@ UNTIL false {
 
     if AP_FLCS_CHECK() {
         ap_engine_throttle_map().
-        do_flcs_pilot().
+        ap_flcs_rot(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_VEL_CHECK() {
         ap_engine_throttle_auto().
-        do_flcs_pilot().
+        ap_flcs_rot(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_NAV_CHECK() {
         ap_engine_throttle_auto().
-        ap_nav_do_flcs().
+        ap_nav_do_flcs_rot().
     } else {
         unlock THROTTLE.
         SET SHIP:CONTROL:NEUTRALIZE to true.

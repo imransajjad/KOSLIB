@@ -1,10 +1,10 @@
 
 GLOBAL UTIL_SHSYS_ENABLED IS true.
 
-// required global "cargo_bay_tag"
+local cargo_bay_opened_count is 0.
+local other_ships is UNIQUESET().
 
-set cargo_bay_opened_count to 0.
-set other_ships to UNIQUESET().
+local MAIN_ENGINES is get_engines(main_engine_name).
 
 local function get_another_ship {
     parameter namestr.
@@ -25,13 +25,18 @@ function util_shsys_decode_rx_msg {
     parameter received.
 
     set opcode to received:content[0].
+    if not opcode:startswith("SYS") {
+        return.
+    } else if received:content:length > 1 {
+        set data to received:content[1].
+    }
 
-    IF opcode:startswith("CB_OPEN") {
+    IF opcode:startswith("SYS_CB_OPEN") {
         set cargo_bay_opened_count to cargo_bay_opened_count + 1.
         set bays to true.
-    } ELSE IF opcode = "CB_CLOSE" {
+    } ELSE IF opcode = "SYS_CB_CLOSE" {
         set bays to false.
-    } ELSE IF opcode = "PL_AWAY" {
+    } ELSE IF opcode = "SYS_PL_AWAY" {
         wait 0.1.
         get_another_ship(ship:name+" Probe").
     } else {
@@ -42,11 +47,6 @@ function util_shsys_decode_rx_msg {
 }
 
 function util_shsys_check {
-    if cargo_bay_opened_count > 0 and not bays {
-        set bays to true.
-    } else if cargo_bay_opened_count = 0 and bays {
-        set bays to false.
-    }
 
     if other_ships:length > 0 {
         local oship_remove is 0.
@@ -56,8 +56,30 @@ function util_shsys_check {
             }
         }
         if not (oship_remove = 0) {
-            set cargo_bay_opened_count to cargo_bay_opened_count-1.
+            set cargo_bay_opened_count to max(0,cargo_bay_opened_count-1).
             other_ships:remove(oship_remove).
+            if cargo_bay_opened_count = 0 {
+                set bays to false.
+            }
         }
     }
+}
+
+function util_shsys_status_string {
+    local stat_list is list().
+    for me in MAIN_ENGINES {
+        if me:multimode {
+            stat_list:add(me:mode[0]).
+        }
+    }
+    if GEAR {
+        stat_list:add("G").
+    }
+    if BRAKES {
+        stat_list:add("B").
+    }
+    if LIGHTS {
+        stat_list:add("L").
+    }
+    return stat_list:join("").
 }
