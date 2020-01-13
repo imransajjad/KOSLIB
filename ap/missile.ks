@@ -223,6 +223,10 @@ function ap_missile_guide {
         print "eta Ap: "+ eta:apoapsis.
         print "Ap: "+ ship:ORBIT:apoapsis.
 
+        until false {
+            wait Ts.
+        }
+
     } else {
         print "entering guidance loop 1".
         lock steering TO heading(target_bear,30,0).

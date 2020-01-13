@@ -278,8 +278,14 @@ local function waypoint_update {
 
 local function waypoint_remove {
     PARAMETER POS.
-    IF WAYPOINT_QUEUE:LENGTH > POS {
+    IF WAYPOINT_QUEUE:LENGTH = 0 {
+        print "WPQ empty, returning".
+        return.
+    }
+    IF POS >= 0 and POS < WAYPOINT_QUEUE:LENGTH {
         WAYPOINT_QUEUE:REMOVE(POS).
+    } else if POS = -1{
+        WAYPOINT_QUEUE:REMOVE(WAYPOINT_QUEUE:LENGTH-1).
     } ELSE {
         PRINT "WP at pos " + POS +" does not exist".
     }
@@ -287,10 +293,9 @@ local function waypoint_remove {
 
 local function waypoint_queue_print {
     PRINT "WAYPOINT_QUEUE (" + WAYPOINT_QUEUE:LENGTH + ")".
-    SET i TO WAYPOINT_QUEUE:ITERATOR.
+    local i is WAYPOINT_QUEUE:ITERATOR.
     UNTIL NOT i:NEXT {
-        SET WP TO i:VALUE.
-        PRINT "WP: " + waypoint_print_str(WP).
+        PRINT "WP"+i:index+": " + waypoint_print_str(i:value).
     }
 }
 

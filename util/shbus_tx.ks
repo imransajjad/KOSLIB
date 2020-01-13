@@ -38,13 +38,13 @@ if UTIL_WP_ENABLED {
     }
 }
 
-local function print_help {
-    parameter start is 0.
-    parameter len is H-3.
+local function print_help_page {
+    parameter page.
+    local page_size is 12.
 
-    for i in range(start,start+len) {
+    for i in range(page_size*page, page_size*(page+1)+2 ) {
         if i < HELP_LIST:length {
-            print HELP_LIST[i].
+            print "  "+HELP_LIST[i].
         }
     }
 }
@@ -96,9 +96,9 @@ local function parse_command {
         if commtext:contains(" ") {
             print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
         } else if commtext:length > 5 {
-            print_help(util_shbus_raw_input_to_args(commtext)[0]).
+            print_help_page(util_shbus_raw_input_to_args(commtext)[0]).
         } else {
-            print_help(0).
+            print_help_page(0).
         }
     } else if commtext:STARTSWITH("inv."){
         util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
@@ -169,7 +169,7 @@ local function print_lowest_line_again {
 }
 
 CLEARSCREEN.
-print_help(0).
+print_help_page(0).
 
 function util_shbus_get_input {
     print_overflowed_line().
