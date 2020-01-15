@@ -61,8 +61,8 @@ function util_wp_get_help_str {
         "wpn(#WP#).  second wp overwrite.",
         "wpw(#WP#).  nav target wp.",
         "wpt(#WP#).  vessel target wp.",
-        "wpk(#WP#). go home.",
-        "wpto.       takeoff.",
+        "wpk(distance,speed,GSlope). go home.",
+        "wpto(distance).  takeoff.",
         "#WP# = AGX",
         "#WP# = alt,vel",
         "#WP# = alt,vel,roll",
@@ -79,11 +79,6 @@ local function generate_takeoff_seq {
     local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
     print start_head.
 
-    if not ( DEFINED UTIL_WP_takeoff_distance ) {
-        set takeoff_sequence_WP to list().
-        return.
-    }
-
     set takeoff_sequence_WP to LIST(
         list(-1, start_alt, 350,
                 lat+RAD2DEG*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
@@ -96,6 +91,24 @@ local function generate_takeoff_seq {
                 lat+RAD2DEG*5*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
                 lng+RAD2DEG*5*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head))
         ).
+    return takeoff_sequence_WP.
+}
+
+local function generate_landing_seq {
+    parameter distance.
+    parameter speed.
+    parameter GSlope.
+
+    local long_ofs is distance/ship:body:radius*RAD2DEG.
+
+    local landing_sequence is LIST(
+    list(-1, 75 +args[0]*sin(abs(GSlope)), SHIP:AIRSPEED,   -0.0485911247,-74.73766837-long_ofs),
+    list(-1, -2),
+    list(-1, 75, speed,    -0.0485911247,-74.73766837,-abs(GSlope),90.4),
+    list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
+    list(-1, -1)). // brakes
+
+    return landing_sequence.
 }
 
 // This function returns true if the command was parsed and Sent
@@ -154,24 +167,13 @@ function util_wp_parse_command {
             PRINT "Could not find target".
         }
     } else if commtext:STARTSWITH("wpk("){
-        if ( DEFINED UTIL_WP_landing_sequence) {
-            set UTIL_WP_landing_sequence[0][1] to args[0].
-            set UTIL_WP_landing_sequence[0][2] to args[1].
-            for wp_seq_i in UTIL_WP_landing_sequence {
-                insert_waypoint(wp_seq_i).
-            }
-        } else {
-            print "No landing sequence defined".
+        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2]) {
+            insert_waypoint(wp_seq_i).
         }
-    } else if commtext:STARTSWITH("wpto."){
-        if ( DEFINED UTIL_WP_takeoff_distance) {
-            generate_takeoff_seq().
-            waypoints_purge().
-            for wp_seq_i in takeoff_sequence_WP {
-                insert_waypoint(wp_seq_i).
-            }
-        } else {
-            print "No takeoff distance defined.".
+    } else if commtext:STARTSWITH("wpto(."){
+        waypoints_purge().
+        for wp_seq_i in generate_takeoff_seq(args[0]) {
+            insert_waypoint(wp_seq_i).
         }
     } ELSE {
         return false.

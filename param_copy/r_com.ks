@@ -1,4 +1,0 @@
-
-set UTIL_FLDR_TS to 0.0.
-set UTIL_FLDR_TDUR to 300.
-set UTIL_FLDR_TDEL to 0.00.

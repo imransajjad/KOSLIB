@@ -9,9 +9,9 @@ local lock AG to AG5.
 local PREV_AG is AG5.
 
 
-local Ts is UTIL_FLDR_TS.
-local Tdur is UTIL_FLDR_TDUR.
-local Tdel is UTIL_FLDR_TDEL.
+local Ts is 0.04.
+local Tdur is 5.0.
+local Tdel is 0.
 
 local logtag to "".
 local filename is "".
@@ -62,6 +62,7 @@ local function print_pos_info {
     print "lng  " + SHIP:GEOPOSITION:LNG.
     print "h    " + SHIP:ALTITUDE.
     print "vs   " + SHIP:AIRSPEED.
+    print "engine " + main_engine_name.
 }
 
 local function start_logging {
@@ -165,6 +166,7 @@ function util_fldr_get_help_str {
         "logtime(...)  set_log_duration(dur).",
         "logdt(...)  set_log_deltat(Ts).",
         "logtag [TAG].  set log tag.",
+        "logengine [TAG]. set engine tag",
         "log.  start_logging().",
         "testlog.  start_test_log().",
         "listloginfo.  list_logs().",
@@ -199,6 +201,9 @@ function util_fldr_parse_command {
         SET Ts TO args[0].
     } ELSE IF commtext:STARTSWITH("logtag ") {
         set logtag to commtext:replace("logtag ", "_"):replace(".","").
+    } ELSE IF commtext:STARTSWITH("logengine ") {
+        set main_engine_name to commtext:replace("logengine ", ""):replace(".","").
+        set MAIN_ENGINES to get_engines(main_engine_name).
     } ELSE IF commtext:STARTSWITH("log.") {
         start_logging().
     } ELSE IF commtext:STARTSWITH("testlog.") {

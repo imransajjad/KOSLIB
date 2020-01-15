@@ -13,14 +13,14 @@ local lock W to terminal:width.
 global HELP_LIST is LIST(
 " ",
 "SHBUS_TX running on "+core:tag,
-"run a command using the following syntax",
+"command syntax:",
 "...",
 "help.  help page 0.",
 "help(n).  help page n.",
 "command.",
 "command_with_num_args(1,2,3).",
 "command_with_str_arg string.",
-"chained_command_1.chained_command_2(3,2,1).",
+"chain: comm1.comm2(3,2,1).",
 "hello.  send hello to flcs.",
 "inv.  invalid message.").
 
@@ -137,7 +137,9 @@ function util_shbus_raw_input_to_args {
 
 local COMM_STRING is core:tag+":~$".
 local INPUT_STRING is "".
-local OLD_INPUT_STRING is "".
+local comm_history is LIST().
+local comm_history_MAXEL is 10.
+local comm_history_CUREL is -1.
 
 local lock str_length to COMM_STRING:length + INPUT_STRING:length.
 local lock num_lines to 1+floor(str_length/W).
@@ -168,6 +170,7 @@ local function print_lowest_line_again {
     }
 }
 
+wait 1.0.
 CLEARSCREEN.
 print_help_page(0).
 
@@ -181,12 +184,28 @@ function util_shbus_get_input {
         print_lowest_line_again().
         parse_command(INPUT_STRING).
         
-        SET OLD_INPUT_STRING TO INPUT_STRING.
+        comm_history:ADD(INPUT_STRING).
+        if comm_history:LENGTH > comm_history_MAXEL {
+            comm_history:REMOVE(0).
+            set comm_history_CUREL to comm_history_MAXEL-1.
+        } else {
+            set comm_history_CUREL to comm_history:LENGTH-1.
+        }
+        
+
         SET INPUT_STRING TO "".
         set current_line to H-1.
         set max_lines to 1.
     } ELSE IF ch = terminal:input:UPCURSORONE {
-        SET INPUT_STRING TO OLD_INPUT_STRING.
+        if comm_history_CUREL >= 0 {
+            SET INPUT_STRING TO comm_history[comm_history_CUREL].
+            SET comm_history_CUREL TO comm_history_CUREL-1.
+        }
+    } ELSE IF ch = terminal:input:DOWNCURSORONE {
+        if comm_history_CUREL+1 < comm_history:LENGTH {
+            SET INPUT_STRING TO comm_history[comm_history_CUREL+1].
+            SET comm_history_CUREL TO comm_history_CUREL+1.
+        }
     } ELSE IF ch = terminal:input:BACKSPACE {
         IF (INPUT_STRING:LENGTH > 0) {
             SET INPUT_STRING TO INPUT_STRING:REMOVE(INPUT_STRING:LENGTH-1 ,1).

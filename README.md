@@ -4,5 +4,5 @@ Contents of my Script/:
   
 boot/  
 koslib/  
-logs/
+logs/  
 param/

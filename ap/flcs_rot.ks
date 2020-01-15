@@ -48,11 +48,18 @@ local lock yrate_max to MIN(
     W_L_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
     AP_FLCS_ROT_GLIM_LAT*g0/vel).
 
-local rratePID is PIDLOOP(
+local rratePD is PIDLOOP(
     AP_FLCS_ROT_RR_KP,
-    AP_FLCS_ROT_RR_KI,
+    0,
     AP_FLCS_ROT_RR_KD,
     -1.0,1.0).
+
+local rrateI is PIDLOOP(
+    0,
+    AP_FLCS_ROT_RR_KI,
+    0,
+    -0.05,0.05).
+
 local lock rrate_max to MIN(
     4*PI*(vel/CORNER_VEL),
     4*PI).
@@ -65,43 +72,39 @@ local ROLL_I_ON is FALSE.
 local prev_AG is AG.
 local gain is 1.0.
 
-local SASon is false.
 
 
+local LF2G is 1.0.
+local prev_status is SHIP:STATUS.
+SET Vslast TO 0.0.
 local function gain_schedule {
     //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
     if prev_AG <> AG {
         if AG {
-        set gain to 1.0/3.
+            set LF2G to 1.0/3.
         } else{
-            set gain to 1.0.
+            set LF2G to 1.0.
         }
         set prev_AG to AG.
-        print "LF2G: " + round_dec(gain,2).
+        print "LF2G: " + round_dec(LF2G,2).
     }
-    return gain.
+    if not (SHIP:STATUS = prev_status) {
+        if SHIP:STATUS = "LANDED" {
+            SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
+            SET pratePID:KP TO AP_FLCS_ROT_PR_KP_ALT.
+            print "FLCS_ROT landed".
+            print "  pitch "+ round_dec(pitch,2).
+            print "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
+        } else if SHIP:STATUS = "FLYING" {
+            SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
+            SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
+            //print "FLCS_ROT flying gains".
+        }
+        set prev_status to SHIP:STATUS.
+    }
+    SET Vslast TO SHIP:VERTICALSPEED.
 }
 
-LOCK LF2G TO gain_schedule().
-
-
-local function check_for_sas {
-    IF SAS AND NOT SASon {
-        SET SASon to true.
-        SET PITCH_PID_I TO 0.0.
-        SET PITCH_PID_D TO 0.0.
-        SET ROLL_PID_I TO 0.0.
-        SET ROLL_PID_D TO 0.0.
-        rratePID:RESET().
-        yratePID:RESET().
-        pratePID:RESET().
-        //plockPID:RESET().
-        SET SHIP:CONTROL:NEUTRALIZE to TRUE.
-    }
-    IF NOT SAS AND SASon {
-        SET SASon to false.
-    }
-}
 
 SET pitch_lock_armed TO false.
 SET pitch_lock TO false.
@@ -145,43 +148,55 @@ local function check_for_pitch_lock {
     
 }
 
-SET LAST_AGB TO FALSE.
-SET PITCH_LANDING_GAINS TO TRUE.
-SET PITCH_NORMAL_KI TO pratePID:KI.
-SET PITCH_NORMAL_KP TO pratePID:KP.
 
-SET rratePID_KI TO rratePID:KI.
 SET ROLL_I_ON TO TRUE.
 local function check_for_cog_offset {
     IF (ABS(LATOFS) > 0.01) AND NOT ROLL_I_ON {
         SET ROLL_I_ON TO TRUE.
-        SET rratePID:KI TO rratePID_KI.
+        SET rrateI:KI TO AP_FLCS_ROT_RR_KI.
     } ELSE IF NOT (ABS(LATOFS) > 0.01) AND ROLL_I_ON {
         SET ROLL_I_ON TO FALSE.
-        SET rratePID:KI TO 0.0.
-        rratePID:RESET().
+        SET rrateI:KI TO 0.0.
+        rrateI:RESET().
     }
 }
 
+local function roll_integrate_if_no_command {
+    parameter roll_comm.
+
+    if abs(roll_comm) > 0.10 {
+        set rrateI:KI to 0.0.
+    } else {
+        set rrateI:KI to AP_FLCS_ROT_RR_KI.
+    }
+}
+
+SET LAST_AGB TO FALSE.
+
+local SASon is false.
 function ap_flcs_rot {
     PARAMETER u1. // pitch
     PARAMETER u2. // yaw
     PARAMETER u3. // roll
 
-    check_for_sas().
-    check_for_pitch_lock().
+    //check_for_sas().
+    //check_for_pitch_lock().
     check_for_cog_offset().
+    gain_schedule().
+    //roll_integrate_if_no_command(u3).
 
-    IF not SASon {
+    IF not SAS {
 
         set pratePID:SETPOINT TO prate_max*u1.
         set yratePID:SETPOINT TO yrate_max*u2.
-        set rratePID:SETPOINT TO rrate_max*u3.
+        set rratePD:SETPOINT TO rrate_max*u3.
+        set rrateI:SETPOINT TO rrate_max*u3.
 
         set SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
             +SHIP:CONTROL:YAWTRIM.
-        set SHIP:CONTROL:ROLL TO LF2G*rratePID:UPDATE(TIME:SECONDS, roll_rate)
-            +SHIP:CONTROL:ROLLTRIM.
+        set SHIP:CONTROL:ROLL TO LF2G*( rratePD:UPDATE(TIME:SECONDS, roll_rate) +
+            (choose rrateI:UPDATE(TIME:SECONDS, roll_rate) if (1.0+ABS(LATOFS) > 0.01) else 0) ) +
+            SHIP:CONTROL:ROLLTRIM.
 
         set SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
             SHIP:CONTROL:PITCHTRIM.
@@ -189,14 +204,26 @@ function ap_flcs_rot {
         IF (BRAKES <> LAST_AGB) {
             set LAST_AGB to BRAKES.
             if not LAST_AGB {
-                rratePID:RESET().
+                rrateI:RESET().
                 yratePID:RESET().
                 pratePID:RESET().
             }
+        }
+        if SASon {
+            set SASon to false.
+        }
+    } else {
+        if not SASon {
+            set SASon to true.
+            rrateI:RESET().
+            yratePID:RESET().
+            pratePID:RESET().
+            SET SHIP:CONTROL:NEUTRALIZE to TRUE.
         }
     }
 }
 
 function ap_flcs_rot_status_string {
-    return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G").
+    return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G") +
+    char(10) + "q" + round_dec(ship:dynamicpressure,2).
 }

@@ -11,7 +11,7 @@ function has_connection_to_base {
 
 WAIT UNTIL SHIP:LOADED.
 IF has_connection_to_base() {
-    COPYPATH("0:/koslib/param/fs3.ks","param").
+    COPYPATH("0:/param/fs3.ks","param").
 
     COPYPATH("0:/koslib/util/common.ks","util_common").
 
@@ -39,7 +39,7 @@ SET KERBIN TO BODY("Kerbin").
 LOCK pilot_input_u0 TO SHIP:CONTROL:PILOTMAINTHROTTLE.
 LOCK pilot_input_u1 TO sat(3.0*SHIP:CONTROL:PILOTPITCH, 1.0).
 LOCK pilot_input_u2 TO sat(3.0*SHIP:CONTROL:PILOTYAW, 1.0).
-LOCK pilot_input_u3 TO sat(2.0*SHIP:CONTROL:PILOTROLL, 1.0).
+LOCK pilot_input_u3 TO sat(3.0*SHIP:CONTROL:PILOTROLL, 1.0).
 
 LOCK DELTA_FACE_UP TO R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
 LOCK pitch TO (mod(DELTA_FACE_UP:pitch+90,180)-90).
@@ -91,6 +91,9 @@ UNTIL false {
     if UTIL_SHBUS_RX_ENABLED {
         util_shbus_check_for_messages().
     }
+    IF UTIL_SHSYS_ENABLED {
+        util_shsys_check().
+    }
 
     ap_mode_update().
     ap_nav_disp().
@@ -110,8 +113,7 @@ UNTIL false {
     }
     
     if UTIL_HUD_ENABLED {
-        util_hud_vec_info().
         util_hud_info().
     }
-    WAIT 0.0.
+    WAIT 0.02.
 }

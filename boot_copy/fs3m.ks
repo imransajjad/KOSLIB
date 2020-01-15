@@ -1,5 +1,4 @@
 // Development of missile launch
-// testing on fighter stealth 3
 
 function has_connection_to_base {
     if addons:available("RT") {
