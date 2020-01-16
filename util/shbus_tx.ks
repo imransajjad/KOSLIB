@@ -12,6 +12,7 @@ local lock W to terminal:width.
 
 global HELP_LIST is LIST(
 " ",
+ship:name,
 "SHBUS_TX running on "+core:tag,
 "command syntax:",
 "...",

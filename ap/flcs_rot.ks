@@ -224,6 +224,10 @@ function ap_flcs_rot {
 }
 
 function ap_flcs_rot_status_string {
+    LOCAL DELTA_ALPHA is R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
+    LOCAL alpha is -(mod(DELTA_ALPHA:PITCH+180,360)-180).
+
     return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G") +
-    char(10) + "q" + round_dec(ship:dynamicpressure,2).
+    char(10) + "a " + round_dec(alpha,1) +
+    char(10) + "q " + round_dec(ship:dynamicpressure,2).
 }

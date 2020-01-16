@@ -72,6 +72,8 @@ function util_wp_get_help_str {
 }
 
 local function generate_takeoff_seq {
+    parameter takeoff_distance.
+    
     local lat is ship:GEOPOSITION:LAT.
     local lng is ship:GEOPOSITION:LNG.
     local start_alt is ship:altitude.
@@ -81,15 +83,15 @@ local function generate_takeoff_seq {
 
     set takeoff_sequence_WP to LIST(
         list(-1, start_alt, 350,
-                lat+RAD2DEG*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
-                lng+RAD2DEG*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head)),
+                lat+RAD2DEG*takeoff_distance/KERBIN:radius*cos(start_head),
+                lng+RAD2DEG*takeoff_distance/KERBIN:radius*sin(start_head)),
         list(-1, start_alt+25, 350,
-                lat+RAD2DEG*5/2*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
-                lng+RAD2DEG*5/2*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head)),
+                lat+RAD2DEG*5/2*takeoff_distance/KERBIN:radius*cos(start_head),
+                lng+RAD2DEG*5/2*takeoff_distance/KERBIN:radius*sin(start_head)),
         list(-1, -2),
         list(-1, start_alt+50, 350,
-                lat+RAD2DEG*5*UTIL_WP_takeoff_distance/KERBIN:radius*cos(start_head),
-                lng+RAD2DEG*5*UTIL_WP_takeoff_distance/KERBIN:radius*sin(start_head))
+                lat+RAD2DEG*5*takeoff_distance/KERBIN:radius*cos(start_head),
+                lng+RAD2DEG*5*takeoff_distance/KERBIN:radius*sin(start_head))
         ).
     return takeoff_sequence_WP.
 }
@@ -170,7 +172,7 @@ function util_wp_parse_command {
         for wp_seq_i in generate_landing_seq(args[0],args[1],args[2]) {
             insert_waypoint(wp_seq_i).
         }
-    } else if commtext:STARTSWITH("wpto(."){
+    } else if commtext:STARTSWITH("wpto("){
         waypoints_purge().
         for wp_seq_i in generate_takeoff_seq(args[0]) {
             insert_waypoint(wp_seq_i).
