@@ -69,7 +69,12 @@ local function print_target_data {
 
         print dist_str at (view_width,3).
         print vel_str at (view_width,4).
-        print string_acro(TARGET:name) at (view_width,5).
+
+        local i is TARGET:name:split(" "):iterator.
+        until not i:next {
+            print i:value at (view_width,7+i:index).
+        } 
+        
     }
 }
 

@@ -242,6 +242,7 @@ function util_hud_decode_rx_msg {
     } else if opcode = "HUD_POPR" {
         hud_text_dict_right:remove(data[0]).
     } else {
+        util_shbus_rx_send_back_ack("could not decode hud rx msg").
         print "could not decode hud rx msg".
         return false.
     }

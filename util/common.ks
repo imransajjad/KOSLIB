@@ -127,8 +127,10 @@ function is_active_vessel {
 function get_engines {
     parameter tag.
     local main_engine_list is LIST().
-    for e in SHIP:PARTSDUBBED(tag){
-        main_engine_list:add(e).
+    if not (tag = "") {
+        for e in SHIP:PARTSDUBBED(tag){
+            main_engine_list:add(e).
+        }
     }
     return main_engine_list.
 }

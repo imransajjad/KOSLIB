@@ -373,11 +373,13 @@ function util_wp_decode_rx_msg {
         waypoint_remove(WP_index).
 
     } else if opcode = "WP_PRINT"{
-        waypoint_queue_print().
+        util_shbus_rx_send_back_ack(waypoint_queue_print()).
 
     } else if opcode = "WP_PURGE"{
         waypoint_queue_purge().
+        util_shbus_rx_send_back_ack("waypoint queue purged").
     } else {
+        util_shbus_rx_send_back_ack("could not decode wp rx msg").
         print "could not decode wp rx msg".
         return false.
     }

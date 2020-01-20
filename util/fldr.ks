@@ -199,9 +199,9 @@ function util_fldr_parse_command {
     } ELSE IF commtext:STARTSWITH("logengine ") {
         set main_engine_name to commtext:replace("logengine ", ""):replace(".","").
         set MAIN_ENGINES to get_engines(main_engine_name).
-    } ELSE IF commtext:STARTSWITH("log") {
+    } ELSE IF commtext = "log" {
         start_logging().
-    } ELSE IF commtext:STARTSWITH("testlog") {
+    } ELSE IF commtext = "testlog" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
         start_logging().
     } ELSE IF commtext:STARTSWITH("listloginfo") {
@@ -244,12 +244,19 @@ SET U_seq TO LIST(LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0
 SET PULSE_TIMES TO LIST(0,0,0,0,0).
 
 function print_sequences {
-    print "times".
-    float_list_print(PULSE_TIMES,2).
-    print "set sequences".
-    for U in U_seq {
-        float_list_print(U,2).
+    local pstr is "times" + char(10).
+    for t in PULSE_TIMES {
+        set pstr to pstr + round_dec(t,2) + " ".
     }
+    set pstr to pstr + char(10) + "set sequences" + char(10).
+    for U in U_seq {
+        for ux in U {
+            set pstr to pstr + round_dec(ux,2) + " ".
+        }
+        set pstr to pstr + char(10).
+    }
+    print pstr.
+    return pstr.
 }
 
 // Run a test sequence
@@ -306,8 +313,9 @@ function util_fldr_decode_rx_msg {
     } ELSE IF opcode = "FLDR_RUN_TEST" {
         run_test_control().
     } ELSE IF opcode = "FLDR_PRINT_TEST" {
-        print_sequences().
+        util_shbus_rx_send_back_ack(print_sequences()).
     } else {
+        util_shbus_rx_send_back_ack("could not decode fldr rx msg").
         print "could not decode fldr rx msg".
         return false.
     }

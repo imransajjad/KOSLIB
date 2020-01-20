@@ -92,12 +92,21 @@ local function gain_schedule {
         if SHIP:STATUS = "LANDED" {
             SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
             SET pratePID:KP TO AP_FLCS_ROT_PR_KP_ALT.
-            print "FLCS_ROT landed".
-            print "  pitch "+ round_dec(pitch,2).
-            print "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
+
+            local land_stats is "FLCS_ROT landed" + char(10) +
+                "  pitch "+ round_dec(pitch,2) + char(10) +
+                "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
+            if UTIL_HUD_ENABLED {
+                util_hud_push_left("FLCS_ROT_LAND_STATS" , land_stats ).
+            } else {
+                print land_stats.
+            }
         } else if SHIP:STATUS = "FLYING" {
             SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
             SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
+            if UTIL_HUD_ENABLED {
+                util_hud_pop_left("FLCS_ROT_LAND_STATS").
+            }
             //print "FLCS_ROT flying gains".
         }
         set prev_status to SHIP:STATUS.
@@ -228,14 +237,7 @@ function ap_flcs_rot {
 function ap_flcs_rot_status_string {
     LOCAL DELTA_ALPHA is R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
     LOCAL alpha is -(mod(DELTA_ALPHA:PITCH+180,360)-180).
-    if not gear{
-        return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G") +
-        char(10) + "a " + round_dec(alpha,1) +
-        char(10) + "q " + round_dec(ship:dynamicpressure,2).
-    } else {
-        return "p  " + round_dec(pitch,1) + char(10) +
-        "vp " + round_dec(vel_pitch,1) + char(10) +
-        "vs "+round_dec(Vslast,2).
-        
-    }
+
+    return ( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 ,1) + 
+    char(10) + "a " + round_dec(alpha,1).
 }

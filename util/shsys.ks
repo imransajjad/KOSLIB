@@ -40,6 +40,7 @@ function util_shsys_decode_rx_msg {
         wait 0.1.
         get_another_ship(ship:name+" Probe").
     } else {
+        util_shbus_rx_send_back_ack("could not decode shsys rx msg").
         print "could not decode shsys rx msg".
         return false.
     }

@@ -22,6 +22,8 @@ ship:name,
 "comm(1,2)   run with args",
 "comm str    arg is str",
 "com1;com2   chain commands",
+"sethost     flcs sends acks to host",
+"unsethost   set/unset self as host",
 "hello       hello to flcs",
 "inv         invalid message").
 
@@ -62,6 +64,12 @@ local function print_help_by_tag {
     }
 }
 
+local function print_acks {
+    wait 0.04.
+    wait 0.04.
+    flush_core_messages().
+}
+
 local function parse_command {
     parameter commtextfull.
     if commtextfull = "" {
@@ -79,6 +87,10 @@ local function parse_command {
         local commtext is comm:trim().
         if commtext:STARTSWITH("hello") {
             util_shbus_tx_msg("hello from FLCOM").
+        } else if commtext:STARTSWITH("sethost") {
+            util_shbus_tx_msg("SETHOST", core:tag ).
+        } else if commtext:STARTSWITH("unsethost") {
+            util_shbus_tx_msg("SETHOST", "" ).
         } else if  commtext:STARTSWITH("help") {
             if commtext:contains(" ") {
                 print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
@@ -164,6 +176,7 @@ local function print_lowest_line_again {
 wait 1.0.
 CLEARSCREEN.
 print_help_page(0).
+util_shbus_tx_msg("SETHOST", core:tag ).
 
 function util_shbus_get_input {
     print_overflowed_line().
@@ -174,6 +187,7 @@ function util_shbus_get_input {
         
         print_lowest_line_again().
         parse_command(INPUT_STRING).
+        print_acks().
         
         comm_history:ADD(INPUT_STRING).
         if comm_history:LENGTH > comm_history_MAXEL {
