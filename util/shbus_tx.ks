@@ -16,14 +16,14 @@ ship:name,
 "SHBUS_TX running on "+core:tag,
 "command syntax:",
 "...",
-"help.  help page 0.",
-"help(n).  help page n.",
-"command.",
-"command_with_num_args(1,2,3).",
-"command_with_str_arg string.",
-"chain: comm1.comm2(3,2,1).",
-"hello.  send hello to flcs.",
-"inv.  invalid message.").
+"help        help page 0",
+"help(n)     help page n",
+"comm        run command",
+"comm(1,2)   run with args",
+"comm str    arg is str",
+"com1;com2   chain commands",
+"hello       hello to flcs",
+"inv         invalid message").
 
 if UTIL_FLDR_ENABLED {
     local newlist is util_wp_get_help_str().
@@ -62,58 +62,45 @@ local function print_help_by_tag {
     }
 }
 
-local function get_single_command_end {
-    parameter commtextfull.
-
-    local brackount is 0.
-    local index is 0.
-    until index = commtextfull:LENGTH {
-        if commtextfull[index] = "(" { set brackount to brackount+1.}
-        if commtextfull[index] = ")" { set brackount to brackount-1.}
-        if commtextfull[index] = "." and brackount = 0 {
-            return index.
-        }
-        set index to index + 1.
-    }
-    return -1.
-}
-
 local function parse_command {
     parameter commtextfull.
     if commtextfull = "" {
         return true.
     }
 
-    local first_end is get_single_command_end(commtextfull).
-    local commtext is commtextfull:SUBSTRING(0,first_end+1).
-    local commtextnext is "".
-    if commtextfull:length > first_end+1 {
-        set commtextnext to commtextfull:SUBSTRING(first_end+1,commtextfull:length-first_end-1).
-    }
+    //local first_end is get_single_command_end(commtextfull).
+    //local commtext is commtextfull:SUBSTRING(0,first_end+1).
+    //local commtextnext is "".
+    //if commtextfull:length > first_end+1 {
+    //    set commtextnext to commtextfull:SUBSTRING(first_end+1,commtextfull:length-first_end-1).
+    //}
+    for comm in commtextfull:split(";") {
 
-    if commtext:STARTSWITH("hello") {
-        util_shbus_tx_msg("hello from FLCOM").
-    } else if  commtext:STARTSWITH("help") {
-        if commtext:contains(" ") {
-            print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
-        } else if commtext:length > 5 {
-            print_help_page(util_shbus_raw_input_to_args(commtext)[0]).
+        local commtext is comm:trim().
+        if commtext:STARTSWITH("hello") {
+            util_shbus_tx_msg("hello from FLCOM").
+        } else if  commtext:STARTSWITH("help") {
+            if commtext:contains(" ") {
+                print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
+            } else if commtext:length > 5 {
+                print_help_page(util_shbus_raw_input_to_args(commtext)[0]).
+            } else {
+                print_help_page(0).
+            }
+        } else if commtext:STARTSWITH("inv"){
+            util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
+        } else if UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {
+            print("fldr parsed").
+        } else if UTIL_WP_ENABLED and util_wp_parse_command(commtext) {
+            print("wp parsed").
+        //} else if util_dev_parse_command(commtext) {
+        //  print "dev parsed".
         } else {
-            print_help_page(0).
+            print("Could not parse command.").
+            return false.
         }
-    } else if commtext:STARTSWITH("inv."){
-        util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
-    } else if UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {
-        print("fldr parsed").
-    } else if UTIL_WP_ENABLED and util_wp_parse_command(commtext) {
-        print("wp parsed").
-    //} else if util_dev_parse_command(commtext) {
-    //  print "dev parsed".
-    } else {
-        print("Could not parse command.").
-        return false.
     }
-    return parse_command(commtextnext).
+    return true.
 }
 
 function util_shbus_tx_msg {
@@ -128,6 +115,9 @@ function util_shbus_raw_input_to_args {
 
     SET arg_start TO commtext:FIND("(").
     SET arg_end TO commtext:FINDLAST(")").
+    if arg_end-arg_start <= 1 {
+        return list().
+    }
     SET arg_strings TO commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
     set numlist to list().
     for i in arg_strings {
@@ -136,7 +126,7 @@ function util_shbus_raw_input_to_args {
     return numlist.
 }
 
-local COMM_STRING is core:tag+":~$".
+local COMM_STRING is core:tag:tolower()+"@"+string_acro(ship:name)+":~$".
 local INPUT_STRING is "".
 local comm_history is LIST().
 local comm_history_MAXEL is 10.
@@ -187,7 +177,7 @@ function util_shbus_get_input {
         
         comm_history:ADD(INPUT_STRING).
         if comm_history:LENGTH > comm_history_MAXEL {
-            comm_history:REMOVE(0).
+            set comm_history to comm_history:sublist(1,comm_history_MAXEL).
             set comm_history_CUREL to comm_history_MAXEL-1.
         } else {
             set comm_history_CUREL to comm_history:LENGTH-1.

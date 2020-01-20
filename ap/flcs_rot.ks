@@ -102,7 +102,9 @@ local function gain_schedule {
         }
         set prev_status to SHIP:STATUS.
     }
-    SET Vslast TO SHIP:VERTICALSPEED.
+    if ship:status = "FLYING" {
+        SET Vslast TO SHIP:VERTICALSPEED.
+    }
 }
 
 
@@ -226,8 +228,14 @@ function ap_flcs_rot {
 function ap_flcs_rot_status_string {
     LOCAL DELTA_ALPHA is R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
     LOCAL alpha is -(mod(DELTA_ALPHA:PITCH+180,360)-180).
-
-    return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G") +
-    char(10) + "a " + round_dec(alpha,1) +
-    char(10) + "q " + round_dec(ship:dynamicpressure,2).
+    if not gear{
+        return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G") +
+        char(10) + "a " + round_dec(alpha,1) +
+        char(10) + "q " + round_dec(ship:dynamicpressure,2).
+    } else {
+        return "p  " + round_dec(pitch,1) + char(10) +
+        "vp " + round_dec(vel_pitch,1) + char(10) +
+        "vs "+round_dec(Vslast,2).
+        
+    }
 }

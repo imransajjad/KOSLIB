@@ -164,7 +164,7 @@ function ap_missile_setup_separate {
     wait 2.0.
 
     set DELTA_FACE_AWAY to R(90,0,0)*(-ship:UP)*
-        angleaxis(5,ship:facing:starvector)*(ship:facing).
+        angleaxis(20,ship:facing:starvector)*(ship:facing).
     set pitch_init to (mod(DELTA_FACE_AWAY:pitch+90,180)-90).
     set yaw_init to (360-DELTA_FACE_AWAY:yaw).
     set roll_init to (180-DELTA_FACE_AWAY:roll).

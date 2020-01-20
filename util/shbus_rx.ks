@@ -43,13 +43,4 @@ function util_shbus_check_for_messages {
     }
 }
 
-
-function util_shbus_flush_messages {
-    PARAMETER ECHO.
-    UNTIL CORE:MESSAGES:EMPTY {
-        SET RECEIVED TO CORE:MESSAGES:POP.
-        IF ECHO {print RECEIVED:CONTENT.}
-    }
-}
-
 // RX SECTION END

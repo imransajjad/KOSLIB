@@ -30,6 +30,8 @@ run once "util_shbus_tx".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
+flush_core_messages().
+
 UNTIL FALSE {
     util_shbus_get_input().
 }

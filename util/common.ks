@@ -132,3 +132,20 @@ function get_engines {
     }
     return main_engine_list.
 }
+
+function string_acro {
+    parameter strin.
+    local strout is "".
+    for substr in strin:split(" ") {
+        set strout to strout+substr[0].
+    }
+    return strout.
+}
+
+function flush_core_messages {
+    PARAMETER ECHO is true.
+    UNTIL CORE:MESSAGES:EMPTY {
+        SET RECEIVED TO CORE:MESSAGES:POP.
+        IF ECHO {print RECEIVED:CONTENT.}
+    }
+}

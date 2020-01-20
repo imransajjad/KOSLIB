@@ -50,24 +50,23 @@ function util_wp_get_help_str {
     return LIST(
         " ",
         "UTIL_WP running on "+core:tag,
-        "wpo(index,#WP#).   overwrite wp.",
-        "wpi(index,#WP#).   insert wp.",
-        "wpr(index).        remove wp .",
-        "wpqp.      print wp list.",
-        "wpqd.      purge wp list.",
-        "wpf(#WP#).  add wp to first .",
-        "wpa(#WP#).  add wp to last .",
-        "wpu(#WP#).  first wp overwrite.",
-        "wpn(#WP#).  second wp overwrite.",
-        "wpw(#WP#).  nav target wp.",
-        "wpt(#WP#).  vessel target wp.",
-        "wpk(distance,speed,GSlope). go home.",
-        "wpto(distance).  takeoff.",
-        "#WP# = AGX",
-        "#WP# = alt,vel",
-        "#WP# = alt,vel,roll",
-        "#WP# = alt,vel,lat,lng",
-        "#WP# = alt,vel,lat,lng,pitch,bear"
+        "wpo(i,WP)   overwrite wp",
+        "wpi(i,WP)   insert wp",
+        "wpr(i)      remove wp ",
+        "wpqp        print wp list",
+        "wpqd        purge wp list",
+        "wpf(WP)     add wp to first ",
+        "wpa(WP)     add wp to last ",
+        "wpu(WP)     first wp write",
+        "wpn(WP)     second wp write",
+        "wpw(WP)     nav target wp",
+        "wpt(WP)     vessel target wp",
+        "wpk(distance,speed,GSlope) go home",
+        "wpto(distance)  takeoff",
+        "WP = AGX",
+        "WP = alt,vel,roll",
+        "WP = alt,vel,lat,lng",
+        "WP = alt,vel,lat,lng,pitch,bear"
         ).
 }
 
@@ -120,8 +119,12 @@ function util_wp_parse_command {
 
     // don't even try if it's not a wp command
     if commtext:STARTSWITH("wp") {
-        if commtext:contains("(") AND commtext:contains(").") {
+        if commtext:contains("(") AND commtext:contains(")") {
             set args to util_shbus_raw_input_to_args(commtext).
+            if args:length = 0 {
+                print "wp args empty".
+                return true.
+            }
         }
     } else {
         return false.
@@ -133,7 +136,7 @@ function util_wp_parse_command {
         insert_waypoint(args).
     } ELSE IF commtext:STARTSWITH("wpr(") {
         remove_waypoint(args).
-    } ELSE IF commtext:STARTSWITH("wpqp."){
+    } ELSE IF commtext:STARTSWITH("wpqp"){
         waypoints_print().
     } ELSE IF commtext:STARTSWITH("wpqd"){
         waypoints_purge().
@@ -296,11 +299,15 @@ local function waypoint_remove {
 }
 
 local function waypoint_queue_print {
-    PRINT "WAYPOINT_QUEUE (" + WAYPOINT_QUEUE:LENGTH + ")".
+    local wp_list_string is "WAYPOINT_QUEUE (" + 
+        WAYPOINT_QUEUE:LENGTH + ")" + char(10).
     local i is WAYPOINT_QUEUE:ITERATOR.
     UNTIL NOT i:NEXT {
-        PRINT "WP"+i:index+": " + waypoint_print_str(i:value).
+        set wp_list_string to wp_list_string+
+            "WP"+i:index+": " + waypoint_print_str(i:value) + char(10).
     }
+    print wp_list_string.
+    return wp_list_string.
 }
 
 local function waypoint_queue_purge {

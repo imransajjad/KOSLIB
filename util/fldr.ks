@@ -20,15 +20,6 @@ local MAIN_ENGINES is get_engines(main_engine_name).
 
 // TX SECTION
 
-local function string_acro {
-    PARAMETER strin.
-    LOCAL strout IS "".
-    FOR SUBSTR IN strin:split(" ") {
-        SET strout TO strout+SUBSTR[0].
-    }
-    RETURN strout.
-}
-
 local function list_logs {
     if exists("logs"){
         cd("logs").
@@ -187,8 +178,12 @@ function util_fldr_parse_command {
 
     // don't even try if it's not a log command
     if commtext:contains("log") {
-        if commtext:contains("(") AND commtext:contains(").") {
+        if commtext:contains("(") AND commtext:contains(")") {
             set args to util_shbus_raw_input_to_args(commtext).
+            if args:length = 0 {
+                print "fldr args empty".
+                return true.
+            }
         }
     } else {
         return false.
@@ -204,15 +199,15 @@ function util_fldr_parse_command {
     } ELSE IF commtext:STARTSWITH("logengine ") {
         set main_engine_name to commtext:replace("logengine ", ""):replace(".","").
         set MAIN_ENGINES to get_engines(main_engine_name).
-    } ELSE IF commtext:STARTSWITH("log.") {
+    } ELSE IF commtext:STARTSWITH("log") {
         start_logging().
-    } ELSE IF commtext:STARTSWITH("testlog.") {
+    } ELSE IF commtext:STARTSWITH("testlog") {
         util_shbus_tx_msg("FLDR_RUN_TEST").
         start_logging().
-    } ELSE IF commtext:STARTSWITH("listloginfo.") {
+    } ELSE IF commtext:STARTSWITH("listloginfo") {
         print_pos_info().
         list_logs().
-    } ELSE IF commtext:STARTSWITH("sendlogs.") {
+    } ELSE IF commtext:STARTSWITH("sendlogs") {
         send_logs().
     } ELSE IF commtext:STARTSWITH("logstp(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
@@ -233,7 +228,7 @@ function util_fldr_parse_command {
     } ELSE IF commtext:STARTSWITH("logsu3(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U3", args).
         PRINT "Sent SET_SEQ_U3 "+ args:join(" ").
-    } ELSE IF commtext:STARTSWITH("logsupr.") {
+    } ELSE IF commtext:STARTSWITH("logsupr") {
         util_shbus_tx_msg("FLDR_PRINT_TEST").
     } else {
         return false.
