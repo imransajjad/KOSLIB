@@ -76,7 +76,7 @@ local gain is 1.0.
 
 local LF2G is 1.0.
 local prev_status is SHIP:STATUS.
-SET Vslast TO 0.0.
+local Vslast is 0.0.
 local function gain_schedule {
     //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
     if prev_AG <> AG {
@@ -117,49 +117,6 @@ local function gain_schedule {
 }
 
 
-SET pitch_lock_armed TO false.
-SET pitch_lock TO false.
-SET Vlast TO 0.0.
-SET Vslast TO 0.0.
-local function check_for_pitch_lock {
-    IF GEAR AND NOT pitch_lock_armed AND (SHIP:STATUS = "FLYING"){
-        PRINT "check_for_pitch_lock: pitch_lock_armed".
-        SET pitch_lock_armed TO true.
-        if pilot_input_u0 > 0.6 {
-            print "    throttle>0.6 will unlock pitch".
-        }
-    }
-    IF SHIP:STATUS = "LANDED" AND pitch_lock_armed AND (NOT pitch_lock){
-        SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
-        SET pratePID:KP TO AP_FLCS_ROT_PR_KP_ALT.
-        
-        PRINT "check_for_pitch_lock: pitch_locked".
-        PRINT "    pitch         "+ round_dec(pitch,2).
-        PRINT "    v/vs at land  "+ round_dec(Vlast,2) + "/"+round_dec(Vslast,2).
-        SET pitch_lock TO true.
-        SET pitch_lock_armed TO false.
-  
-
-    }
-    IF pitch_lock AND 
-    ((vel < 30) OR (ABS(pilot_input_u1) > 0.6) OR (pilot_input_u0 > 0.6)){
-        SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
-        SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
-
-        SET pitch_set_point TO 0.
-        SET pitch_lock TO false.
-        PRINT "check_for_pitch_lock: pitch_unlocked".
-    }
-    IF NOT GEAR AND pitch_lock_armed {
-        SET pitch_lock_armed TO false.
-        PRINT "check_for_pitch_lock: pitch_lock_unarmed".
-    }
-    SET Vlast TO vel.
-    SET Vslast TO SHIP:VERTICALSPEED.
-    
-}
-
-
 SET ROLL_I_ON TO TRUE.
 local function check_for_cog_offset {
     IF (ABS(LATOFS) > 0.01) AND NOT ROLL_I_ON {
@@ -172,15 +129,6 @@ local function check_for_cog_offset {
     }
 }
 
-local function roll_integrate_if_no_command {
-    parameter roll_comm.
-
-    if abs(roll_comm) > 0.10 {
-        set rrateI:KI to 0.0.
-    } else {
-        set rrateI:KI to AP_FLCS_ROT_RR_KI.
-    }
-}
 
 SET LAST_AGB TO FALSE.
 
@@ -190,11 +138,7 @@ function ap_flcs_rot {
     PARAMETER u2. // yaw
     PARAMETER u3. // roll
 
-    //check_for_sas().
-    //check_for_pitch_lock().
-    check_for_cog_offset().
     gain_schedule().
-    //roll_integrate_if_no_command(u3).
 
     IF not SAS {
 
@@ -205,8 +149,16 @@ function ap_flcs_rot {
 
         set SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
             +SHIP:CONTROL:YAWTRIM.
-        set SHIP:CONTROL:ROLL TO LF2G*( rratePD:UPDATE(TIME:SECONDS, roll_rate) +
-            (choose rrateI:UPDATE(TIME:SECONDS, roll_rate) if (1.0+ABS(LATOFS) > 0.01) else 0) ) +
+
+        local roll_pd is rratePD:UPDATE(TIME:SECONDS, roll_rate).
+        local roll_i is 0.
+        if (abs(u3) < 0.05) {
+            set roll_i to rrateI:UPDATE(TIME:SECONDS, roll_rate).
+        } else {
+            rrateI:RESET().
+        }
+
+        set SHIP:CONTROL:ROLL TO LF2G*( roll_pd + roll_i ) +
             SHIP:CONTROL:ROLLTRIM.
 
         set SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
@@ -239,5 +191,6 @@ function ap_flcs_rot_status_string {
     LOCAL alpha is -(mod(DELTA_ALPHA:PITCH+180,360)-180).
 
     return ( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 ,1) + 
-    char(10) + "a " + round_dec(alpha,1).
+    char(10) + "a " + round_dec(alpha,1) +
+    ( choose char(10)+"t Ap "+round(eta:apoapsis)+"s" if eta:apoapsis > 25 and Vslast > 10 else "").
 }

@@ -61,7 +61,7 @@ function util_wp_get_help_str {
         "wpn(WP)     second wp write",
         "wpw(WP)     nav target wp",
         "wpt(WP)     vessel target wp",
-        "wpk(distance,speed,GSlope) go home",
+        "wpk(distance,vel,vel2,GSlope) go home",
         "wpto(distance)  takeoff",
         "WP = AGX",
         "WP = alt,vel,roll",
@@ -97,13 +97,14 @@ local function generate_takeoff_seq {
 
 local function generate_landing_seq {
     parameter distance.
+    parameter vel.
     parameter speed.
     parameter GSlope.
 
     local long_ofs is distance/ship:body:radius*RAD2DEG.
 
     local landing_sequence is LIST(
-    list(-1, 75 +args[0]*sin(abs(GSlope)), SHIP:AIRSPEED,   -0.0485911247,-74.73766837-long_ofs),
+    list(-1, 75 +args[0]*sin(abs(GSlope)), vel, -0.0485911247,-74.73766837-long_ofs),
     list(-1, -2),
     list(-1, 75, speed,    -0.0485911247,-74.73766837,-abs(GSlope),90.4),
     list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
@@ -172,7 +173,7 @@ function util_wp_parse_command {
             PRINT "Could not find target".
         }
     } else if commtext:STARTSWITH("wpk("){
-        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2]) {
+        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2],args[3]) {
             insert_waypoint(wp_seq_i).
         }
     } else if commtext:STARTSWITH("wpto("){

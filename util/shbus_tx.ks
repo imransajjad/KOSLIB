@@ -148,6 +148,7 @@ local lock str_length to COMM_STRING:length + INPUT_STRING:length.
 local lock num_lines to 1+floor(str_length/W).
 local current_line is H-1.
 local max_lines is 1.
+local cursor is 0.
 
 local function print_overflowed_line {
 
@@ -162,7 +163,9 @@ local function print_overflowed_line {
     if the_line +num_lines < H {
         set PAD_STRING to PAD_STRING + " ".
     }
-    print COMM_STRING+INPUT_STRING+PAD_STRING AT(0, the_line).
+    local print_str is (COMM_STRING+(INPUT_STRING)+PAD_STRING).
+    print print_str AT(0, the_line).
+    print "_" AT(mod(COMM_STRING:length+cursor,W),  the_line + floor( (COMM_STRING:length+cursor)/W)).
 
 }
 
@@ -196,11 +199,12 @@ function util_shbus_get_input {
         } else {
             set comm_history_CUREL to comm_history:LENGTH-1.
         }
-        
 
         SET INPUT_STRING TO "".
         set current_line to H-1.
         set max_lines to 1.
+        set cursor to 0.
+
     } ELSE IF ch = terminal:input:UPCURSORONE {
         if comm_history_CUREL >= 0 {
             SET INPUT_STRING TO comm_history[comm_history_CUREL].
@@ -214,10 +218,17 @@ function util_shbus_get_input {
     } ELSE IF ch = terminal:input:BACKSPACE {
         IF (INPUT_STRING:LENGTH > 0) {
             SET INPUT_STRING TO INPUT_STRING:REMOVE(INPUT_STRING:LENGTH-1 ,1).
+            set cursor to max(cursor-1,0).
         }
+    } ELSE IF ch = terminal:input:LEFTCURSORONE {
+        set cursor to max(cursor-1,0).
+    } ELSE IF ch = terminal:input:RIGHTCURSORONE {
+        set cursor to min(cursor+1,INPUT_STRING:length).
     } ELSE {
         //CLEARSCREEN.
-        SET INPUT_STRING TO INPUT_STRING+ch.
+        //SET INPUT_STRING TO INPUT_STRING+ch.
+        set INPUT_STRING to INPUT_STRING:insert(cursor, ch).
+        set cursor to cursor+1.
     }
 }
 
