@@ -159,7 +159,7 @@ function util_hud_info {
 
         set hud_left_label:text to ""+
             ( choose ap_mode_get_str()+char(10) if AP_MODE_ENABLED else "") +
-            round(vel) +
+            " >> " + round(vel) +
             ( choose ap_nav_status_string()+char(10) if AP_NAV_ENABLED else char(10) ) +
             ( choose ap_flcs_rot_status_string()+char(10) if AP_FLCS_ROT_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
@@ -167,7 +167,7 @@ function util_hud_info {
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
             ( choose util_shsys_status_string()+char(10) if UTIL_SHSYS_ENABLED else "") +
-            round_dec(SHIP:ALTITUDE,0) + char(10) +
+            round_dec(SHIP:ALTITUDE,0) +" <| " + char(10) +
             ( choose util_wp_status_string()+char(10) if UTIL_WP_ENABLED else "") +
             tar_str +
             hud_text_dict_right:values:join(char(10)).

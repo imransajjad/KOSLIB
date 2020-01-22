@@ -56,6 +56,7 @@ function util_shbus_check_for_messages {
 
         if received_msg:CONTENT[0] = "Hello from FLCOM" {
             print "FLCOM says Hello!!!".
+            util_shbus_rx_send_back_ack("Hello from "+core:tag).
         } else if received_msg:content[0] = "SETHOST" {
             find_and_set_hostproc(received_msg:content[1]).
         } else if UTIL_WP_ENABLED and util_wp_decode_rx_msg(received_msg) {

@@ -209,11 +209,13 @@ function util_shbus_get_input {
         if comm_history_CUREL >= 0 {
             SET INPUT_STRING TO comm_history[comm_history_CUREL].
             SET comm_history_CUREL TO comm_history_CUREL-1.
+            set cursor to INPUT_STRING:length.
         }
     } ELSE IF ch = terminal:input:DOWNCURSORONE {
         if comm_history_CUREL+1 < comm_history:LENGTH {
             SET INPUT_STRING TO comm_history[comm_history_CUREL+1].
             SET comm_history_CUREL TO comm_history_CUREL+1.
+            set cursor to INPUT_STRING:length.
         }
     } ELSE IF ch = terminal:input:BACKSPACE {
         IF (INPUT_STRING:LENGTH > 0) {
