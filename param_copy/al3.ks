@@ -1,4 +1,4 @@
-// fs3 params
+// al3 params
 
 set UTIL_WP_takeoff_distance to 400.
 
@@ -8,11 +8,11 @@ set AP_FLCS_ROT_GLIM_LAT to 6.
 set AP_FLCS_ROT_GLIM_LONG to 5.
 
 // rate limits
-set AP_FLCS_MAX_ROLL to 3.5*3.14159265359.
+set AP_FLCS_MAX_ROLL to 0.5*3.14159265359.
 
 // pitch rate PID gains
-set AP_FLCS_ROT_PR_KP to 0.6.
-set AP_FLCS_ROT_PR_KI to 1.1.
+set AP_FLCS_ROT_PR_KP to 1.0.
+set AP_FLCS_ROT_PR_KI to 2.1.
 set AP_FLCS_ROT_PR_KD to 0.01.
 
 // yaw rate PID gains
@@ -50,11 +50,8 @@ set AP_NAV_ROLL_W_MAX to 20.0.
 set AP_NAV_BANK_MAX to 90.
 
 
-set AP_ENGINES_TOGGLE_X to 0.80.
-set AP_ENGINES_TOGGLE_Y to 0.5.
-set AP_ENGINES_TOGGLE_VEL to 345.
-set AP_ENGINES_V_PID_KP to 0.075.
-set AP_ENGINES_V_PID_KI to 0.01.
+set AP_ENGINES_V_PID_KP to 0.05.
+set AP_ENGINES_V_PID_KI to 0.0015.
 set AP_ENGINES_V_PID_KD to 0.0.
 
 // HUD
