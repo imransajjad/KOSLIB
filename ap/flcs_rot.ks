@@ -61,8 +61,8 @@ local rrateI is PIDLOOP(
     -0.05,0.05).
 
 local lock rrate_max to MIN(
-    4*PI*(vel/CORNER_VEL),
-    4*PI).
+    AP_FLCS_MAX_ROLL*(vel/CORNER_VEL),
+    AP_FLCS_MAX_ROLL).
 
 local K_theta is 10.0.
 local Kd_theta is 2.8.
@@ -137,6 +137,7 @@ function ap_flcs_rot {
     PARAMETER u1. // pitch
     PARAMETER u2. // yaw
     PARAMETER u3. // roll
+    // in radians/sec
 
     gain_schedule().
 
@@ -152,7 +153,7 @@ function ap_flcs_rot {
 
         local roll_pd is rratePD:UPDATE(TIME:SECONDS, roll_rate).
         local roll_i is 0.
-        if (abs(u3) < 0.05) {
+        if (abs(u3) < 0.5) {
             set roll_i to rrateI:UPDATE(TIME:SECONDS, roll_rate).
         } else {
             rrateI:RESET().
@@ -191,6 +192,7 @@ function ap_flcs_rot_status_string {
     LOCAL alpha is -(mod(DELTA_ALPHA:PITCH+180,360)-180).
 
     return ( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 ,1) + 
-    char(10) + "a " + round_dec(alpha,1) +
+    char(10) + char(945) + " " + round_dec(alpha,1) +
+    char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,1) +
     ( choose char(10)+"t Ap "+round(eta:apoapsis)+"s" if eta:apoapsis > 25 and Vslast > 10 else "").
 }

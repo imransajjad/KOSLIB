@@ -151,3 +151,13 @@ function flush_core_messages {
         IF ECHO {print RECEIVED:CONTENT.}
     }
 }
+
+function sign {
+    parameter x.
+    if (x > 0) {
+        return +1.0.
+    } else if (x < 0) {
+        return -1.0.
+    }
+    return 0.0.
+}

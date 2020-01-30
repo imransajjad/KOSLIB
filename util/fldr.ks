@@ -154,20 +154,21 @@ function util_fldr_get_help_str {
     return list(
         " ",
         "UTIL_FLDR running on "+core:tag,
-        "logtime(...)  set_log_duration(dur).",
-        "logdt(...)  set_log_deltat(Ts).",
-        "logtag [TAG].  set log tag.",
-        "logengine [TAG]. set engine tag",
-        "log.  start_logging().",
-        "testlog.  start_test_log().",
-        "listloginfo.  list_logs().",
-        "sendlogs.  send_logs().",
-        "logstp(...).  send_pulse_time(...).",
-        "logsu0(...).  send_throttle_seq(...).",
-        "logsu1(...).  send_pitch_seq(...).",
-        "logsu2(...).  send_yaw_seq(...).",
-        "logsu3(...).  send_roll_seq(...).",
-        "logsupr.  print test sequences"
+        "logtime(T)   total log time=T",
+        "logdt(dt)    log interval =dt",
+        "logtag TAG   set log tag",
+        "logengine TAG set engine tag",
+        "log          start logging",
+        "testlog      start test, log",
+        "listloginfo  list logs",
+        "sendlogs     send logs",
+        "logstp(SEQ)  set pulse_time(SEQ)",
+        "logsu0(SEQ)  set throttle_seq(SEQ)",
+        "logsu1(SEQ)  set pitch_seq(SEQ)",
+        "logsu2(SEQ)  set yaw_seq(SEQ)",
+        "logsu3(SEQ)  set roll_seq(SEQ)",
+        "logsupr.  print test sequences",
+        "  SEQ = sequence of num"
         ).
 }
 

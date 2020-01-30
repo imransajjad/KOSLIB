@@ -61,12 +61,13 @@ function util_wp_get_help_str {
         "wpn(WP)     second wp write",
         "wpw(WP)     nav target wp",
         "wpt(WP)     vessel target wp",
-        "wpk(distance,vel,vel2,GSlope) go home",
+        "wpk(alt,vel) go home",
+        "wpl(distance,vel,GSlope) landing",
         "wpto(distance)  takeoff",
-        "WP = AGX",
-        "WP = alt,vel,roll",
-        "WP = alt,vel,lat,lng",
-        "WP = alt,vel,lat,lng,pitch,bear"
+        "  WP = AGX",
+        "  WP = alt,vel,roll",
+        "  WP = alt,vel,lat,lng",
+        "  WP = alt,vel,lat,lng,pitch,bear"
         ).
 }
 
@@ -107,6 +108,39 @@ local function generate_landing_seq {
     list(-1, 75 +args[0]*sin(abs(GSlope)), vel, -0.0485911247,-74.73766837-long_ofs),
     list(-1, -2),
     list(-1, 75, speed,    -0.0485911247,-74.73766837,-abs(GSlope),90.4),
+    list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
+    list(-1, -1)). // brakes
+
+    return landing_sequence.
+}
+
+local function generate_landing_seq_dev {
+    parameter distance.
+    parameter speed.
+    parameter GSlope.
+
+    // -0.0487464272020686,-74.6999216423728 ideal touchdown point
+    local lat_td is -0.0487464272020686.
+    local longtd is -74.6999216423728.
+
+    local flare_acc is (0.025*g0).
+    local flare_radius is speed^2/flare_acc.
+    set GSlope to abs(GSlope).
+
+    local flare_long is flare_radius*sin(GSlope)/ship:body:radius*RAD2DEG.
+    local flare_h is flare_radius*(1-cos(GSlope)).
+    print flare_radius.
+    print flare_long*DEG2RAD*ship:body:radius.
+    print flare_h.
+
+
+    local long_ofs is distance/ship:body:radius*RAD2DEG.
+
+    local landing_sequence is LIST(
+    list(-1, 75 +args[0]*sin(GSlope), speed, -0.0485911247,-74.73766837-long_ofs,-GSlope,90.4),
+    list(-1, -2),
+    list(-1, 70 + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
+    list(-1, 70, 0,    lat_td, longtd,-0.05,90.4),
     list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
     list(-1, -1)). // brakes
 
@@ -154,7 +188,7 @@ function util_wp_parse_command {
     } ELSE IF commtext:STARTSWITH("wpn(") {
         args:INSERT(0,1).
         overwrite_waypoint(args).
-    } ELSE IF commtext:STARTSWITH("wpw(") {
+    } ELSE IF commtext:STARTSWITH("wpw(") and args:length = 2  {
         FOR WP_TAR IN ALLWAYPOINTS() {
             IF (WP_TAR:ISSELECTED) {
                 PRINT "Found navigation waypoint".
@@ -164,7 +198,7 @@ function util_wp_parse_command {
             }
         }
         PRINT "Could not find navigation waypoint".
-    } ELSE IF commtext:STARTSWITH("wpt(") {
+    } ELSE IF commtext:STARTSWITH("wpt(") and args:length = 2 {
         IF HASTARGET {
             PRINT "Found Target.".
             insert_waypoint(LIST(-1,args[0],args[1] ,TARGET:GEOPOSITION:LAT,
@@ -172,11 +206,13 @@ function util_wp_parse_command {
         } ELSE {
             PRINT "Could not find target".
         }
-    } else if commtext:STARTSWITH("wpk("){
-        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2],args[3]) {
+    } else if commtext:STARTSWITH("wpk(") and args:length = 2 {
+        insert_waypoint(list(-1,args[0],args[1],-0.048,-74.69)).
+    } else if commtext:STARTSWITH("wpl(") and args:length = 3 {
+        for wp_seq_i in generate_landing_seq_dev(args[0],args[1],args[2]) {
             insert_waypoint(wp_seq_i).
         }
-    } else if commtext:STARTSWITH("wpto("){
+    } else if commtext:STARTSWITH("wpto(") and args:length = 1 {
         waypoints_purge().
         for wp_seq_i in generate_takeoff_seq(args[0]) {
             insert_waypoint(wp_seq_i).

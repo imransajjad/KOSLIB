@@ -19,8 +19,11 @@ local hud_info_init_draw is false.
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
-local display_set is -1.
+local display_set is UTIL_HUD_START_COLOR.
 local to_draw_vec is false.
+
+local hud_interval is 2.
+local hud_i is 0.
 
 local function util_hud_vec_info {
 
@@ -89,7 +92,7 @@ local function util_hud_vec_info {
     }
 }
 
-function util_hud_info {
+local function util_hud_main_info {
 
     if not hud_info_init_draw {
 
@@ -122,7 +125,7 @@ function util_hud_info {
     if not (PREV_AG = AG) {
         set PREV_AG to AG.
         set display_set to display_set+1.
-        if display_set = 6 { set display_set to -1.}
+        if display_set >= 6 { set display_set to -1.}
 
         if display_set < 0 {
             set hud_left:draggable to false.
@@ -185,6 +188,14 @@ function util_hud_info {
         set to_draw_vec to false.
     }
     util_hud_vec_info().
+}
+
+function util_hud_info {
+    set hud_i to hud_i+1.
+    if hud_i = hud_interval {
+        set hud_i to 0.
+        util_hud_main_info().
+    }
 }
 
 function util_hud_push_left {

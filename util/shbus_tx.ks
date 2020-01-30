@@ -41,27 +41,33 @@ if UTIL_WP_ENABLED {
     }
 }
 
-local function print_help_page {
-    parameter page.
-    local page_size is 12.
+local function print_help_page_by_index {
+    parameter start_line.
+    local page_size is H-4.
 
-    for i in range(page_size*page, page_size*(page+1)+2 ) {
+    for i in range(start_line, start_line+page_size ) {
         if i < HELP_LIST:length {
             print "  "+HELP_LIST[i].
         }
     }
 }
 
+local function print_help_page {
+    parameter page.
+    local page_size is H-4.
+    print_help_page_by_index(page_size*page).
+}
+
 local function print_help_by_tag {
     parameter tag.
-    local do_print is false.
-    for i in range(0,HELP_LIST:length) {
-        if HELP_LIST[i]:startswith(tag) { set do_print to true.}
-        if HELP_LIST[i]:startswith(" ") { set do_print to false.}
-        if do_print {
-            print HELP_LIST[i].
+    local hi is HELP_LIST:iterator.
+    until not hi:next {
+        if (hi:value:STARTSWITH(tag) ){
+            print_help_page_by_index(hi:index).
+            return.
         }
     }
+    print "tag not found".
 }
 
 local function print_acks {
@@ -218,8 +224,8 @@ function util_shbus_get_input {
             set cursor to INPUT_STRING:length.
         }
     } ELSE IF ch = terminal:input:BACKSPACE {
-        IF (INPUT_STRING:LENGTH > 0) {
-            SET INPUT_STRING TO INPUT_STRING:REMOVE(INPUT_STRING:LENGTH-1 ,1).
+        IF (cursor > 0) and (cursor <= INPUT_STRING:length)  {
+            SET INPUT_STRING TO INPUT_STRING:REMOVE(cursor-1 ,1).
             set cursor to max(cursor-1,0).
         }
     } ELSE IF ch = terminal:input:LEFTCURSORONE {

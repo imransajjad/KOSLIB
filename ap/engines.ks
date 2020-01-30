@@ -7,8 +7,6 @@ GLOBAL AP_ENGINES_ENABLED IS true.
 // main_engine_name
 
 
-local MAIN_ENGINES is get_engines(main_engine_name).
-
 function ap_engines_get_total_thrust {
     local total_thrust is 0.
     for e in main_engine_list {
@@ -28,6 +26,19 @@ local vpid is PIDLOOP(
     0.0,1.0).
 
 
+
+local function no_map {
+    parameter u0.
+    set my_throttle to SHIP:CONTROL:PILOTMAINTHROTTLE.
+    return max(my_throttle,0.0).
+}
+
+local function generic_throttle_auto {
+    parameter v_set.
+    set vpid:setpoint to v_set.
+    set my_throttle to vpid:update(time:seconds, vel).
+    return max(my_throttle,0.001).
+}
 
 local function turbojet_throttle_map {
     parameter u0.
@@ -70,12 +81,30 @@ local function turbojet_throttle_auto {
     return max(my_throttle,0.001).
 }
 
-//UNLOCK THROTTLE.
+
+
+local MAIN_ENGINES is get_engines(main_engine_name).
+
+local auto_throttle_func is generic_throttle_auto@.
+local mapped_throttle_func is no_map@.
 
 FUNCTION ap_engine_throttle_auto {
-    SET SHIP:CONTROL:MAINTHROTTLE TO turbojet_throttle_auto(ap_nav_get_vel()).
+    SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
 }
 
 FUNCTION ap_engine_throttle_map {
-    SET SHIP:CONTROL:MAINTHROTTLE TO turbojet_throttle_map(pilot_input_u0).
+    SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(pilot_input_u0).
+}
+
+function ap_engine_init {
+    set MAIN_ENGINES to get_engines(main_engine_name).
+    if main_engine_name = "turboJet" {
+        if AP_NAV_ENABLED {
+            set auto_throttle_func to turbojet_throttle_auto@.
+            set mapped_throttle_func to turbojet_throttle_map@.
+        } else {
+            set auto_throttle_func to turbojet_throttle_map@.
+            set mapped_throttle_func to turbojet_throttle_map@.
+        }    
+    }
 }
