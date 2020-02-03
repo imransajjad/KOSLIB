@@ -26,6 +26,7 @@ local vpid is PIDLOOP(
     0.0,1.0).
 
 
+// initial generic maps / auto throttles
 
 local function no_map {
     parameter u0.
@@ -39,6 +40,13 @@ local function generic_throttle_auto {
     set my_throttle to vpid:update(time:seconds, vel).
     return max(my_throttle,0.001).
 }
+
+local function generic_common {
+    return.
+}
+
+
+// Engine Specific functions
 
 local function turbojet_throttle_map {
     parameter u0.
@@ -82,18 +90,43 @@ local function turbojet_throttle_auto {
 }
 
 
+local forward_thrust is true.
+local function turbofan_common {
+    if my_throttle <= 0 and brakes and vel > 25{
+        if forward_thrust {
+            set forward_thrust to false.
+            for e in MAIN_ENGINES {
+                e:getmodule("ModuleAnimateGeneric"):doaction("toggle thrust reverser", true).
+            }
+        }
+    } else {
+        if not forward_thrust {
+            set forward_thrust to true.
+            for e in MAIN_ENGINES {
+                e:getmodule("ModuleAnimateGeneric"):doaction("toggle thrust reverser", true).
+            }
+        }
+    }
+    if not forward_thrust {
+        SET SHIP:CONTROL:MAINTHROTTLE to 1.0.
+    }
+}
+
 
 local MAIN_ENGINES is get_engines(main_engine_name).
 
 local auto_throttle_func is generic_throttle_auto@.
 local mapped_throttle_func is no_map@.
+local common_func is generic_common@.
 
-FUNCTION ap_engine_throttle_auto {
+function ap_engine_throttle_auto {
     SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
+    common_func().
 }
 
-FUNCTION ap_engine_throttle_map {
+function ap_engine_throttle_map {
     SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(pilot_input_u0).
+    common_func().
 }
 
 function ap_engine_init {
@@ -106,5 +139,10 @@ function ap_engine_init {
             set auto_throttle_func to turbojet_throttle_map@.
             set mapped_throttle_func to turbojet_throttle_map@.
         }    
+    } else if main_engine_name = "turboFanSize2" {
+        set common_func to turbofan_common@.
     }
+
 }
+
+ap_engine_init().

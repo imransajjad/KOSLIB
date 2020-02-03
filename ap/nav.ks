@@ -175,15 +175,22 @@ FUNCTION ap_nav_disp {
             local center_target is wp_vec-final_radius*wp_final_head:starvector.
             local center_target_right is wp_vec+final_radius*wp_final_head:starvector.
 
-            local current_radius is max(50,vel^2)/(AP_NAV_ROT_GNOM_VERT*g0).
-            local current_center is -current_radius*current_vel_head:starvector.
+            local inter_radius is max(50,cur_wayp[1]^2)/(AP_NAV_ROT_GNOM_VERT*g0).
+            local current_center is -inter_radius*current_vel_head:starvector.
 
             if center_target_right:mag < center_target:mag {
                 set center_target to center_target_right.
                 set current_center to final_radius*current_vel_head:starvector.
             }
 
-            set WP_ARC to (vectorangle(center_target-current_center,ship:SRFPROGRADE:vector) > 85).
+            //set WP_ARC to ((vectorangle(center_target-current_center,ship:SRFPROGRADE:vector) > 30) or
+                        //(center_target-current_center):mag/(ship:SRFPROGRADE:vector*(center_target-current_center)/(center_target-current_center):mag) < 1.5).
+
+            //set WP_ARC to ( wp_vec*wp_final_head:vector > 0 and wp_vec:mag < 3*inter_radius).
+
+            if not WP_ARC {
+                set WP_ARC to (center_target*current_vel_head:vector < 0).
+            }
 
             if WP_ARC {
                 set rot_mat to rotatefromto(wp_final_head:vector,wp_vec).
@@ -193,7 +200,7 @@ FUNCTION ap_nav_disp {
                 set H_SET to (360-guide_dir_py:yaw).
                 set R_SET to 0.
             } else {
-                print "ofs "+ round((center_target-current_center):mag).
+                //print "ofs "+ round((center_target-current_center):mag).
                 set guide_dir to (center_target-current_center):direction.
                 set guide_dir_py to R(90,0,0)*(-SHIP:UP)*guide_dir.
                 set P_SET to (mod(guide_dir_py:pitch+90,180)-90).
@@ -217,11 +224,12 @@ FUNCTION ap_nav_disp {
                 2*arc_radius*DEG2RAD*ARCSIN(DIRECT_DISTANCE/2/arc_radius).
 
             IF (real_geodistance/vel < 3) {
-                if ( vectorangle(wp_vec,ship:velocity:surface) > 45) 
-                        or (real_geodistance/vel < 0.5){
+                if ( vectorangle(wp_vec,ship:velocity:surface) > 30)
+                        or (real_geodistance/vel < 1.5){
                     print "dist " + round_dec(wp_vec:mag,2).
                     PRINT "Reached Waypoint " + util_wp_queue_length().
                     util_wp_done().
+                    set WP_ARC to false.
                 }
             }
         }

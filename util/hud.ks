@@ -7,7 +7,6 @@ IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
 IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
 
-
 local lock AG to AG3.
 local PREV_AG is AG.
 
@@ -48,7 +47,7 @@ local function util_hud_vec_info {
         set guide_tri_b:wiping to false.
 
     }
-    IF not to_draw_vec or MAPVIEW or vel < 1.0 {
+    IF not is_active_vessel() or not to_draw_vec or MAPVIEW or vel < 1.0 {
 
         set guide_tri_l:show to false.
         set guide_tri_r:show to false.
@@ -75,7 +74,6 @@ local function util_hud_vec_info {
             set guide_tri_b:vec to guide_far*nav_heading:vector-guide_far*srfprograde:vector.
         }
 
-
         local v_color_r is min(1,max(0,-(nav_vel - vel)/100 )).
         local v_color_g is min(1,max(0,1-abs(nav_vel - vel)/100 )).
         local v_color_b is min(1,max(0,(nav_vel - vel)/100 )).
@@ -89,6 +87,95 @@ local function util_hud_vec_info {
         set guide_tri_l:show to true.
         set guide_tri_r:show to true.
         set guide_tri_b:show to true.
+    }
+}
+
+local land_info_init_draw is false.
+local land_vec_list is list().
+local function util_hud_land_info {
+
+    if not UTIL_HUD_LAND_GUIDE {
+        return.
+    }
+    set land_far to 750.
+    set land_width to 0.25.
+    set land_scale to 1.0.
+
+    if not land_info_init_draw {
+
+        set land_info_init_draw to true.
+
+        if UTIL_HUD_LAND_GUIDE {
+
+            for i in range(0,3) {
+                land_vec_list:add(list( list(
+                    vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+                "", land_scale, true, land_width, FALSE ),
+                    vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+                "", land_scale, true, land_width, FALSE ) ),
+                    0.0) ).
+            }
+
+            for bar in land_vec_list {
+                for bar_vec in bar[0] {
+                    set bar_vec:wiping to false.
+
+                }
+            }
+        }
+
+    }
+    IF not is_active_vessel() or display_set <= 0 or MAPVIEW or vel < 1.0 or (not UTIL_HUD_LAND_GUIDE_ALWAYS_ON and not GEAR){
+
+        for bar in land_vec_list {
+            for bar_vec in bar[0] {
+                set bar_vec:show to false.
+            }
+        }
+
+        return.
+    } else if GEAR or UTIL_HUD_LAND_GUIDE_ALWAYS_ON {
+
+        local closest_pitch is sat(
+            round(vel_pitch/UTIL_HUD_PITCH_DIV)*UTIL_HUD_PITCH_DIV,
+            90-UTIL_HUD_PITCH_DIV-1).
+        if GEAR and abs(-vel_pitch-UTIL_HUD_GSLOPE)<UTIL_HUD_PITCH_DIV {
+            set land_vec_list[0][1] to 0.
+            set land_vec_list[1][1] to -UTIL_HUD_GSLOPE.
+            set land_vec_list[2][1] to -UTIL_HUD_PITCH_DIV.
+        } else {
+            set land_vec_list[0][1] to closest_pitch+UTIL_HUD_PITCH_DIV.
+            set land_vec_list[1][1] to closest_pitch.
+            set land_vec_list[2][1] to closest_pitch-UTIL_HUD_PITCH_DIV.
+        }
+
+
+        local set_color is RGB(0,min(display_set/4,1),0).
+
+        for bar in land_vec_list {
+            local cur_HEAD is heading(vel_bear, bar[1]).
+
+            if bar[1] = 0 {
+                set bar[0][0]:start to land_far*cur_HEAD:vector-land_far*sin(1.0)*cur_HEAD:starvector.
+                set bar[0][1]:start to land_far*cur_HEAD:vector+land_far*sin(1.0)*cur_HEAD:starvector.
+                
+                set bar[0][0]:vec to -land_far*sin(10.0)*cur_HEAD:starvector.
+                set bar[0][1]:vec to +land_far*sin(10.0)*cur_HEAD:starvector.
+                set bar[0][0]:label to (choose "FLARE"
+                    if (ship:altitude < UTIL_HUD_FLARE_ALT and ship:status = "FLYING") else "").
+            } else {
+                set bar[0][0]:start to land_far*cur_HEAD:vector.
+                set bar[0][1]:start to land_far*cur_HEAD:vector.
+
+                set bar[0][0]:vec to -land_far*(sin(2.0)*cur_HEAD:starvector-sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
+                set bar[0][1]:vec to land_far*(sin(2.0)*cur_HEAD:starvector+sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
+                set bar[0][0]:label to ""+round_dec(bar[1],1).
+            }
+            set bar[0][0]:color to set_color.
+            set bar[0][1]:color to set_color.
+            set bar[0][0]:show to true.
+            set bar[0][1]:show to true.
+        }
     }
 }
 
@@ -187,7 +274,6 @@ local function util_hud_main_info {
         if hud_right:visible { hud_right:HIDE(). }
         set to_draw_vec to false.
     }
-    util_hud_vec_info().
 }
 
 function util_hud_info {
@@ -196,6 +282,9 @@ function util_hud_info {
         set hud_i to 0.
         util_hud_main_info().
     }
+    util_hud_land_info().
+    util_hud_vec_info().
+
 }
 
 function util_hud_push_left {

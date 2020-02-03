@@ -123,7 +123,7 @@ local function generate_landing_seq_dev {
     local lat_td is -0.0487464272020686.
     local longtd is -74.6999216423728.
 
-    local flare_acc is (0.025*g0).
+    local flare_acc is (0.1*g0).
     local flare_radius is speed^2/flare_acc.
     set GSlope to abs(GSlope).
 

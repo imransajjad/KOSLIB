@@ -19,13 +19,11 @@ local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECT
 
 //RATE_DEG_MAX IS 45.
 //GLIMIT_MAX IS 12.
-//CORNER_VEL IS (GLIMIT_MAX*g0/(RATE_DEG_MAX*DEG2RAD)) ~ 145 m/s.
+//AP_FLCS_CORNER_VELOCITY IS (GLIMIT_MAX*g0/(RATE_DEG_MAX*DEG2RAD)) ~ 145 m/s.
 
-local CORNER_VEL is 145.
-
-local CORNER_Q is (CORNER_VEL/345)^2.
-local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/CORNER_VEL).
-local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/CORNER_VEL).
+local CORNER_Q is (AP_FLCS_CORNER_VELOCITY/345)^2.
+local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/AP_FLCS_CORNER_VELOCITY).
+local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/AP_FLCS_CORNER_VELOCITY).
 
 local lock GLimiter to ( W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q) >
     AP_FLCS_ROT_GLIM_VERT*g0/vel).
@@ -61,7 +59,7 @@ local rrateI is PIDLOOP(
     -0.05,0.05).
 
 local lock rrate_max to MIN(
-    AP_FLCS_MAX_ROLL*(vel/CORNER_VEL),
+    AP_FLCS_MAX_ROLL*(vel/AP_FLCS_CORNER_VELOCITY),
     AP_FLCS_MAX_ROLL).
 
 local K_theta is 10.0.
@@ -75,8 +73,7 @@ local gain is 1.0.
 
 
 local LF2G is 1.0.
-local prev_status is SHIP:STATUS.
-local Vslast is 0.0.
+local prev_status is "FLYING".
 local function gain_schedule {
     //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
     if prev_AG <> AG {
@@ -92,7 +89,20 @@ local function gain_schedule {
         if SHIP:STATUS = "LANDED" {
             SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
             SET pratePID:KP TO AP_FLCS_ROT_PR_KP_ALT.
+        } else if SHIP:STATUS = "FLYING" {
+            SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
+            SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
+        }
+        set prev_status to SHIP:STATUS.
+    }
+}
 
+
+local Vslast is 0.0.
+local prev_land is SHIP:STATUS.
+local function display_land_stats {
+    if not (SHIP:STATUS = prev_land) {
+        if SHIP:STATUS = "LANDED" {
             local land_stats is "FLCS_ROT landed" + char(10) +
                 "  pitch "+ round_dec(pitch,2) + char(10) +
                 "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
@@ -102,14 +112,12 @@ local function gain_schedule {
                 print land_stats.
             }
         } else if SHIP:STATUS = "FLYING" {
-            SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
-            SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
             if UTIL_HUD_ENABLED {
                 util_hud_pop_left("FLCS_ROT_LAND_STATS").
             }
             //print "FLCS_ROT flying gains".
         }
-        set prev_status to SHIP:STATUS.
+        set prev_land to SHIP:STATUS.
     }
     if ship:status = "FLYING" {
         SET Vslast TO SHIP:VERTICALSPEED.
@@ -117,7 +125,7 @@ local function gain_schedule {
 }
 
 
-SET ROLL_I_ON TO TRUE.
+local ROLL_I_ON is TRUE.
 local function check_for_cog_offset {
     IF (ABS(LATOFS) > 0.01) AND NOT ROLL_I_ON {
         SET ROLL_I_ON TO TRUE.
@@ -140,6 +148,7 @@ function ap_flcs_rot {
     // in radians/sec
 
     gain_schedule().
+    display_land_stats().
 
     IF not SAS {
 
