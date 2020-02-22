@@ -80,7 +80,7 @@ IF NOT (DEFINED UTIL_SHBUS_RX_ENABLED) { GLOBAL UTIL_SHBUS_RX_ENABLED IS false.}
 GLOBAL BOOT_FS3_FLCS_ENABLED IS true.
 
 flush_core_messages().
-ap_engine_init().
+//ap_engine_init().
 
 // main loop
 UNTIL false {

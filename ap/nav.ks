@@ -82,6 +82,12 @@ function ap_nav_do_flcs_g {
         ).
 }
 
+// does maneuver nodes in spaceflight when they are encountered
+function ap_nav_do_man {
+    return.
+}
+
+
 FUNCTION ap_nav_disp {
     // for waypoint in waypoint_queue, set pitch, heading to waypoint, ELSE
     // manually control heading.
@@ -182,15 +188,22 @@ FUNCTION ap_nav_disp {
                 set center_target to center_target_right.
                 set current_center to final_radius*current_vel_head:starvector.
             }
+            set current_center to current_center+0.1*final_radius*wp_final_head:topvector.
 
             //set WP_ARC to ((vectorangle(center_target-current_center,ship:SRFPROGRADE:vector) > 30) or
                         //(center_target-current_center):mag/(ship:SRFPROGRADE:vector*(center_target-current_center)/(center_target-current_center):mag) < 1.5).
 
             //set WP_ARC to ( wp_vec*wp_final_head:vector > 0 and wp_vec:mag < 3*inter_radius).
 
+            //if not WP_ARC {
+            //    set WP_ARC to ( (wp_vec-current_center):mag < inter_radius).
+            //}
             if not WP_ARC {
-                set WP_ARC to (center_target*current_vel_head:vector < 0).
+                set WP_ARC to ( ship:SRFPROGRADE:vector*center_target <= 0).
+            } else {
+                set WP_ARC to ( ship:SRFPROGRADE:vector*center_target < 0.17*center_target:mag).
             }
+
 
             if WP_ARC {
                 set rot_mat to rotatefromto(wp_final_head:vector,wp_vec).
@@ -221,7 +234,7 @@ FUNCTION ap_nav_disp {
 
             local arc_radius is (ship:body:radius+ship:altitude).
             set real_geodistance TO
-                2*arc_radius*DEG2RAD*ARCSIN(DIRECT_DISTANCE/2/arc_radius).
+                arc_radius*DEG2RAD*haversine(ship:geoposition:lat,ship:geoposition:lng, cur_wayp[2],cur_wayp[3])[1].
 
             IF (real_geodistance/vel < 3) {
                 if ( vectorangle(wp_vec,ship:velocity:surface) > 30)

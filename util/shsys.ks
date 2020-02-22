@@ -4,7 +4,96 @@ GLOBAL UTIL_SHSYS_ENABLED IS true.
 local cargo_bay_opened_count is 0.
 local other_ships is UNIQUESET().
 
-local MAIN_ENGINES is get_engines(main_engine_name).
+IF NOT (DEFINED UTIL_SHSYS_ARM_RLAUNCH_STATUS) { global UTIL_SHSYS_ARM_RLAUNCH_STATUS is false.}
+
+IF NOT (DEFINED main_engine_name) { global main_engine_name is "".}
+IF NOT (DEFINED main_antenna_name) { global main_antenna_name is "".}
+IF NOT (DEFINED aux_antenna_name) { global aux_antenna_name is "".}
+
+
+
+local MAIN_ENGINES is get_parts_tagged(main_engine_name).
+local MAIN_ANTENNAS is get_parts_tagged(main_antenna_name).
+local AUX_ANTENNAS is get_parts_tagged(aux_antenna_name).
+
+
+local prev_status is "NA".
+local arm_panels_and_antennas is false.
+local arm_for_reentry is false.
+local arm_parachutes is false.
+
+
+// sets systems according to where spacecraft is
+local function iterate_spacecraft_system_state {
+    if UTIL_SHSYS_ARM_RLAUNCH_STATUS {
+        if not (ship:status = prev_status) {
+            set prev_status to ship:status.
+
+            if ship:status = "ORBITING" {
+                set arm_panels_and_antennas to true.
+                set arm_for_reentry to false.
+                // do nothing.
+            }
+            if ship:status = "PRELAUNCH" {
+                // do nothing.
+            }
+            if (ship:status = "SUB_ORBITAL" or ship:status = "FLYING")
+                and ship:verticalspeed >= 0 {
+                set arm_panels_and_antennas to true.
+            }
+            if (ship:status = "SUB_ORBITAL" or ship:status = "FLYING")
+                and ship:verticalspeed < 0 {
+                set arm_for_reentry to true.
+            }
+        }
+
+        // open solar panels and antennas if out of atmosphere
+        if arm_panels_and_antennas and ship:altitude > UTIL_SHSYS_ATMOS_ESCAPE_ALT 
+            and ship:verticalspeed >= 0 {
+            set arm_panels_and_antennas to false.
+            print "SHSYS: PANELS".
+            print "SHSYS: antennas".
+
+            until (STAGE:NUMBER = UTIL_SHSYS_ATMOS_ESCAPE_STAGE) {
+                stage.
+            }
+
+            set PANELS to true.
+            for a in MAIN_ANTENNAS {
+                a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
+            }
+            for a in AUX_ANTENNAS {
+                a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
+            }
+        }
+
+        if arm_for_reentry and ship:altitude < UTIL_SHSYS_REENTRY_ALT
+            and ship:verticalspeed < 0 {
+            set arm_for_reentry to false.
+            set arm_parachutes to true.
+            print "SHSYS: reentry".
+
+            until (STAGE:NUMBER = UTIL_SHSYS_REENTRY_STAGE) {
+                stage.
+            }
+
+            set PANELS to false.
+            for a in MAIN_ANTENNAS {
+                a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
+            }
+            for a in AUX_ANTENNAS {
+                a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
+            }
+        }
+        if arm_parachutes and 
+            (ship:altitude < (UTIL_SHSYS_PARACHUTE_ALT- ship:geoposition:terrainheight)){
+            set arm_parachutes to false.
+            set CHUTES to true.
+            print "SHSYS: CHUTES".
+        }
+    }
+}
+
 
 local function get_another_ship {
     parameter namestr.
@@ -47,8 +136,11 @@ function util_shsys_decode_rx_msg {
     return true.
 }
 
+// main function for ship systems
 function util_shsys_check {
 
+    // close cargo bay after deploying other ship
+    // at a safe distance
     if other_ships:length > 0 {
         local oship_remove is 0.
         for oship in other_ships {
@@ -64,6 +156,8 @@ function util_shsys_check {
             }
         }
     }
+
+    iterate_spacecraft_system_state().
 }
 
 function util_shsys_status_string {

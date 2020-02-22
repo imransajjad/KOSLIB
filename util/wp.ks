@@ -194,7 +194,7 @@ function util_wp_parse_command {
                 PRINT "Found navigation waypoint".
                 insert_waypoint(LIST(-1,args[0],args[1],WP_TAR:GEOPOSITION:LAT,
                     WP_TAR:GEOPOSITION:LNG)).
-                RETURN.
+                return true.
             }
         }
         PRINT "Could not find navigation waypoint".

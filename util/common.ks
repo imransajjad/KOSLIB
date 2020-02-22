@@ -135,6 +135,17 @@ function get_engines {
     return main_engine_list.
 }
 
+function get_parts_tagged {
+    parameter tag.
+    local tagged_list is LIST().
+    if not (tag = "") {
+        for e in SHIP:PARTSDUBBED(tag){
+            tagged_list:add(e).
+        }
+    }
+    return tagged_list.
+}
+
 function string_acro {
     parameter strin.
     local strout is "".

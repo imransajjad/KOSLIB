@@ -21,12 +21,11 @@ local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECT
 //GLIMIT_MAX IS 12.
 //AP_FLCS_CORNER_VELOCITY IS (GLIMIT_MAX*g0/(RATE_DEG_MAX*DEG2RAD)) ~ 145 m/s.
 
-local CORNER_Q is (AP_FLCS_CORNER_VELOCITY/345)^2.
+local CORNER_Q is (AP_FLCS_CORNER_VELOCITY/435)^2.
 local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/AP_FLCS_CORNER_VELOCITY).
 local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/AP_FLCS_CORNER_VELOCITY).
 
-local lock GLimiter to ( W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q) >
-    AP_FLCS_ROT_GLIM_VERT*g0/vel).
+local lock GLimiter to ( SHIP:DYNAMICPRESSURE > CORNER_Q ).
 
 local pratePID is PIDLOOP(
     AP_FLCS_ROT_PR_KP,
@@ -75,15 +74,19 @@ local gain is 1.0.
 local LF2G is 1.0.
 local prev_status is "FLYING".
 local function gain_schedule {
+    set LF2G to 1.0.
     //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
+
     if prev_AG <> AG {
-        if AG {
-            set LF2G to 1.0/3.
-        } else{
-            set LF2G to 1.0.
-        }
         set prev_AG to AG.
         print "LF2G: " + round_dec(LF2G,2).
+    }
+    if prev_AG {
+        set LF2G to LF2G/3.
+    }
+    if GLimiter {
+        set LF2G to LF2G*sqrt(sqrt((CORNER_Q/SHIP:DYNAMICPRESSURE))).
+        //print "LF2G: " + round_dec(LF2G,2).
     }
     if not (SHIP:STATUS = prev_status) {
         if SHIP:STATUS = "LANDED" {
@@ -162,7 +165,7 @@ function ap_flcs_rot {
 
         local roll_pd is rratePD:UPDATE(TIME:SECONDS, roll_rate).
         local roll_i is 0.
-        if (abs(u3) < 0.5) {
+        if (abs(u3) < 0.2) {
             set roll_i to rrateI:UPDATE(TIME:SECONDS, roll_rate).
         } else {
             rrateI:RESET().

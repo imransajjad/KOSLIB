@@ -25,16 +25,17 @@ ship:name,
 "sethost     flcs sends acks to host",
 "unsethost   set/unset self as host",
 "hello       hello to flcs",
+"rst         reset flcs",
 "inv         invalid message").
 
-if UTIL_FLDR_ENABLED {
+if UTIL_WP_ENABLED {
     local newlist is util_wp_get_help_str().
     for i in range(0,newlist:length) {
         HELP_LIST:add(newlist[i]).
     }
 
 }
-if UTIL_WP_ENABLED {
+if UTIL_FLDR_ENABLED {
     local newlist is util_fldr_get_help_str().
     for i in range(0,newlist:length) {
         HELP_LIST:add(newlist[i]).
@@ -104,6 +105,12 @@ local function parse_command {
                 print_help_page(util_shbus_raw_input_to_args(commtext)[0]).
             } else {
                 print_help_page(0).
+            }
+        } else if commtext:STARTSWITH("rst"){
+            if FLCS_PROC:mode = "READY" {
+                FLCS_PROC:deactivate().
+                wait 0.1.
+                FLCS_PROC:activate().
             }
         } else if commtext:STARTSWITH("inv"){
             util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).

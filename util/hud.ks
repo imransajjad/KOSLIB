@@ -2,7 +2,6 @@
 GLOBAL UTIL_HUD_ENABLED IS true.
 
 IF NOT (DEFINED AP_FLCS_ROT_ENABLED) { GLOBAL AP_FLCS_ROT_ENABLED IS false.}
-IF NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED IS false.}
 IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
 IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
@@ -12,26 +11,28 @@ local PREV_AG is AG.
 
 CLEARVECDRAWS().
 
-local vec_info_init_draw is false.
-local hud_info_init_draw is false.
-
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
 local display_set is UTIL_HUD_START_COLOR.
-local to_draw_vec is false.
+local display_status_strs is list(" ","\" ,"-", "/","|","c").
 
-local hud_interval is 2.
-local hud_i is 0.
 
-local function util_hud_vec_info {
+// draw a vector on the ap_nav desired heading
+local nav_init_draw is false.
+local guide_tri_l is 0.
+local guide_tri_r is 0.
+local guide_tri_b is 0.
+local function nav_vecdraw {
+    local guide_far is 750.
+    local guide_width is 1.0.
 
-    set guide_far to 750.
-    set guide_width to 1.0.
+    if not nav_init_draw {
+        IF NOT (DEFINED AP_NAV_ENABLED) or not (DEFINED UTIL_HUD_NAVVEC) {
+            return.
+        }
 
-    if not vec_info_init_draw {
-
-        set vec_info_init_draw to true.
+        set nav_init_draw to true.
 
         set guide_tri_l TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
             "", 1.0, true, guide_width, FALSE ).
@@ -47,13 +48,9 @@ local function util_hud_vec_info {
         set guide_tri_b:wiping to false.
 
     }
-    IF not is_active_vessel() or not to_draw_vec or MAPVIEW or vel < 1.0 {
-
-        set guide_tri_l:show to false.
-        set guide_tri_r:show to false.
-        set guide_tri_b:show to false.
-        return.
-    } ELSE {
+    if is_active_vessel() and display_set > 0 and not MAPVIEW and 
+       (( DEFINED UTIL_WP_ENABLED and util_wp_queue_length() > 0 ) or
+        ( DEFINED AP_MODE_ENABLED and DEFINED AP_NAV_ENABLED and AP_MODE_NAV)){
 
         local nav_heading is ap_nav_get_direction().
         local nav_vel is ap_nav_get_vel().
@@ -88,87 +85,73 @@ local function util_hud_vec_info {
         set guide_tri_r:show to true.
         set guide_tri_b:show to true.
     }
+    else
+    {
+        set guide_tri_l:show to false.
+        set guide_tri_r:show to false.
+        set guide_tri_b:show to false.
+        return.
+    }
 }
 
-local land_info_init_draw is false.
-local land_vec_list is list().
-local function util_hud_land_info {
+// draw a hud elevation ladder
+local ladder_init_draw is false.
+local ladder_vec_list is list().
+local function ladder_vec_draw {
 
-    if not UTIL_HUD_LAND_GUIDE {
-        return.
-    }
-    set land_far to 750.
-    set land_width to 0.25.
-    set land_scale to 1.0.
+    local ladder_far is 750.
+    local ladder_width is 0.25.
+    local ladder_scale is 1.0.
 
-    if not land_info_init_draw {
+    if not ladder_init_draw {
+        if not (DEFINED UTIL_HUD_LADDER) {
+            return.
+        }
+        set ladder_init_draw to true.
 
-        set land_info_init_draw to true.
-
-        if UTIL_HUD_LAND_GUIDE {
-
-            for i in range(0,3) {
-                land_vec_list:add(list( list(
-                    vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-                "", land_scale, true, land_width, FALSE ),
-                    vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-                "", land_scale, true, land_width, FALSE ) ),
-                    0.0) ).
-            }
-
-            for bar in land_vec_list {
-                for bar_vec in bar[0] {
-                    set bar_vec:wiping to false.
-
-                }
-            }
+        for i in range(0,3) {
+            ladder_vec_list:add(list( list(
+                vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+            "", ladder_scale, true, ladder_width, FALSE ),
+                vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+            "", ladder_scale, true, ladder_width, FALSE ) ),
+                0.0) ).
         }
 
-    }
-    IF not is_active_vessel() or display_set <= 0 or MAPVIEW or vel < 1.0 or (not UTIL_HUD_LAND_GUIDE_ALWAYS_ON and not GEAR){
-
-        for bar in land_vec_list {
+        for bar in ladder_vec_list {
             for bar_vec in bar[0] {
-                set bar_vec:show to false.
+                set bar_vec:wiping to false.
+
             }
         }
-
-        return.
-    } else if GEAR or UTIL_HUD_LAND_GUIDE_ALWAYS_ON {
+    }
+    if is_active_vessel() and display_set > 0 and not MAPVIEW and vel > 1.0 {
 
         local closest_pitch is sat(
             round(vel_pitch/UTIL_HUD_PITCH_DIV)*UTIL_HUD_PITCH_DIV,
             90-UTIL_HUD_PITCH_DIV-1).
-        if GEAR and abs(-vel_pitch-UTIL_HUD_GSLOPE)<UTIL_HUD_PITCH_DIV {
-            set land_vec_list[0][1] to 0.
-            set land_vec_list[1][1] to -UTIL_HUD_GSLOPE.
-            set land_vec_list[2][1] to -UTIL_HUD_PITCH_DIV.
-        } else {
-            set land_vec_list[0][1] to closest_pitch+UTIL_HUD_PITCH_DIV.
-            set land_vec_list[1][1] to closest_pitch.
-            set land_vec_list[2][1] to closest_pitch-UTIL_HUD_PITCH_DIV.
-        }
+        set ladder_vec_list[0][1] to closest_pitch+UTIL_HUD_PITCH_DIV.
+        set ladder_vec_list[1][1] to closest_pitch.
+        set ladder_vec_list[2][1] to closest_pitch-UTIL_HUD_PITCH_DIV.
 
 
         local set_color is RGB(0,min(display_set/4,1),0).
 
-        for bar in land_vec_list {
+        for bar in ladder_vec_list {
             local cur_HEAD is heading(vel_bear, bar[1]).
 
             if bar[1] = 0 {
-                set bar[0][0]:start to land_far*cur_HEAD:vector-land_far*sin(1.0)*cur_HEAD:starvector.
-                set bar[0][1]:start to land_far*cur_HEAD:vector+land_far*sin(1.0)*cur_HEAD:starvector.
+                set bar[0][0]:start to ladder_far*cur_HEAD:vector-ladder_far*sin(1.0)*cur_HEAD:starvector.
+                set bar[0][1]:start to ladder_far*cur_HEAD:vector+ladder_far*sin(1.0)*cur_HEAD:starvector.
                 
-                set bar[0][0]:vec to -land_far*sin(10.0)*cur_HEAD:starvector.
-                set bar[0][1]:vec to +land_far*sin(10.0)*cur_HEAD:starvector.
-                set bar[0][0]:label to (choose "FLARE"
-                    if (ship:altitude < UTIL_HUD_FLARE_ALT and ship:status = "FLYING") else "").
+                set bar[0][0]:vec to -ladder_far*sin(10.0)*cur_HEAD:starvector.
+                set bar[0][1]:vec to +ladder_far*sin(10.0)*cur_HEAD:starvector.
             } else {
-                set bar[0][0]:start to land_far*cur_HEAD:vector.
-                set bar[0][1]:start to land_far*cur_HEAD:vector.
+                set bar[0][0]:start to ladder_far*cur_HEAD:vector.
+                set bar[0][1]:start to ladder_far*cur_HEAD:vector.
 
-                set bar[0][0]:vec to -land_far*(sin(2.0)*cur_HEAD:starvector-sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
-                set bar[0][1]:vec to land_far*(sin(2.0)*cur_HEAD:starvector+sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
+                set bar[0][0]:vec to -ladder_far*(sin(2.0)*cur_HEAD:starvector-sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
+                set bar[0][1]:vec to ladder_far*(sin(2.0)*cur_HEAD:starvector+sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
                 set bar[0][0]:label to ""+round_dec(bar[1],1).
             }
             set bar[0][0]:color to set_color.
@@ -176,15 +159,72 @@ local function util_hud_land_info {
             set bar[0][0]:show to true.
             set bar[0][1]:show to true.
         }
+    } else {
+        for bar in ladder_vec_list {
+            for bar_vec in bar[0] {
+                set bar_vec:show to false.
+            }
+        }
     }
 }
 
-local function util_hud_main_info {
+
+// draw a landing guidance marker
+local land_init_draw is false.
+local land_vert is 0.
+local land_hori is 0.
+local function land_vecdraw {
+    local far is 750.
+    local width is 0.25.
+    local scale is 1.0.
+
+
+    if not land_init_draw {
+        if not (DEFINED UTIL_HUD_LAND_GUIDE) {
+            return.
+        }
+        set land_init_draw to true.
+
+        set land_vert to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+            "", scale, true, width, FALSE ).
+        set land_hori to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+            "", scale, true, width, FALSE ).
+        set land_vert:wiping to false.
+        set land_hori:wiping to false.
+    }
+
+    if GEAR and is_active_vessel() and display_set > 0 and not MAPVIEW and vel > 1.0 {
+        local set_color is RGB(0,min(display_set/4,1),0).
+        local ghead is heading(UTIL_HUD_GHEAD,-UTIL_HUD_GSLOPE).
+
+        set land_vert:start to far*(ghead:vector-0.1*ghead:topvector).
+        set land_hori:start to far*(ghead:vector-0.1*ghead:starvector).
+
+        set land_vert:vec to far*0.2*ghead:topvector.
+        set land_hori:vec to far*0.2*ghead:starvector.
+
+        set land_vert:color to set_color.
+        set land_hori:color to set_color.
+
+        set land_hori:label to (choose "FLARE"
+                    if (GEAR and ship:altitude < UTIL_HUD_FLARE_ALT and ship:status = "FLYING") else "").
+
+        set land_vert:show to true.
+        set land_hori:show to true.
+    } else {
+        set land_vert:show to false.
+        set land_hori:show to false.        
+    }
+}
+
+
+local hud_info_init_draw is false.
+
+local function lr_text_info {
 
     if not hud_info_init_draw {
 
         set hud_info_init_draw to true.
-
 
         set hud_left to GUI(151,150).
         set hud_left:draggable to false.
@@ -257,7 +297,8 @@ local function util_hud_main_info {
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
             ( choose util_shsys_status_string()+char(10) if UTIL_SHSYS_ENABLED else "") +
-            round_dec(SHIP:ALTITUDE,0) +" <| " + char(10) +
+            round_dec(SHIP:ALTITUDE,0) +" <| " + display_status_strs[display_set] + char(10) +
+            round_dec(vel_bear,0) +" -O " + char(10) +
             ( choose util_wp_status_string()+char(10) if UTIL_WP_ENABLED else "") +
             tar_str +
             hud_text_dict_right:values:join(char(10)).
@@ -265,28 +306,30 @@ local function util_hud_main_info {
         if not hud_left:visible { hud_left:SHOW(). }
         if not hud_right:visible { hud_right:SHOW(). }
 
-
-        set to_draw_vec to (UTIL_WP_ENABLED and util_wp_queue_length() > 0) or 
-            (AP_MODE_ENABLED and AP_NAV_CHECK()).
     }
     else {
         if hud_left:visible { hud_left:HIDE(). }
         if hud_right:visible { hud_right:HIDE(). }
-        set to_draw_vec to false.
     }
 }
+
+
+// main function of HUD
+local hud_interval is 2.
+local hud_i is 0.
 
 function util_hud_info {
     set hud_i to hud_i+1.
     if hud_i = hud_interval {
         set hud_i to 0.
-        util_hud_main_info().
+        lr_text_info().
     }
-    util_hud_land_info().
-    util_hud_vec_info().
-
+    land_vecdraw().
+    ladder_vec_draw().
+    nav_vecdraw().
 }
 
+// add text to left
 function util_hud_push_left {
     parameter key.
     parameter val.
@@ -297,6 +340,7 @@ function util_hud_push_left {
     }   
 }
 
+// add text to right
 function util_hud_push_right {
     parameter key.
     parameter val.
@@ -307,6 +351,7 @@ function util_hud_push_right {
     }   
 }
 
+// remove text from left
 function util_hud_pop_left {
     parameter key.
     if hud_text_dict_left:haskey(key) {
@@ -314,6 +359,7 @@ function util_hud_pop_left {
     }
 }
 
+// remove text from right
 function util_hud_pop_right {
     parameter key.
     if hud_text_dict_right:haskey(key) {
@@ -324,6 +370,7 @@ function util_hud_pop_right {
 
 // RX SECTION
 
+// shbus_rx compatible receive message
 function util_hud_decode_rx_msg {
     parameter received.
 

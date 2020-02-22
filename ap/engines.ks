@@ -112,7 +112,9 @@ local function turbofan_common {
     }
 }
 
-
+IF NOT (DEFINED main_engine_name) {
+    set main_engine_name to "".
+}
 local MAIN_ENGINES is get_engines(main_engine_name).
 
 local auto_throttle_func is generic_throttle_auto@.

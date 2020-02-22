@@ -30,12 +30,7 @@ IF has_connection_to_base() {
     print "loaded resources from base".
 }
 
-
-
 // Global plane data
-
-SET KERBIN TO BODY("Kerbin").
-
 LOCK pilot_input_u0 TO SHIP:CONTROL:PILOTMAINTHROTTLE.
 LOCK pilot_input_u1 TO sat(3.0*SHIP:CONTROL:PILOTPITCH, 1.0).
 LOCK pilot_input_u2 TO sat(3.0*SHIP:CONTROL:PILOTYAW, 1.0).
@@ -56,6 +51,7 @@ LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*(SHIP:PROGRADE).
 LOCK orb_vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK orb_vel_bear TO (360-DELTA_PRO_UP:yaw).
 
+global KERBIN is BODY("Kerbin").
 global main_engine_name is "turboJet".
 
 run once "param".
@@ -81,6 +77,7 @@ GLOBAL BOOT_FS3_FLCS_ENABLED IS true.
 
 
 flush_core_messages().
+ap_engine_init().
 
 // main loop
 UNTIL false {

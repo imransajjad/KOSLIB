@@ -16,6 +16,8 @@ local Tdel is 0.
 local logtag to "".
 local filename is "".
 
+IF NOT (DEFINED main_engine_name) { global main_engine_name is "".}
+
 local MAIN_ENGINES is get_engines(main_engine_name).
 
 // TX SECTION
