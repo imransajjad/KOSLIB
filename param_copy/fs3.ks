@@ -59,7 +59,7 @@ set AP_ENGINES_V_PID_KP to 0.075.
 set AP_ENGINES_V_PID_KI to 0.01.
 set AP_ENGINES_V_PID_KD to 0.0.
 
-// HUD
+// UTIL_HUD
 set UTIL_HUD_START_COLOR to 4.
 
 set UTIL_HUD_LAND_GUIDE to true.
@@ -69,7 +69,9 @@ set UTIL_HUD_NAVVEC to true.
 set UTIL_HUD_GSLOPE to 2.5.
 set UTIL_HUD_GHEAD to 90.4.
 set UTIL_HUD_PITCH_DIV to 5.0.
-set UTIL_HUD_FLARE_ALT to 80.
+set UTIL_HUD_FLARE_ALT to 7.5.
+set UTIL_HUD_SHIP_HEIGHT to 1.65.
 
+// AP_MODE
 set AP_MODE_FLCS_ENABLED to true.
 set AP_MODE_NAV_ENABLED to true.

@@ -54,7 +54,7 @@ local function iterate_spacecraft_system_state {
             print "SHSYS: PANELS".
             print "SHSYS: antennas".
 
-            until (STAGE:NUMBER = UTIL_SHSYS_ATMOS_ESCAPE_STAGE) {
+            until (STAGE:NUMBER <= UTIL_SHSYS_ATMOS_ESCAPE_STAGE) {
                 stage.
             }
 
@@ -73,7 +73,7 @@ local function iterate_spacecraft_system_state {
             set arm_parachutes to true.
             print "SHSYS: reentry".
 
-            until (STAGE:NUMBER = UTIL_SHSYS_REENTRY_STAGE) {
+            until (STAGE:NUMBER <= UTIL_SHSYS_REENTRY_STAGE) {
                 stage.
             }
 

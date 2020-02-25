@@ -91,13 +91,13 @@ UNTIL false {
     ap_mode_update().
     ap_nav_disp().
 
-    if AP_FLCS_CHECK() {
+    if AP_MODE_FLCS {
         ap_engine_throttle_map().
         ap_flcs_rot(pilot_input_u1, pilot_input_u2, pilot_input_u3).
-    } else if AP_VEL_CHECK() {
+    } else if AP_MODE_VEL {
         ap_engine_throttle_auto().
         ap_flcs_rot(pilot_input_u1, pilot_input_u2, pilot_input_u3).
-    } else if AP_NAV_CHECK() {
+    } else if AP_MODE_NAV {
         ap_engine_throttle_auto().
         ap_nav_do_flcs_rot().
     } else {

@@ -146,6 +146,7 @@ local function ladder_vec_draw {
                 
                 set bar[0][0]:vec to -ladder_far*sin(10.0)*cur_HEAD:starvector.
                 set bar[0][1]:vec to +ladder_far*sin(10.0)*cur_HEAD:starvector.
+                set bar[0][0]:label to "".
             } else {
                 set bar[0][0]:start to ladder_far*cur_HEAD:vector.
                 set bar[0][1]:start to ladder_far*cur_HEAD:vector.
@@ -195,7 +196,7 @@ local function land_vecdraw {
 
     if GEAR and is_active_vessel() and display_set > 0 and not MAPVIEW and vel > 1.0 {
         local set_color is RGB(0,min(display_set/4,1),0).
-        local ghead is heading(UTIL_HUD_GHEAD,-UTIL_HUD_GSLOPE).
+        local ghead is heading(UTIL_HUD_GHEAD + (choose 180 if vel_bear > 180 else 0),-UTIL_HUD_GSLOPE).
 
         set land_vert:start to far*(ghead:vector-0.1*ghead:topvector).
         set land_hori:start to far*(ghead:vector-0.1*ghead:starvector).
@@ -206,8 +207,10 @@ local function land_vecdraw {
         set land_vert:color to set_color.
         set land_hori:color to set_color.
 
-        set land_hori:label to (choose "FLARE"
-                    if (GEAR and ship:altitude < UTIL_HUD_FLARE_ALT and ship:status = "FLYING") else "").
+        local flare_alt is ship:altitude-ship:geoposition:terrainheight-UTIL_HUD_SHIP_HEIGHT.
+
+        set land_hori:label to (choose "FLR-"+round_dec(flare_alt,1)
+                    if (flare_alt < UTIL_HUD_FLARE_ALT ) else "").
 
         set land_vert:show to true.
         set land_hori:show to true.

@@ -65,6 +65,34 @@ function ap_mode_update {
     }
 }
 
+function ap_mode_set {
+    parameter mode_str.
+    if mode_str = "SAS" {
+        SAS on.
+    } else if AP_MODE_FLCS_ENABLED and mode_str = "FLCS"{        
+        until AP_MODE_FLCS {
+            go_to_next_mode().
+        }
+    } else if AP_MODE_NAV_ENABLED and mode_str = "NAV"{        
+        until AP_MODE_NAV {
+            go_to_next_mode().
+        }
+    } else if AP_MODE_VEL_ENABLED and mode_str = "VEL"{        
+        until AP_MODE_VEL {
+            go_to_next_mode().
+        }
+    } else if AP_MODE_NONE_ENABLED and mode_str = "NONE"{        
+        until AP_MODE_NONE {
+            go_to_next_mode().
+        }
+    }
+    if mode_str = ap_mode_get_str() {
+        print "SWITCHED to AP_MODE_"+mode_str.
+    } else {
+        print "could not switch to AP_MODE_" + mode_str.
+    }
+}
+
 function ap_mode_get_str{
     if SAS { return "SAS".}
     else if AP_MODE_FLCS { return "FLCS".}
