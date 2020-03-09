@@ -269,7 +269,7 @@ FUNCTION ap_nav_disp {
     IF VSET_MAN AND is_active_vessel() {
         SET INC TO 2.7*deadzone(2*pilot_input_u0-1,0.1).
         IF INC <> 0 {
-            SET V_SET To MIN(MAX(V_SET+INC,-1),1000).
+            SET V_SET To MIN(MAX(V_SET+INC,-1),AP_NAV_VSET_MAX).
             //vec_info_draw().
         }
     }

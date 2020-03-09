@@ -11,21 +11,62 @@ local lock pitch_rate to (-(SHIP:ANGULARVEL-KERBIN:ANGULARVEL)*SHIP:FACING:STARV
 local lock yaw_rate to ((SHIP:ANGULARVEL-KERBIN:ANGULARVEL)*SHIP:FACING:TOPVECTOR).
 local lock roll_rate to (-(SHIP:ANGULARVEL-KERBIN:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 
-local lock LOADFACTOR to SHIP:DYNAMICPRESSURE/SHIP:MASS.
 
 local lock LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
 local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
 
+local lock DELTA_ALPHA to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
+local lock alpha to -(mod(DELTA_ALPHA:PITCH+180,360)-180).
+
+
+local function cl_sched {
+    parameter v.
+
+    if ( v < 100) {
+        return -(5/100)*v + 8.5.
+    } else if (v < 300) {
+        return -(2.5/200)*v + 4.75.
+    } else if (v < 2100) {
+        return -(0.2/700)*v + 1.09.
+    } else {
+        return 0.49.
+    }
+}
+
+local function cd_sched {
+    parameter v.
+
+    if (v < 50) {
+        return 1.0.
+    } else if ( v < 100) {
+        return -(0.5/50)*v + 1.5.
+    } else if (v < 300) {
+        return 0.5.
+    } else if (v < 400) {
+        return (1.0/100)*v - 2.5.
+    } else if (v < 500) {
+        return -(0.3/100)*v + 2.7.
+    } else {
+        return 1.2.
+    }
+}
 
 //RATE_DEG_MAX IS 45.
 //GLIMIT_MAX IS 12.
 //AP_FLCS_CORNER_VELOCITY IS (GLIMIT_MAX*g0/(RATE_DEG_MAX*DEG2RAD)) ~ 145 m/s.
 
-local CORNER_Q is (AP_FLCS_CORNER_VELOCITY/435)^2.
+local MIN_SEA_Q is 1.0*(50/420)^2.
+local CORNER_SEA_Q is 1.0*(AP_FLCS_CORNER_VELOCITY/420)^2.
 local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/AP_FLCS_CORNER_VELOCITY).
 local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/AP_FLCS_CORNER_VELOCITY).
 
-local lock GLimiter to ( SHIP:DYNAMICPRESSURE > CORNER_Q ).
+local sc_geo_alpha is sin(AP_FLCS_SEA_CORNER_ALPHA)*cos(AP_FLCS_SEA_CORNER_ALPHA).
+local WING_AREA is W_V_MAX/
+            (CORNER_SEA_Q*cl_sched(AP_FLCS_CORNER_VELOCITY)*sc_geo_alpha)
+            *(AP_FLCS_START_MASS*AP_FLCS_CORNER_VELOCITY).
+
+local lock GLimiter to ( WING_AREA*sc_geo_alpha*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel) >
+    AP_FLCS_ROT_GLIM_VERT*g0/vel ).
 
 local pratePID is PIDLOOP(
     AP_FLCS_ROT_PR_KP,
@@ -33,7 +74,7 @@ local pratePID is PIDLOOP(
     AP_FLCS_ROT_PR_KD,
     -1.0,1.0).
 local lock prate_max to MIN(
-    W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
+    WING_AREA*sc_geo_alpha*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel),
     AP_FLCS_ROT_GLIM_VERT*g0/vel).
 
 local yratePID is PIDLOOP(
@@ -42,7 +83,7 @@ local yratePID is PIDLOOP(
     AP_FLCS_ROT_YR_KD,
     -1.0,1.0).
 local lock yrate_max to MIN(
-    W_L_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
+    W_L_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_SEA_Q),
     AP_FLCS_ROT_GLIM_LAT*g0/vel).
 
 local rratePD is PIDLOOP(
@@ -57,9 +98,7 @@ local rrateI is PIDLOOP(
     0,
     -0.05,0.05).
 
-local lock rrate_max to MIN(
-    AP_FLCS_MAX_ROLL*(vel/AP_FLCS_CORNER_VELOCITY),
-    AP_FLCS_MAX_ROLL).
+local lock rrate_max to AP_FLCS_MAX_ROLL.
 
 local K_theta is 10.0.
 local Kd_theta is 2.8.
@@ -74,8 +113,13 @@ local gain is 1.0.
 local LF2G is 1.0.
 local prev_status is "FLYING".
 local function gain_schedule {
+
+    local loadfactor is max(ship:q,MIN_SEA_Q)/ship:mass.
+    local alsat is sat(alpha,35).
+    local airflow_c is cl_sched(max(50,vel))*(cos(alsat)^3 - 2*cos(alsat)*sin(alsat)^2)+
+        cd_sched(max(50,vel))*(3*cos(alsat)*sin(alsat)^2).
+
     set LF2G to 1.0.
-    //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
 
     if prev_AG <> AG {
         set prev_AG to AG.
@@ -84,10 +128,10 @@ local function gain_schedule {
     if prev_AG {
         set LF2G to LF2G/3.
     }
-    if GLimiter {
-        set LF2G to LF2G*sqrt(sqrt((CORNER_Q/SHIP:DYNAMICPRESSURE))).
-        //print "LF2G: " + round_dec(LF2G,2).
-    }
+    set LF2G to LF2G/(28*loadfactor*airflow_c).
+
+    //set LF2G to LF2G/kuniverse:timewarp:rate.
+
     if not (SHIP:STATUS = prev_status) {
         if SHIP:STATUS = "LANDED" {
             SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
@@ -171,7 +215,7 @@ function ap_flcs_rot {
             rrateI:RESET().
         }
 
-        set SHIP:CONTROL:ROLL TO LF2G*( roll_pd + roll_i ) +
+        set SHIP:CONTROL:ROLL TO ( roll_pd + roll_i ) +
             SHIP:CONTROL:ROLLTRIM.
 
         set SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
@@ -200,11 +244,16 @@ function ap_flcs_rot {
 }
 
 function ap_flcs_rot_status_string {
-    LOCAL DELTA_ALPHA is R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
-    LOCAL alpha is -(mod(DELTA_ALPHA:PITCH+180,360)-180).
 
     return ( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 ,1) + 
     char(10) + char(945) + " " + round_dec(alpha,1) +
+    char(10) + "ppid" + " " + round_dec(pratePID:KP,2) + " " + round_dec(pratePID:KI,2) + " " + round_dec(pratePID:KD,2) +
+    char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
+    char(10) + "pask" + " " + round_dec(RAD2DEG*prate_max*pilot_input_u1,1) +
+    char(10) + "pact" + " " + round_dec(RAD2DEG*pitch_rate,1) +
+    char(10) + "perr" + " " + round_dec(RAD2DEG*(prate_max*pilot_input_u1-pitch_rate),1) +
     char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,1) +
+    char(10) + "LF2G " + round_dec(LF2G,1) +
+    char(10) + "WA " + round_dec(WING_AREA,1) +
     ( choose char(10)+"t Ap "+round(eta:apoapsis)+"s" if eta:apoapsis > 25 and Vslast > 10 else "").
 }

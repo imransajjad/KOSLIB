@@ -144,8 +144,8 @@ local function ladder_vec_draw {
                 set bar[0][0]:start to ladder_far*cur_HEAD:vector-ladder_far*sin(1.0)*cur_HEAD:starvector.
                 set bar[0][1]:start to ladder_far*cur_HEAD:vector+ladder_far*sin(1.0)*cur_HEAD:starvector.
                 
-                set bar[0][0]:vec to -ladder_far*sin(10.0)*cur_HEAD:starvector.
-                set bar[0][1]:vec to +ladder_far*sin(10.0)*cur_HEAD:starvector.
+                set bar[0][0]:vec to -ladder_far*sin(5.0)*cur_HEAD:starvector.
+                set bar[0][1]:vec to +ladder_far*sin(5.0)*cur_HEAD:starvector.
                 set bar[0][0]:label to "".
             } else {
                 set bar[0][0]:start to ladder_far*cur_HEAD:vector.
@@ -209,7 +209,7 @@ local function land_vecdraw {
 
         local flare_alt is ship:altitude-ship:geoposition:terrainheight-UTIL_HUD_SHIP_HEIGHT.
 
-        set land_hori:label to (choose "FLR-"+round_dec(flare_alt,1)
+        set land_hori:label to (choose "AGL "+round_dec(flare_alt,1)
                     if (flare_alt < UTIL_HUD_FLARE_ALT ) else "").
 
         set land_vert:show to true.
