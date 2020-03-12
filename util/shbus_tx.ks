@@ -124,6 +124,7 @@ local function parse_command {
             print("Could not parse command.").
             return false.
         }
+        print_acks().
     }
     return true.
 }
@@ -203,7 +204,6 @@ function util_shbus_get_input {
         
         print_lowest_line_again().
         parse_command(INPUT_STRING).
-        print_acks().
         
         comm_history:ADD(INPUT_STRING).
         if comm_history:LENGTH > comm_history_MAXEL {

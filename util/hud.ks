@@ -16,16 +16,20 @@ local hud_text_dict_right is lexicon().
 
 local display_set is UTIL_HUD_START_COLOR.
 local display_status_strs is list(" ","\" ,"-", "/","|","c").
-
+local lock camera_offset_vec to SHIP:CONTROLPART:position + 
+    UTIL_HUD_CAMERA_HEIGHT*ship:facing:topvector + 
+    UTIL_HUD_CAMERA_RIGHT*ship:facing:starvector.
 
 // draw a vector on the ap_nav desired heading
 local nav_init_draw is false.
-local guide_tri_l is 0.
-local guide_tri_r is 0.
-local guide_tri_b is 0.
+local guide_tri_ll is 0.
+local guide_tri_lr is 0.
+local guide_tri_tl is 0.
+local guide_tri_tr is 0.
 local function nav_vecdraw {
-    local guide_far is 750.
-    local guide_width is 1.0.
+    local guide_far is 300.
+    local guide_width is 0.4.
+    local guide_size is 0.5.
 
     if not nav_init_draw {
         IF NOT (DEFINED AP_NAV_ENABLED) or not (DEFINED UTIL_HUD_NAVVEC) {
@@ -34,18 +38,21 @@ local function nav_vecdraw {
 
         set nav_init_draw to true.
 
-        set guide_tri_l TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
+        set guide_tri_ll TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
+            "", 1.0, true, guide_width, FALSE ).
+        set guide_tri_lr TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
             "", 1.0, true, guide_width, FALSE ).
 
-        set guide_tri_r TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
+        set guide_tri_tl TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
+            "", 1.0, true, guide_width, FALSE ).
+        set guide_tri_tr TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
             "", 1.0, true, guide_width, FALSE ).
 
-        set guide_tri_b TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
-            "", 1.0, true, guide_width, FALSE ).
 
-        set guide_tri_l:wiping to false.
-        set guide_tri_r:wiping to false.
-        set guide_tri_b:wiping to false.
+        set guide_tri_ll:wiping to false.
+        set guide_tri_lr:wiping to false.
+        set guide_tri_tl:wiping to false.
+        set guide_tri_tr:wiping to false.
 
     }
     if is_active_vessel() and display_set > 0 and not MAPVIEW and 
@@ -54,42 +61,46 @@ local function nav_vecdraw {
 
         local nav_heading is ap_nav_get_direction().
         local nav_vel is ap_nav_get_vel().
+        local camera_offset is camera_offset_vec.
 
-        set guide_tri_l:start to guide_far*nav_heading:vector.
-        set guide_tri_l:vec to -guide_far*sin(1.0)*
-            (nav_heading:starvector + 0.1*nav_heading:topvector).
+        set guide_tri_ll:start to camera_offset+guide_far*(nav_heading:vector-sin(guide_size)*nav_heading:starvector).
+        set guide_tri_ll:vec to guide_far*sin(guide_size)*
+            (nav_heading:starvector - nav_heading:topvector).
 
-        set guide_tri_r:start to guide_far*nav_heading:vector.
-        set guide_tri_r:vec to guide_far*sin(1.0)*
-            (nav_heading:starvector - 0.1*nav_heading:topvector).
+        set guide_tri_lr:start to camera_offset+guide_far*(nav_heading:vector+sin(guide_size)*nav_heading:starvector).
+        set guide_tri_lr:vec to guide_far*sin(guide_size)*
+            (-nav_heading:starvector - nav_heading:topvector).
 
-        if vectorangle(srfprograde:vector, nav_heading:vector) < 30 {
-            set guide_tri_b:start to guide_far*nav_heading:vector.
-            set guide_tri_b:vec to -guide_far*sin(1.0)*nav_heading:topvector.
-        } else {
-            set guide_tri_b:start to guide_far*srfprograde:vector.
-            set guide_tri_b:vec to guide_far*nav_heading:vector-guide_far*srfprograde:vector.
-        }
+        set guide_tri_tl:start to camera_offset+guide_far*(nav_heading:vector-sin(guide_size)*nav_heading:starvector).
+        set guide_tri_tl:vec to guide_far*sin(guide_size)*
+            (nav_heading:starvector + nav_heading:topvector).
+
+        set guide_tri_tr:start to camera_offset+guide_far*(nav_heading:vector+sin(guide_size)*nav_heading:starvector).
+        set guide_tri_tr:vec to guide_far*sin(guide_size)*
+            (-nav_heading:starvector + nav_heading:topvector).
 
         local v_color_r is min(1,max(0,-(nav_vel - vel)/100 )).
         local v_color_g is min(1,max(0,1-abs(nav_vel - vel)/100 )).
         local v_color_b is min(1,max(0,(nav_vel - vel)/100 )).
 
-        set guide_tri_l:color to RGB( min(1,max(0,(display_set/4)*sqrt(v_color_r))),
+        set guide_tri_ll:color to RGB( min(1,max(0,(display_set/4)*sqrt(v_color_r))),
                                     min(1,max(0,(display_set/4)*sqrt(v_color_g))),
                                     min(1,max(0,(display_set/4)*sqrt(v_color_b)))).
-        set guide_tri_r:color to guide_tri_l:color.
-        set guide_tri_b:color to guide_tri_l:color.
+        set guide_tri_lr:color to guide_tri_ll:color.
+        set guide_tri_tl:color to guide_tri_ll:color.
+        set guide_tri_tr:color to guide_tri_ll:color.
 
-        set guide_tri_l:show to true.
-        set guide_tri_r:show to true.
-        set guide_tri_b:show to true.
+        set guide_tri_ll:show to true.
+        set guide_tri_lr:show to true.
+        set guide_tri_tl:show to true.
+        set guide_tri_tr:show to true.
     }
     else
     {
-        set guide_tri_l:show to false.
-        set guide_tri_r:show to false.
-        set guide_tri_b:show to false.
+        set guide_tri_ll:show to false.
+        set guide_tri_lr:show to false.
+        set guide_tri_tl:show to false.
+        set guide_tri_tr:show to false.
         return.
     }
 }
@@ -99,7 +110,7 @@ local ladder_init_draw is false.
 local ladder_vec_list is list().
 local function ladder_vec_draw {
 
-    local ladder_far is 750.
+    local ladder_far is 300.
     local ladder_width is 0.25.
     local ladder_scale is 1.0.
 
@@ -134,6 +145,8 @@ local function ladder_vec_draw {
         set ladder_vec_list[1][1] to closest_pitch.
         set ladder_vec_list[2][1] to closest_pitch-UTIL_HUD_PITCH_DIV.
 
+        local camera_offset is camera_offset_vec.
+
 
         local set_color is RGB(0,min(display_set/4,1),0).
 
@@ -141,15 +154,15 @@ local function ladder_vec_draw {
             local cur_HEAD is heading(vel_bear, bar[1]).
 
             if bar[1] = 0 {
-                set bar[0][0]:start to ladder_far*cur_HEAD:vector-ladder_far*sin(1.0)*cur_HEAD:starvector.
-                set bar[0][1]:start to ladder_far*cur_HEAD:vector+ladder_far*sin(1.0)*cur_HEAD:starvector.
+                set bar[0][0]:start to camera_offset+ladder_far*cur_HEAD:vector-ladder_far*sin(1.0)*cur_HEAD:starvector.
+                set bar[0][1]:start to camera_offset+ladder_far*cur_HEAD:vector+ladder_far*sin(1.0)*cur_HEAD:starvector.
                 
                 set bar[0][0]:vec to -ladder_far*sin(5.0)*cur_HEAD:starvector.
                 set bar[0][1]:vec to +ladder_far*sin(5.0)*cur_HEAD:starvector.
                 set bar[0][0]:label to "".
             } else {
-                set bar[0][0]:start to ladder_far*cur_HEAD:vector.
-                set bar[0][1]:start to ladder_far*cur_HEAD:vector.
+                set bar[0][0]:start to camera_offset+ladder_far*cur_HEAD:vector.
+                set bar[0][1]:start to camera_offset+ladder_far*cur_HEAD:vector.
 
                 set bar[0][0]:vec to -ladder_far*(sin(2.0)*cur_HEAD:starvector-sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
                 set bar[0][1]:vec to ladder_far*(sin(2.0)*cur_HEAD:starvector+sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
@@ -175,7 +188,7 @@ local land_init_draw is false.
 local land_vert is 0.
 local land_hori is 0.
 local function land_vecdraw {
-    local far is 750.
+    local far is 300.
     local width is 0.25.
     local scale is 1.0.
 
@@ -197,9 +210,10 @@ local function land_vecdraw {
     if GEAR and is_active_vessel() and display_set > 0 and not MAPVIEW and vel > 1.0 {
         local set_color is RGB(0,min(display_set/4,1),0).
         local ghead is heading(UTIL_HUD_GHEAD + (choose 180 if vel_bear > 180 else 0),-UTIL_HUD_GSLOPE).
+        local camera_offset is camera_offset_vec.
 
-        set land_vert:start to far*(ghead:vector-0.1*ghead:topvector).
-        set land_hori:start to far*(ghead:vector-0.1*ghead:starvector).
+        set land_vert:start to camera_offset+far*(ghead:vector-0.1*ghead:topvector).
+        set land_hori:start to camera_offset+far*(ghead:vector-0.1*ghead:starvector).
 
         set land_vert:vec to far*0.2*ghead:topvector.
         set land_hori:vec to far*0.2*ghead:starvector.
@@ -277,19 +291,6 @@ local function lr_text_info {
 
     if display_set >= 0 and not MAPVIEW and is_active_vessel() {
 
-        local tar_str is "".
-
-        if HASTARGET {
-            if TARGET:distance < 1200 {
-                set tar_str to "T"+round_dec(TARGET:distance,1).
-            } else {
-                set tar_str to "T"+round_dec(TARGET:distance/1000,1) + "k".
-            }
-            set tar_str to tar_str + "/" + 
-                round_dec((target:velocity:surface-ship:velocity:surface):mag,0)
-                + char(10).
-        }  
-
         set hud_left_label:text to ""+
             ( choose ap_mode_get_str()+char(10) if AP_MODE_ENABLED else "") +
             " >> " + round(vel) +
@@ -303,7 +304,6 @@ local function lr_text_info {
             round_dec(SHIP:ALTITUDE,0) +" <| " + display_status_strs[display_set] + char(10) +
             round_dec(vel_bear,0) +" -O " + char(10) +
             ( choose util_wp_status_string()+char(10) if UTIL_WP_ENABLED else "") +
-            tar_str +
             hud_text_dict_right:values:join(char(10)).
 
         if not hud_left:visible { hud_left:SHOW(). }
@@ -313,6 +313,26 @@ local function lr_text_info {
     else {
         if hud_left:visible { hud_left:HIDE(). }
         if hud_right:visible { hud_right:HIDE(). }
+    }
+}
+
+local control_part_vec_init_draw is false.
+local control_part_vec is 0.
+local function control_part_vec_draw {
+
+    if not control_part_vec_init_draw {
+        
+        set control_part_vec TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
+            "", 1.0, true, 1.0, true ).
+        //set control_part_vec:wiping to false.
+        set control_part_vec_init_draw to true.
+    }
+    if is_active_vessel() and display_set = 5 and not MAPVIEW {
+
+        set control_part_vec:vec to SHIP:CONTROLPART:position + UTIL_HUD_CAMERA_HEIGHT*ship:facing:topvector.
+        set control_part_vec:show to true.
+    } else {
+        set control_part_vec:show to false.
     }
 }
 
@@ -330,6 +350,7 @@ function util_hud_info {
     land_vecdraw().
     ladder_vec_draw().
     nav_vecdraw().
+    //control_part_vec_draw(). // for calibration
 }
 
 // add text to left
