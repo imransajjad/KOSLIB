@@ -17,7 +17,7 @@ local function overwrite_waypoint {
     set L to waypointCoords:length-1.
     if L = 1 or L = 3 or L = 4 or L = 6 {
         util_shbus_tx_msg("OWR_WP", waypointCoords).
-        PRINT "Sent OWR_WP "+ waypointCoords:join(" ").
+        //PRINT "Sent OWR_WP "+ waypointCoords:join(" ").
     } else {
         PRINT "Waypoint length not 1, 3, 4 or 6, not sending".
     }
@@ -27,7 +27,7 @@ local function insert_waypoint {
     set L to waypointCoords:length-1.
     if L = 1 or L = 3 or L = 4 or L = 6 {
         util_shbus_tx_msg("INS_WP", waypointCoords).
-        PRINT "Sent INS_WP "+ waypointCoords:join(" ").
+        //PRINT "Sent INS_WP "+ waypointCoords:join(" ").
     } else {
         PRINT "Waypoint length not 1, 3, 4 or 6, not sending".
     }
@@ -35,15 +35,15 @@ local function insert_waypoint {
 local function remove_waypoint {
     PARAMETER remindex.
     util_shbus_tx_msg("REM_WP", remindex).
-    PRINT "Sent REM_WP ".
+    //PRINT "Sent REM_WP ".
 }
 local function waypoints_print {
     util_shbus_tx_msg("WP_PRINT").
-    PRINT "Sent WP_PRINT ".
+    //PRINT "Sent WP_PRINT ".
 }
 local function waypoints_purge {
     util_shbus_tx_msg("WP_PURGE").
-    PRINT "Sent WP_PURGE ".
+    //PRINT "Sent WP_PURGE ".
 }
 
 function util_wp_get_help_str {
@@ -79,7 +79,7 @@ local function generate_takeoff_seq {
     local start_alt is ship:altitude.
 
     local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
-    print start_head.
+    //print start_head.
 
     set takeoff_sequence_WP to LIST(
         list(-1, start_alt, 350,
@@ -129,9 +129,9 @@ local function generate_landing_seq_dev {
 
     local flare_long is flare_radius*sin(GSlope)/ship:body:radius*RAD2DEG.
     local flare_h is flare_radius*(1-cos(GSlope)).
-    print flare_radius.
-    print flare_long*DEG2RAD*ship:body:radius.
-    print flare_h.
+    //print flare_radius.
+    //print flare_long*DEG2RAD*ship:body:radius.
+    //print flare_h.
 
 
     local long_ofs is distance/ship:body:radius*RAD2DEG.
@@ -341,7 +341,7 @@ local function waypoint_queue_print {
     local i is WAYPOINT_QUEUE:ITERATOR.
     UNTIL NOT i:NEXT {
         set wp_list_string to wp_list_string+
-            "WP"+i:index+": " + waypoint_print_str(i:value) + char(10).
+            "WP"+ round(WAYPOINT_QUEUE:LENGTH-i:index-1) +": " + waypoint_print_str(i:value) + char(10).
     }
     print wp_list_string.
     return wp_list_string.

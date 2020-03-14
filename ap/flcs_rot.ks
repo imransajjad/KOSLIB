@@ -59,7 +59,7 @@ local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/AP_FLCS_CORNER_VELOCITY).
 local sc_geo_alpha is 0.32.
 local WING_AREA is 0.
 
-local lock GLimiter to ( prate_max+0.0001 >
+local lock GLimiter to ( prate_max+0.0001 + g0/vel*cos(vel_pitch)*cos(roll) >
     AP_FLCS_ROT_GLIM_VERT*g0/vel ).
 
 local pratePID is PIDLOOP(
@@ -75,11 +75,11 @@ if ( (defined AP_FLCS_RATE_SCHEDULE_ENABLED) and AP_FLCS_RATE_SCHEDULE_ENABLED)
             *(AP_FLCS_START_MASS*AP_FLCS_CORNER_VELOCITY).
     lock prate_max to MIN(
         WING_AREA*sc_geo_alpha*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel),
-        AP_FLCS_ROT_GLIM_VERT*g0/vel).
+        AP_FLCS_ROT_GLIM_VERT*g0/vel) - g0/vel*cos(vel_pitch)*cos(roll).
 } else {
     lock prate_max to MIN(
         (vel/AP_FLCS_CORNER_VELOCITY)*W_V_MAX,
-        AP_FLCS_ROT_GLIM_VERT*g0/vel).
+        AP_FLCS_ROT_GLIM_VERT*g0/vel) - g0/vel*cos(vel_pitch)*cos(roll).
 }
 
 local yratePID is PIDLOOP(
@@ -103,7 +103,7 @@ local rrateI is PIDLOOP(
     0,
     -0.05,0.05).
 
-local lock rrate_max to AP_FLCS_MAX_ROLL.
+local lock rrate_max to sat(vel/AP_FLCS_CORNER_VELOCITY*AP_FLCS_MAX_ROLL, AP_FLCS_MAX_ROLL).
 
 
 local LF2G is 1.0.
@@ -216,7 +216,7 @@ function ap_flcs_rot {
 
 function ap_flcs_rot_status_string {
 
-    local hud_str is ( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 ,1) + 
+    local hud_str is ( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
     char(10) + char(945) + " " + round_dec(alpha,1).
 
 

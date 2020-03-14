@@ -129,6 +129,16 @@ local function parse_command {
     return true.
 }
 
+function util_shbus_get_acks {
+    // -1 indicates error condition ( no ack available)
+    wait 0.04.
+    wait 0.04.
+    if not CORE:MESSAGES:EMPTY {
+        return CORE:MESSAGES:POP:CONTENT.
+    }
+    return -1.
+}
+
 function util_shbus_tx_msg {
     PARAMETER opcode_in, data_in is LIST(0).
     IF NOT FLCS_PROC:CONNECTION:SENDMESSAGE(LIST(opcode_in,data_in)) {
@@ -193,9 +203,8 @@ local function print_lowest_line_again {
 wait 1.0.
 CLEARSCREEN.
 print_help_page(0).
-util_shbus_tx_msg("SETHOST", core:tag ).
 
-function util_shbus_get_input {
+function util_shbus_tx_get_input {
     print_overflowed_line().
 
 
@@ -244,6 +253,17 @@ function util_shbus_get_input {
         //SET INPUT_STRING TO INPUT_STRING+ch.
         set INPUT_STRING to INPUT_STRING:insert(cursor, ch).
         set cursor to cursor+1.
+    }
+}
+
+
+function util_shbus_tx_do_command {
+    parameter comm_string is "".
+
+    if comm_string = "" {
+        print "util_shbus_tx_do_command invalid param".
+    } else {
+        parse_command(comm_string).
     }
 }
 

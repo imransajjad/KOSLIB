@@ -56,6 +56,7 @@ local function print_pos_info {
     print "h    " + SHIP:ALTITUDE.
     print "vs   " + SHIP:AIRSPEED.
     print "engine " + main_engine_name.
+    print "logtag " + logtag.
 }
 
 local function start_logging {
@@ -125,7 +126,7 @@ local function start_logging {
     LOG "" to filename.
 
     SET starttime to TIME:SECONDS.
-    UNTIL TIME:SECONDS-starttime > Tdur {
+    UNTIL (TIME:SECONDS-starttime > Tdur) and (Tdur > 0) {
         LOG TIME:SECONDS+","+u0+","+u1+","+u2+","+u3+
             ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
             ","+thrust+","+pitch+","+yaw+","+roll+
@@ -159,7 +160,7 @@ function util_fldr_get_help_str {
         "logtime(T)   total log time=T",
         "logdt(dt)    log interval =dt",
         "logtag TAG   set log tag",
-        "logengine TAG set engine tag",
+        "logengine    get engine string",
         "log          start logging",
         "testlog      start test, log",
         "listloginfo  list logs",
@@ -197,11 +198,21 @@ function util_fldr_parse_command {
         SET Tdur TO args[0].
     } ELSE IF commtext:STARTSWITH("logdt(") {
         SET Ts TO args[0].
-    } ELSE IF commtext:STARTSWITH("logtag ") {
-        set logtag to commtext:replace("logtag ", "_"):replace(".","").
-    } ELSE IF commtext:STARTSWITH("logengine ") {
-        set main_engine_name to commtext:replace("logengine ", ""):replace(".","").
-        set MAIN_ENGINES to get_engines(main_engine_name).
+    } ELSE IF commtext:STARTSWITH("logtag") {
+        if commtext:length > 7 {
+            set logtag to commtext:replace("logtag ", "_"):replace(".","").
+        } else {
+            set logtag to "".
+        }
+    } ELSE IF commtext:STARTSWITH("logengine") {
+        util_shbus_tx_msg("FLDR_GET_ENGINE").
+        local received is util_shbus_get_acks().
+        if received = -1 {
+            print "FLCS did not return engine name.".
+        } else {
+            set main_engine_name to received.
+            set MAIN_ENGINES to get_engines(main_engine_name).
+        }
     } ELSE IF commtext = "log" {
         start_logging().
     } ELSE IF commtext = "testlog" {
@@ -317,6 +328,12 @@ function util_fldr_decode_rx_msg {
         run_test_control().
     } ELSE IF opcode = "FLDR_PRINT_TEST" {
         util_shbus_rx_send_back_ack(print_sequences()).
+    } ELSE IF opcode = "FLDR_GET_ENGINE" {
+        if ( DEFINED main_engine_name){
+            util_shbus_rx_send_back_ack(main_engine_name).
+        } else {
+            util_shbus_rx_send_back_ack("").
+        }
     } else {
         util_shbus_rx_send_back_ack("could not decode fldr rx msg").
         print "could not decode fldr rx msg".
