@@ -73,13 +73,13 @@ if ( (defined AP_FLCS_RATE_SCHEDULE_ENABLED) and AP_FLCS_RATE_SCHEDULE_ENABLED)
     set WING_AREA to W_V_MAX/
             (CORNER_SEA_Q*cl_sched(AP_FLCS_CORNER_VELOCITY)*sc_geo_alpha)
             *(AP_FLCS_START_MASS*AP_FLCS_CORNER_VELOCITY).
-    lock prate_max to MIN(
+    lock prate_max to max(0,MIN(
         WING_AREA*sc_geo_alpha*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel),
-        AP_FLCS_ROT_GLIM_VERT*g0/vel) - g0/vel*cos(vel_pitch)*cos(roll).
+        AP_FLCS_ROT_GLIM_VERT*g0/vel) - g0/vel*cos(vel_pitch)*cos(roll)).
 } else {
-    lock prate_max to MIN(
+    lock prate_max to max(0,MIN(
         (vel/AP_FLCS_CORNER_VELOCITY)*W_V_MAX,
-        AP_FLCS_ROT_GLIM_VERT*g0/vel) - g0/vel*cos(vel_pitch)*cos(roll).
+        AP_FLCS_ROT_GLIM_VERT*g0/vel) - g0/vel*cos(vel_pitch)*cos(roll)).
 }
 
 local yratePID is PIDLOOP(
@@ -112,8 +112,8 @@ local function gain_schedule {
 
     local loadfactor is max(ship:q,MIN_SEA_Q)/ship:mass.
     local alsat is sat(alpha,35).
-    local airflow_c_u is cl_sched(max(50,vel))*(cos(alsat)^3 - 2*cos(alsat)*sin(alsat)^2)+
-        cd_sched(max(50,vel))*(3*cos(alsat)*sin(alsat)^2).
+    local airflow_c_u is cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
+        cd_sched(max(50,vel))*(2*cos(alsat)*sin(alsat)^2).
 
     set LF2G to 1.0.
 
@@ -220,7 +220,7 @@ function ap_flcs_rot_status_string {
     char(10) + char(945) + " " + round_dec(alpha,1).
 
 
-    if ( false) { // oribt info
+    if ( false) { // orbit info
         set hud_str to hud_str + ( choose char(10)+"t Ap "+round(eta:apoapsis)+"s" if eta:apoapsis > 25 and Vslast > 10 else "") +
         ( choose char(10)+"t Ap "+round(eta:apoapsis-ship:orbit:period)+"s" if (eta:apoapsis-ship:orbit:period) < -25 and Vslast < -10 else "").
     }

@@ -82,7 +82,7 @@ ap_engine_init().
 // main loop
 UNTIL false {
     if UTIL_SHBUS_RX_ENABLED {
-        util_shbus_check_for_messages().
+        util_shbus_rx_check_for_messages().
     }
     IF UTIL_SHSYS_ENABLED {
         util_shsys_check().

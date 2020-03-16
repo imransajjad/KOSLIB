@@ -3,18 +3,20 @@
 set UTIL_WP_takeoff_distance to 400.
 
 // glimits
-set AP_FLCS_ROT_GLIM_VERT to 4.
-set AP_FLCS_ROT_GLIM_LAT to 2.
+set AP_FLCS_ROT_GLIM_VERT to 2.
+set AP_FLCS_ROT_GLIM_LAT to 1.
 set AP_FLCS_ROT_GLIM_LONG to 5.
 
 set AP_FLCS_CORNER_VELOCITY to 60.
+
+set AP_FLCS_START_MASS to 85.9.
 
 // rate limits
 set AP_FLCS_MAX_ROLL to 0.5*3.14159265359.
 
 // pitch rate PID gains
-set AP_FLCS_ROT_PR_KP to 1.5.
-set AP_FLCS_ROT_PR_KI to 1.1.
+set AP_FLCS_ROT_PR_KP to 2.5.
+set AP_FLCS_ROT_PR_KI to 3.1.
 set AP_FLCS_ROT_PR_KD to 0.01.
 
 // yaw rate PID gains
@@ -50,6 +52,7 @@ set AP_NAV_K_HEADING to 4.5.
 set AP_NAV_ROLL_W_MIN to 5.0.
 set AP_NAV_ROLL_W_MAX to 20.0.
 set AP_NAV_BANK_MAX to 90.
+set AP_NAV_VSET_MAX to 350.
 
 
 set AP_ENGINES_V_PID_KP to 0.025.
@@ -58,6 +61,8 @@ set AP_ENGINES_V_PID_KD to 0.0.
 
 // UTIL_HUD
 set UTIL_HUD_START_COLOR to 4.
+set UTIL_HUD_CAMERA_HEIGHT to 1.2.
+set UTIL_HUD_CAMERA_RIGHT to -0.4.
 
 set UTIL_HUD_LAND_GUIDE to true.
 set UTIL_HUD_LADDER to true.
@@ -66,7 +71,7 @@ set UTIL_HUD_NAVVEC to true.
 set UTIL_HUD_GSLOPE to 3.0.
 set UTIL_HUD_GHEAD to 90.4.
 set UTIL_HUD_PITCH_DIV to 5.0.
-set UTIL_HUD_FLARE_ALT to 20.
+set UTIL_HUD_FLARE_ALT to 40.
 set UTIL_HUD_SHIP_HEIGHT to 5.7.
 
 

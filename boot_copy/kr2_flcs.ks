@@ -47,7 +47,7 @@ GLOBAL BOOT_RCOM_ENABLED IS true.
 
 UNTIL FALSE {
     if UTIL_SHBUS_RX_ENABLED {
-        util_shbus_check_for_messages().
+        util_shbus_rx_check_for_messages().
     }
     if UTIL_SHSYS_ENABLED {
         util_shsys_check().

@@ -49,7 +49,7 @@ function util_shbus_rx_send_back_ack {
 
 // check for any new messages and run any commands immediately
 // do not return any value
-function util_shbus_check_for_messages {
+function util_shbus_rx_check_for_messages {
 
     IF NOT CORE:MESSAGES:EMPTY {
         SET received_msg TO CORE:MESSAGES:POP.
