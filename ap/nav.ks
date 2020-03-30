@@ -1,9 +1,5 @@
 
-// required module AP_MODE_ENABLED
 GLOBAL AP_NAV_ENABLED IS TRUE.
-IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
-IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
-
 
 // required global, will not modify
 // roll, pitch, yaw
@@ -11,6 +7,7 @@ IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 // vel_pitch, vel_bear
 // pilot_input_u0, pilot_input_u1, pilot_input_u2, pilot_input_u3
 
+local USE_WP is (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED.
 
 local AP_NAV_VERT_G is 0.1.
 local AP_NAV_HOR_G is 1.0.
@@ -108,7 +105,7 @@ FUNCTION ap_nav_disp {
 
     set V_SET_PREV to V_SET.
 
-    IF (UTIL_WP_ENABLED and util_wp_queue_length() > 0) {
+    IF USE_WP and (util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
         set V_SET to cur_wayp[1].
 
@@ -203,6 +200,7 @@ FUNCTION ap_nav_disp {
             } else {
                 set WP_ARC to ( ship:SRFPROGRADE:vector*center_target < 0.17*center_target:mag).
             }
+            set WP_ARC to true.
 
 
             if WP_ARC {

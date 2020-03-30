@@ -29,8 +29,6 @@ LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
 LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
 
-global aux_antenna_name is "omni_antenna".
-
 run once "param".
 run once "util_common".
 run once "util_shbus_rx".
@@ -39,19 +37,11 @@ run once "util_shsys".
 run once "ap_mode".
 run once "ap_nav".
 
-// define disabled flags
-IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
-IF NOT (DEFINED UTIL_SHBUS_RX_ENABLED) { GLOBAL UTIL_SHBUS_RX_ENABLED IS false.}
 GLOBAL BOOT_RCOM_ENABLED IS true.
 
-
 UNTIL FALSE {
-    if UTIL_SHBUS_RX_ENABLED {
-        util_shbus_rx_check_for_messages().
-    }
-    if UTIL_SHSYS_ENABLED {
-        util_shsys_check().
-    }
+    util_shbus_rx_check_for_messages().
+    util_shsys_check().
 
     ap_mode_update().
     if not AP_MODE_NAV and not has_connection_to_base(){

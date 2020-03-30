@@ -1,11 +1,9 @@
 
-IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
-IF NOT (DEFINED UTIL_FLDR_ENABLED) { GLOBAL UTIL_FLDR_ENABLED IS false.}
 GLOBAL UTIL_SHBUS_TX_ENABLED IS true.
 
 // TX SECTION
 
-// SET FLCS_PROC TO 0. required global.
+IF NOT (DEFINED FLCS_PROC) {GLOBAL FLCS_PROC IS 0. } // required global.
 
 local lock H to terminal:height.
 local lock W to terminal:width.
@@ -28,14 +26,14 @@ ship:name,
 "rst         reset flcs",
 "inv         invalid message").
 
-if UTIL_WP_ENABLED {
+if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
     local newlist is util_wp_get_help_str().
     for i in range(0,newlist:length) {
         HELP_LIST:add(newlist[i]).
     }
 
 }
-if UTIL_FLDR_ENABLED {
+if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED {
     local newlist is util_fldr_get_help_str().
     for i in range(0,newlist:length) {
         HELP_LIST:add(newlist[i]).
@@ -107,10 +105,13 @@ local function parse_command {
                 print_help_page(0).
             }
         } else if commtext:STARTSWITH("rst"){
-            if FLCS_PROC:mode = "READY" {
-                FLCS_PROC:deactivate().
-                wait 0.1.
-                FLCS_PROC:activate().
+            list PROCESSORS in cpus.
+            for cpu in cpus {
+                if not (cpu:tag = core:tag) {
+                    cpu:deactivate().
+                    wait 0.1.
+                    cpu:activate().
+                }
             }
         } else if commtext:STARTSWITH("inv"){
             util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
@@ -141,7 +142,7 @@ function util_shbus_get_acks {
 
 function util_shbus_tx_msg {
     PARAMETER opcode_in, data_in is LIST(0).
-    IF NOT FLCS_PROC:CONNECTION:SENDMESSAGE(LIST(opcode_in,data_in)) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(LIST(opcode_in,data_in)) {
         print("could not send message "+ arg_in).
     }
 }

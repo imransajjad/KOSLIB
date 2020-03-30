@@ -6,15 +6,15 @@ local other_ships is UNIQUESET().
 
 IF NOT (DEFINED UTIL_SHSYS_ARM_RLAUNCH_STATUS) { global UTIL_SHSYS_ARM_RLAUNCH_STATUS is false.}
 
-IF NOT (DEFINED main_engine_name) { global main_engine_name is "".}
-IF NOT (DEFINED main_antenna_name) { global main_antenna_name is "".}
-IF NOT (DEFINED aux_antenna_name) { global aux_antenna_name is "".}
+IF NOT (DEFINED MAIN_ENGINE_NAME) { global MAIN_ENGINE_NAME is "".}
+IF NOT (DEFINED MAIN_ANTENNAS_NAME) { global MAIN_ANTENNAS_NAME is "".}
+IF NOT (DEFINED AUX_ANTENNAS_NAME) { global AUX_ANTENNAS_NAME is "".}
 
 
 
-local MAIN_ENGINES is get_parts_tagged(main_engine_name).
-local MAIN_ANTENNAS is get_parts_tagged(main_antenna_name).
-local AUX_ANTENNAS is get_parts_tagged(aux_antenna_name).
+local main_engines is get_parts_tagged(MAIN_ENGINE_NAME).
+local main_antennas is get_parts_tagged(MAIN_ANTENNAS_NAME).
+local aux_antennas is get_parts_tagged(AUX_ANTENNAS_NAME).
 
 
 local prev_status is "NA".
@@ -59,10 +59,10 @@ local function iterate_spacecraft_system_state {
             }
 
             set PANELS to true.
-            for a in MAIN_ANTENNAS {
+            for a in main_antennas {
                 a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
             }
-            for a in AUX_ANTENNAS {
+            for a in aux_antennas {
                 a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
             }
         }
@@ -78,10 +78,10 @@ local function iterate_spacecraft_system_state {
             }
 
             set PANELS to false.
-            for a in MAIN_ANTENNAS {
+            for a in main_antennas {
                 a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
             }
-            for a in AUX_ANTENNAS {
+            for a in aux_antennas {
                 a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
             }
         }
@@ -162,7 +162,7 @@ function util_shsys_check {
 
 function util_shsys_status_string {
     local stat_list is list().
-    for me in MAIN_ENGINES {
+    for me in main_engines {
         if me:multimode {
             stat_list:add(me:mode[0]).
         }

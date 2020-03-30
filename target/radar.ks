@@ -14,8 +14,8 @@ local target_list is list().
 local status_str is "".
 
 set scan_timeout_max to 10.
+IF NOT (DEFINED FLCS_PROC) {GLOBAL FLCS_PROC IS 0. } // required global.
 
-local flcs_proc is processor("FLCS").
 local hudtext_sent is false.
 
 local debug_str is "".
@@ -86,16 +86,16 @@ local function do_debug_print {
 
 local function hudtext {
     parameter ttext.
-    if hudtext_sent { return.}
-    if not flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHR",list(core:tag, ttext))) {
+    if (FLCS_PROC = 0) or hudtext_sent { return.}
+    if not FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_PUSHR",list(core:tag, ttext))) {
         print "could not send message HUD_PUSHR".
     }
     set hudtext_sent to true.
 }
 
 local function hudtext_remove {
-    if not hudtext_sent { return.}
-    if not flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPR",list(core:tag))) {
+    if (FLCS_PROC = 0) or not hudtext_sent { return.}
+    if not FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_POPR",list(core:tag))) {
         print "could not send message HUD_POPR".
     }
     set hudtext_sent to false.

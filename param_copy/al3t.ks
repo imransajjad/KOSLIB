@@ -79,3 +79,5 @@ set UTIL_HUD_SHIP_HEIGHT to 5.7.
 set AP_MODE_FLCS_ENABLED to true.
 set AP_MODE_VEL_ENABLED to true.
 set AP_MODE_NAV_ENABLED to true.
+
+set MAIN_ENGINE_NAME to "turboFanSize2".

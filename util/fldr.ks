@@ -1,7 +1,7 @@
 
 // Required Dependencies
-// UTIL_SHBUS_TX_ENABLED
-// UTIL_SHBUS_RX_ENABLED
+// UTIL_SHBUS_TX_ENABLED (for tx commands)
+// UTIL_SHBUS_RX_ENABLED (for rx commands)
 
 GLOBAL UTIL_FLDR_ENABLED IS true.
 
@@ -16,9 +16,9 @@ local Tdel is 0.
 local logtag to "".
 local filename is "".
 
-IF NOT (DEFINED main_engine_name) { global main_engine_name is "".}
+IF NOT (DEFINED MAIN_ENGINE_NAME) { global MAIN_ENGINE_NAME is "".}
 
-local MAIN_ENGINES is get_engines(main_engine_name).
+local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
 // TX SECTION
 
@@ -55,7 +55,7 @@ local function print_pos_info {
     print "lng  " + SHIP:GEOPOSITION:LNG.
     print "h    " + SHIP:ALTITUDE.
     print "vs   " + SHIP:AIRSPEED.
-    print "engine " + main_engine_name.
+    print "engine " + MAIN_ENGINE_NAME.
     print "logtag " + logtag.
 }
 
@@ -210,8 +210,8 @@ function util_fldr_parse_command {
         if received = -1 {
             print "FLCS did not return engine name.".
         } else {
-            set main_engine_name to received.
-            set MAIN_ENGINES to get_engines(main_engine_name).
+            set MAIN_ENGINE_NAME to received.
+            set MAIN_ENGINES to get_engines(MAIN_ENGINE_NAME).
         }
     } ELSE IF commtext = "log" {
         start_logging().
@@ -329,11 +329,7 @@ function util_fldr_decode_rx_msg {
     } ELSE IF opcode = "FLDR_PRINT_TEST" {
         util_shbus_rx_send_back_ack(print_sequences()).
     } ELSE IF opcode = "FLDR_GET_ENGINE" {
-        if ( DEFINED main_engine_name){
-            util_shbus_rx_send_back_ack(main_engine_name).
-        } else {
-            util_shbus_rx_send_back_ack("").
-        }
+        util_shbus_rx_send_back_ack(MAIN_ENGINE_NAME).
     } else {
         util_shbus_rx_send_back_ack("could not decode fldr rx msg").
         print "could not decode fldr rx msg".

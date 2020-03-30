@@ -5,7 +5,6 @@ local engine is 0.
 local decoupler_module is 0.
 local probe_core is 0.
 local reaction_wheels_module is 0.
-local flcs_proc is processor("FLCS").
 
 local Ts is 0.0001.
 local minimum_intercept is 100.
@@ -60,24 +59,24 @@ local function get_parts_used {
 
 
 local function cargo_bay_open {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("SYS_CB_OPEN",list(core:tag))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("SYS_CB_OPEN",list(core:tag))) {
         print "could not CB_OPEN send message".
     }
 }
 local function cargo_bay_safe_close {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("SYS_PL_AWAY",list(core:tag))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("SYS_PL_AWAY",list(core:tag))) {
         print "could not PL_AWAY send message".
     }
 }
 
 local function send_q_unsafe {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, "nQS"))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, "nQS"))) {
         print "could not HUD_PUSHL send message".
     }
 }
 
 local function send_rem_q_unsafe {
-    IF NOT flcs_proc:CONNECTION:SENDMESSAGE(list("HUD_POPL",list(core:tag))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_POPL",list(core:tag))) {
         print "could not HUD_POPL send message".
     }
 }

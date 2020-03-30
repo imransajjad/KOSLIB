@@ -19,19 +19,21 @@ IF has_connection_to_base() {
     print "loaded resources from base".
 }
 
-global main_engine_name is "".
-global FLCS_PROC is PROCESSOR("FLCS").
+wait 0.04.
+wait 0.04.
+global FLCS_PROC is PROCESSOR("flcs").
 
 run once "util_common".
 run once "util_fldr".
 run once "util_wp".
 run once "util_shbus_tx".
 
-
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
 flush_core_messages().
+util_shbus_tx_do_command("sethost").
+util_shbus_tx_do_command("logengine").
 
 UNTIL FALSE {
-    util_shbus_get_input().
+    util_shbus_tx_get_input().
 }

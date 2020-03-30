@@ -14,3 +14,5 @@ set UTIL_SHSYS_PARACHUTE_ALT to 1000.
 
 set AP_MODE_FLCS_ENABLED to true.
 set AP_MODE_NAV_ENABLED to true.
+
+set AUX_ANTENNAS_NAME to "omni_antenna".

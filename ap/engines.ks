@@ -1,11 +1,5 @@
 
-IF NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED is false.}
 GLOBAL AP_ENGINES_ENABLED IS true.
-
-// required global, will not modify
-// pilot_input_u0
-// main_engine_name
-
 
 function ap_engines_get_total_thrust {
     local total_thrust is 0.
@@ -112,10 +106,8 @@ local function turbofan_common {
     }
 }
 
-IF NOT (DEFINED main_engine_name) {
-    set main_engine_name to "".
-}
-local MAIN_ENGINES is get_engines(main_engine_name).
+IF NOT (DEFINED MAIN_ENGINE_NAME) { set MAIN_ENGINE_NAME to "".}
+local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
 local auto_throttle_func is generic_throttle_auto@.
 local mapped_throttle_func is no_map@.
@@ -132,19 +124,19 @@ function ap_engine_throttle_map {
 }
 
 function ap_engine_init {
-    set MAIN_ENGINES to get_engines(main_engine_name).
-    if main_engine_name = "turboJet" {
-        if AP_NAV_ENABLED {
+    set MAIN_ENGINES to get_engines(MAIN_ENGINE_NAME).
+    print MAIN_ENGINES.
+
+    if MAIN_ENGINE_NAME = "turboJet" {
+        if (defined AP_NAV_ENABLED) and AP_NAV_ENABLED {
             set auto_throttle_func to turbojet_throttle_auto@.
             set mapped_throttle_func to turbojet_throttle_map@.
         } else {
             set auto_throttle_func to turbojet_throttle_map@.
             set mapped_throttle_func to turbojet_throttle_map@.
         }    
-    } else if main_engine_name = "turboFanSize2" {
+    } else if MAIN_ENGINE_NAME = "turboFanSize2" {
         set common_func to turbofan_common@.
     }
 
 }
-
-ap_engine_init().
