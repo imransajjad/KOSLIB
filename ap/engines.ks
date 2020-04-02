@@ -125,7 +125,6 @@ function ap_engine_throttle_map {
 
 function ap_engine_init {
     set MAIN_ENGINES to get_engines(MAIN_ENGINE_NAME).
-    print MAIN_ENGINES.
 
     if MAIN_ENGINE_NAME = "turboJet" {
         if (defined AP_NAV_ENABLED) and AP_NAV_ENABLED {

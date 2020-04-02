@@ -6,16 +6,17 @@ IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
 IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
 
-local lock AG to AG3.
-local PREV_AG is AG.
-
 CLEARVECDRAWS().
 
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
-local display_set is UTIL_HUD_START_COLOR.
-local display_status_strs is list(" ","\" ,"-", "/","|","c").
+local hud_setting_dict is lexicon("on", false, "green", true, "ladder", true, "land", true, "nav", true, "movable", false).
+
+local hud_color is RGB(0,1,0).
+local hud_land_slope is -2.5.
+local hud_land_head is 90.4.
+
 local lock camera_offset_vec to SHIP:CONTROLPART:position + 
     UTIL_HUD_CAMERA_HEIGHT*ship:facing:topvector + 
     UTIL_HUD_CAMERA_RIGHT*ship:facing:starvector.
@@ -32,7 +33,7 @@ local function nav_vecdraw {
     local guide_size is 0.5.
 
     if not nav_init_draw {
-        IF NOT (DEFINED AP_NAV_ENABLED) or not (DEFINED UTIL_HUD_NAVVEC) {
+        IF not (DEFINED AP_NAV_ENABLED) or not (AP_NAV_ENABLED) {
             return.
         }
 
@@ -55,7 +56,7 @@ local function nav_vecdraw {
         set guide_tri_tr:wiping to false.
 
     }
-    if is_active_vessel() and display_set > 0 and not MAPVIEW and 
+    if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel() and not MAPVIEW and 
        (( DEFINED UTIL_WP_ENABLED and util_wp_queue_length() > 0 ) or
         ( DEFINED AP_MODE_ENABLED and DEFINED AP_NAV_ENABLED and AP_MODE_NAV)){
 
@@ -79,16 +80,10 @@ local function nav_vecdraw {
         set guide_tri_tr:vec to guide_far*sin(guide_size)*
             (-nav_heading:starvector + nav_heading:topvector).
 
-        local v_color_r is min(1,max(0,-(nav_vel - vel)/100 )).
-        local v_color_g is min(1,max(0,1-abs(nav_vel - vel)/100 )).
-        local v_color_b is min(1,max(0,(nav_vel - vel)/100 )).
-
-        set guide_tri_ll:color to RGB( min(1,max(0,(display_set/4)*sqrt(v_color_r))),
-                                    min(1,max(0,(display_set/4)*sqrt(v_color_g))),
-                                    min(1,max(0,(display_set/4)*sqrt(v_color_b)))).
-        set guide_tri_lr:color to guide_tri_ll:color.
-        set guide_tri_tl:color to guide_tri_ll:color.
-        set guide_tri_tr:color to guide_tri_ll:color.
+        set guide_tri_ll:color to hud_color.
+        set guide_tri_lr:color to hud_color.
+        set guide_tri_tl:color to hud_color.
+        set guide_tri_tr:color to hud_color.
 
         set guide_tri_ll:show to true.
         set guide_tri_lr:show to true.
@@ -115,9 +110,6 @@ local function ladder_vec_draw {
     local ladder_scale is 1.0.
 
     if not ladder_init_draw {
-        if not (DEFINED UTIL_HUD_LADDER) {
-            return.
-        }
         set ladder_init_draw to true.
 
         for i in range(0,3) {
@@ -136,7 +128,7 @@ local function ladder_vec_draw {
             }
         }
     }
-    if is_active_vessel() and display_set > 0 and not MAPVIEW and vel > 1.0 {
+    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and is_active_vessel() and not MAPVIEW and vel > 1.0 {
 
         local closest_pitch is sat(
             round(vel_pitch/UTIL_HUD_PITCH_DIV)*UTIL_HUD_PITCH_DIV,
@@ -146,9 +138,6 @@ local function ladder_vec_draw {
         set ladder_vec_list[2][1] to closest_pitch-UTIL_HUD_PITCH_DIV.
 
         local camera_offset is camera_offset_vec.
-
-
-        local set_color is RGB(0,min(display_set/4,1),0).
 
         for bar in ladder_vec_list {
             local cur_HEAD is heading(vel_bear, bar[1]).
@@ -168,8 +157,8 @@ local function ladder_vec_draw {
                 set bar[0][1]:vec to ladder_far*(sin(2.0)*cur_HEAD:starvector+sign(bar[1])*sin(0.5)*cur_HEAD:topvector ).
                 set bar[0][0]:label to ""+round_dec(bar[1],1).
             }
-            set bar[0][0]:color to set_color.
-            set bar[0][1]:color to set_color.
+            set bar[0][0]:color to hud_color.
+            set bar[0][1]:color to hud_color.
             set bar[0][0]:show to true.
             set bar[0][1]:show to true.
         }
@@ -192,13 +181,9 @@ local function land_vecdraw {
     local width is 0.25.
     local scale is 1.0.
 
-
     if not land_init_draw {
-        if not (DEFINED UTIL_HUD_LAND_GUIDE) {
-            return.
-        }
-        set land_init_draw to true.
 
+        set land_init_draw to true.
         set land_vert to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
             "", scale, true, width, FALSE ).
         set land_hori to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
@@ -207,10 +192,9 @@ local function land_vecdraw {
         set land_hori:wiping to false.
     }
 
-    if GEAR and is_active_vessel() and display_set > 0 and not MAPVIEW and vel > 1.0 {
-        local set_color is RGB(0,min(display_set/4,1),0).
-        local ghead is heading(UTIL_HUD_GHEAD + (choose 180 if vel_bear > 180 else 0),-UTIL_HUD_GSLOPE).
+    if GEAR and is_active_vessel() and hud_setting_dict["land"] and not MAPVIEW and vel > 1.0 {
         local camera_offset is camera_offset_vec.
+        local ghead to heading(hud_land_head,-abs(hud_land_slope)).
 
         set land_vert:start to camera_offset+far*(ghead:vector-0.1*ghead:topvector).
         set land_hori:start to camera_offset+far*(ghead:vector-0.1*ghead:starvector).
@@ -218,8 +202,8 @@ local function land_vecdraw {
         set land_vert:vec to far*0.2*ghead:topvector.
         set land_hori:vec to far*0.2*ghead:starvector.
 
-        set land_vert:color to set_color.
-        set land_hori:color to set_color.
+        set land_vert:color to hud_color.
+        set land_hori:color to hud_color.
 
         local flare_alt is ship:altitude-ship:geoposition:terrainheight-UTIL_HUD_SHIP_HEIGHT.
 
@@ -249,7 +233,7 @@ local function lr_text_info {
         set hud_left:style:BG to "blank_tex".
         set hud_left_label to hud_left:ADDLABEL("").
         set hud_left_label:style:ALIGN to "LEFT".
-        set hud_left_label:style:textcolor to RGB(0,1,0).
+        set hud_left_label:style:textcolor to hud_color.
 
         set hud_left:visible to false.
 
@@ -260,40 +244,38 @@ local function lr_text_info {
 
         set hud_right_label to hud_right:ADDLABEL("").
         set hud_right_label:style:ALIGN to "RIGHT".
-        set hud_right_label:style:textcolor to RGB(0,1,0).
+        set hud_right_label:style:textcolor to hud_color.
 
         set hud_right:visible to false.
 
     }
 
-    if not (PREV_AG = AG) {
-        set PREV_AG to AG.
-        set display_set to display_set+1.
-        if display_set >= 6 { set display_set to -1.}
+    if hud_setting_dict["on"] and not MAPVIEW and is_active_vessel() {
 
-        if display_set < 0 {
-            set hud_left:draggable to false.
-            set hud_right:draggable to false.
-            if hud_left:visible { hud_left:HIDE(). }
-            if hud_right:visible { hud_right:HIDE(). }
+        local vel_displayed is 0.
+        local vel_type is "  ".
+        if (NAVMODE = "ORBIT") {
+            set vel_displayed to ship:velocity:orbit:mag.
+            set vel_type to "  ".
+        } else if (NAVMODE = "SURFACE") {
+            set vel_displayed to ship:velocity:surface:mag.
+            set vel_type to " >".
+        } else if (NAVMODE = "TARGET") {
+            set vel_displayed to (TARGET:velocity:orbit-ship:velocity:orbit):mag.
+            set vel_type to " +".
+        }
 
-        } else if display_set < 5 {
-            set hud_left_label:style:textcolor to RGB(0,display_set/4,0).
-            set hud_right_label:style:textcolor to RGB(0,display_set/4,0).
-
-        } else if display_set < 6 {
+        if hud_setting_dict["movable"] {
             set hud_left:draggable to true.
             set hud_right:draggable to true.
-            set hud_left_label:style:textcolor to RGB(1,1,1).
-            set hud_right_label:style:textcolor to RGB(1,1,1).
+        } else {
+            set hud_left:draggable to false.
+            set hud_right:draggable to false.
         }
-    }
-
-    if display_set >= 0 and not MAPVIEW and is_active_vessel() {
 
         set hud_left_label:text to ""+
             ( choose ap_mode_get_str()+char(10) if AP_MODE_ENABLED else "") +
-            " >> " + round(vel) +
+            vel_type+"> " + round(vel_displayed) +
             ( choose ap_nav_status_string()+char(10) if AP_NAV_ENABLED else char(10) ) +
             ( choose ap_flcs_rot_status_string()+char(10) if AP_FLCS_ROT_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
@@ -301,10 +283,13 @@ local function lr_text_info {
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
             ( choose util_shsys_status_string()+char(10) if UTIL_SHSYS_ENABLED else "") +
-            round_dec(SHIP:ALTITUDE,0) +" <| " + display_status_strs[display_set] + char(10) +
+            round_dec(SHIP:ALTITUDE,0) +" <| " + char(10) +
             round_dec(vel_bear,0) +" -O " + char(10) +
             ( choose util_wp_status_string()+char(10) if UTIL_WP_ENABLED else "") +
             hud_text_dict_right:values:join(char(10)).
+
+        set hud_left_label:style:textcolor to hud_color.
+        set hud_right_label:style:textcolor to hud_color.
 
         if not hud_left:visible { hud_left:SHOW(). }
         if not hud_right:visible { hud_right:SHOW(). }
@@ -322,12 +307,12 @@ local function control_part_vec_draw {
 
     if not control_part_vec_init_draw {
         
-        set control_part_vec TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
+        set control_part_vec TO VECDRAW(V(0,0,0), V(0,0,0), RGB(1.0,1.0,1.0),
             "", 1.0, true, 1.0, true ).
         //set control_part_vec:wiping to false.
         set control_part_vec_init_draw to true.
     }
-    if is_active_vessel() and display_set = 5 and not MAPVIEW {
+    if is_active_vessel() and hud_setting_dict["on"] and not MAPVIEW {
 
         set control_part_vec:vec to SHIP:CONTROLPART:position + UTIL_HUD_CAMERA_HEIGHT*ship:facing:topvector.
         set control_part_vec:show to true.
@@ -338,9 +323,14 @@ local function control_part_vec_draw {
 
 
 // main function of HUD
+function util_hud_init {
+    set hud_land_head to UTIL_HUD_GHEAD.
+    set hud_land_slope to UTIL_HUD_GSLOPE.
+    set hud_setting_dict["on"] to UTIL_HUD_ON_START.
+}
+
 local hud_interval is 2.
 local hud_i is 0.
-
 function util_hud_info {
     set hud_i to hud_i+1.
     if hud_i = hud_interval {
@@ -391,6 +381,53 @@ function util_hud_pop_right {
     }
 }
 
+// shbus_tx compatible send messages
+// TX_SECTION
+
+function util_hud_get_help_str {
+    return list(
+        " ",
+        "UTIL_HUD running on "+core:tag,
+        "hudland(gslope,bear) set landing",
+        "hudsw [setting] toggle setting",
+        "    on",
+        "    green",
+        "    ladder",
+        "    land",
+        "    nav",
+        "    movable"
+        ).
+}
+
+function util_hud_parse_command {
+    parameter commtext.
+    local args is list().
+
+    if commtext:startswith("hud") {
+        if commtext:contains("(") AND commtext:contains(")") {
+            set args to util_shbus_raw_input_to_args(commtext).
+            if args:length = 0 {
+                print "hud args empty".
+                return true.
+            }
+        }
+    } else {
+        return false.
+    }
+
+    if commtext:startswith("hudsw") {
+        local newkey is commtext:replace("hudsw ", ""):replace(".","").
+        util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
+    } else if commtext:startswith("hudland(") {
+        util_shbus_tx_msg("HUD_LAND_SET", args).
+    } else {
+        return false.
+    }
+    return true.
+}
+
+// TX_SECTION END
+
 
 // RX SECTION
 
@@ -412,6 +449,15 @@ function util_hud_decode_rx_msg {
         hud_text_dict_left:remove(data[0]).
     } else if opcode = "HUD_POPR" {
         hud_text_dict_right:remove(data[0]).
+    } else if opcode = "HUD_SETTING_TOGGLE" {
+        if hud_setting_dict:haskey(data[0]) {
+            set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
+            set hud_color to RGB( 0, (choose 1 if hud_setting_dict["green"] else 0), 0 ).
+        } else {
+            print "util hud setting not found".
+        }
+    } else if opcode = "HUD_LAND_SET" {
+        set hud_land_head to data.
     } else {
         util_shbus_rx_send_back_ack("could not decode hud rx msg").
         print "could not decode hud rx msg".

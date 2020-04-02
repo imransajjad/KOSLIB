@@ -137,7 +137,7 @@ local function generate_landing_seq_dev {
     local long_ofs is distance/ship:body:radius*RAD2DEG.
 
     local landing_sequence is LIST(
-    list(-1, 75 +args[0]*sin(GSlope), speed, -0.0485911247,-74.73766837-long_ofs,-GSlope,90.4),
+    list(-1, 75 +distance*sin(GSlope), speed, -0.0485911247,-74.73766837-long_ofs,-GSlope,90.4),
     list(-1, -2),
     list(-1, 70 + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
     list(-1, 70, 0,    lat_td, longtd,-0.05,90.4),
@@ -151,6 +151,7 @@ local function generate_landing_seq_dev {
 // Otherwise it returns false.
 function util_wp_parse_command {
     PARAMETER commtext.
+    local args is list().
 
     // don't even try if it's not a wp command
     if commtext:STARTSWITH("wp") {

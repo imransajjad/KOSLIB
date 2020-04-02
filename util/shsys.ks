@@ -100,14 +100,14 @@ local function get_another_ship {
     list targets in target_list.
     local found is false.
 
-    until found {
+    //until found {
         for e in target_list {
             if e:name = namestr and not other_ships:contains(e){
                 other_ships:add(e).
-                set found to true.
+                //set found to true.
             }
         }
-    }
+    //}
 }
 
 function util_shsys_decode_rx_msg {
@@ -151,7 +151,7 @@ function util_shsys_check {
         if not (oship_remove = 0) {
             set cargo_bay_opened_count to max(0,cargo_bay_opened_count-1).
             other_ships:remove(oship_remove).
-            if cargo_bay_opened_count = 0 {
+            if cargo_bay_opened_count = 0 and other_ships:length = 0 {
                 set bays to false.
             }
         }

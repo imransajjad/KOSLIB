@@ -31,10 +31,15 @@ if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
     for i in range(0,newlist:length) {
         HELP_LIST:add(newlist[i]).
     }
-
 }
 if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED {
     local newlist is util_fldr_get_help_str().
+    for i in range(0,newlist:length) {
+        HELP_LIST:add(newlist[i]).
+    }
+}
+if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED {
+    local newlist is util_hud_get_help_str().
     for i in range(0,newlist:length) {
         HELP_LIST:add(newlist[i]).
     }
@@ -115,10 +120,12 @@ local function parse_command {
             }
         } else if commtext:STARTSWITH("inv"){
             util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
-        } else if UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {
+        } else if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {
             print("fldr parsed").
-        } else if UTIL_WP_ENABLED and util_wp_parse_command(commtext) {
+        } else if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED and util_wp_parse_command(commtext) {
             print("wp parsed").
+        } else if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED and util_hud_parse_command(commtext) {
+            print("hud parsed").
         //} else if util_dev_parse_command(commtext) {
         //  print "dev parsed".
         } else {
@@ -131,11 +138,14 @@ local function parse_command {
 }
 
 function util_shbus_get_acks {
+    PARAMETER ECHO is true.
     // -1 indicates error condition ( no ack available)
     wait 0.04.
     wait 0.04.
     if not CORE:MESSAGES:EMPTY {
-        return CORE:MESSAGES:POP:CONTENT.
+        local ack_msg is CORE:MESSAGES:POP:CONTENT.
+        if ECHO { print ack_msg.}
+        return ack_msg.
     }
     return -1.
 }
@@ -150,13 +160,13 @@ function util_shbus_tx_msg {
 function util_shbus_raw_input_to_args {
     parameter commtext.
 
-    SET arg_start TO commtext:FIND("(").
-    SET arg_end TO commtext:FINDLAST(")").
+    local arg_start is commtext:FIND("(").
+    local arg_end is commtext:FINDLAST(")").
     if arg_end-arg_start <= 1 {
         return list().
     }
-    SET arg_strings TO commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
-    set numlist to list().
+    local arg_strings is commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
+    local numlist is list().
     for i in arg_strings {
         numlist:add( i:toscalar() ).
     }
