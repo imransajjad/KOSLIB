@@ -192,9 +192,9 @@ local function land_vecdraw {
         set land_hori:wiping to false.
     }
 
-    if GEAR and is_active_vessel() and hud_setting_dict["land"] and not MAPVIEW and vel > 1.0 {
+    if GEAR and is_active_vessel() and hud_setting_dict["on"] and hud_setting_dict["land"] and not MAPVIEW and vel > 1.0 {
         local camera_offset is camera_offset_vec.
-        local ghead to heading(hud_land_head,-abs(hud_land_slope)).
+        local ghead to heading(hud_land_head,hud_land_slope).
 
         set land_vert:start to camera_offset+far*(ghead:vector-0.1*ghead:topvector).
         set land_hori:start to camera_offset+far*(ghead:vector-0.1*ghead:starvector).
@@ -325,7 +325,7 @@ local function control_part_vec_draw {
 // main function of HUD
 function util_hud_init {
     set hud_land_head to UTIL_HUD_GHEAD.
-    set hud_land_slope to UTIL_HUD_GSLOPE.
+    set hud_land_slope to -abs(UTIL_HUD_GSLOPE).
     set hud_setting_dict["on"] to UTIL_HUD_ON_START.
 }
 
@@ -454,10 +454,11 @@ function util_hud_decode_rx_msg {
             set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
             set hud_color to RGB( 0, (choose 1 if hud_setting_dict["green"] else 0), 0 ).
         } else {
-            print "util hud setting not found".
+            util_shbus_rx_send_back_ack("util hud setting not found").
         }
     } else if opcode = "HUD_LAND_SET" {
-        set hud_land_head to data.
+        set hud_land_head to data[1].
+        set hud_land_slope to -abs(data[0]).
     } else {
         util_shbus_rx_send_back_ack("could not decode hud rx msg").
         print "could not decode hud rx msg".

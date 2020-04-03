@@ -172,10 +172,10 @@ local FLCSon is true.
 function ap_flcs_rot {
     PARAMETER u1. // pitch
     PARAMETER u2. // yaw
-    PARAMETER u3. // roll
-    // in radians/sec
-
-
+    PARAMETER u3. // roll in radians/sec
+    parameter direct_mode is false.
+    // in direct_mode, u1,u2,u3 are expected to be direct rate values
+    // else they are stick inputs
 
     IF not SAS and ship:q > MIN_FLCS_Q {
 
@@ -184,10 +184,17 @@ function ap_flcs_rot {
         }
         display_land_stats().
 
-        set pratePID:SETPOINT TO prate_max*u1.
-        set yratePID:SETPOINT TO yrate_max*u2.
-        set rratePD:SETPOINT TO rrate_max*u3.
-        set rrateI:SETPOINT TO rrate_max*u3.
+        if direct_mode {
+            set pratePID:SETPOINT TO sat(u1,prate_max).
+            set yratePID:SETPOINT TO sat(u2,yrate_max).
+            set rratePD:SETPOINT TO sat(u3,rrate_max).
+            set rrateI:SETPOINT TO sat(u3,rrate_max).
+        } else {
+            set pratePID:SETPOINT TO prate_max*u1.
+            set yratePID:SETPOINT TO yrate_max*u2.
+            set rratePD:SETPOINT TO rrate_max*u3.
+            set rrateI:SETPOINT TO rrate_max*u3.
+        }
 
         set SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
             +SHIP:CONTROL:YAWTRIM.
@@ -248,9 +255,9 @@ function ap_flcs_rot_status_string {
     set hud_str to hud_str+
         char(10) + "ppid" + " " + round_dec(pratePID:KP,2) + " " + round_dec(pratePID:KI,2) + " " + round_dec(pratePID:KD,2) +
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
-        char(10) + "pask" + " " + round_dec(RAD2DEG*prate_max*pilot_input_u1,1) +
+        char(10) + "pask" + " " + round_dec(RAD2DEG*pratePID:SETPOINT,1) +
         char(10) + "pact" + " " + round_dec(RAD2DEG*pitch_rate,1) +
-        char(10) + "perr" + " " + round_dec(RAD2DEG*(prate_max*pilot_input_u1-pitch_rate),1) +
+        char(10) + "perr" + " " + round_dec(RAD2DEG*pratePID:ERROR,1) +
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,1) +
         char(10) + "WA " + round_dec(WING_AREA,1).
@@ -260,9 +267,9 @@ function ap_flcs_rot_status_string {
     set hud_str to hud_str+
         char(10) + "rpid" + " " + round_dec(rratePD:KP,2) + " " + round_dec(rrateI:KI,2) + " " + round_dec(rratePD:KD,2) +
         char(10) + "rmax" + " " + round_dec(RAD2DEG*rrate_max,1) +
-        char(10) + "rask" + " " + round_dec(RAD2DEG*rrate_max*pilot_input_u3,1) +
+        char(10) + "rask" + " " + round_dec(RAD2DEG*rratePD:SETPOINT,1) +
         char(10) + "ract" + " " + round_dec(RAD2DEG*roll_rate,1) +
-        char(10) + "rerr" + " " + round_dec(RAD2DEG*(rrate_max*pilot_input_u3-roll_rate),1) +
+        char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePD:ERROR,1) +
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,1) +
         char(10) + "WA " + round_dec(WING_AREA,1).

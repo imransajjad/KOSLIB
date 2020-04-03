@@ -91,8 +91,6 @@ function haversine {
 
     parameter lat1.
     parameter lng1.
-    parameter canyon is 5.0. // degrees
-
 
     set dlong to -(lng1-lng0).
 
@@ -104,6 +102,14 @@ function haversine {
     // list[1] is total angular difference
     return list(arctan2(-left,-fore) ,arccos(top)).
 
+}
+
+function pitch_yaw_from_dir {
+    parameter dir.
+    local guide_dir_py to R(90,0,0)*(-SHIP:UP)*dir.
+    return list( (mod(guide_dir_py:pitch+90,180)-90) ,
+                 (360-guide_dir_py:yaw) ).
+    // returns list(pitch,bear).
 }
 
 function remainder {
