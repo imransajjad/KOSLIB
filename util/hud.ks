@@ -260,7 +260,7 @@ local function lr_text_info {
         } else if (NAVMODE = "SURFACE") {
             set vel_displayed to ship:velocity:surface:mag.
             set vel_type to " >".
-        } else if (NAVMODE = "TARGET") {
+        } else if (NAVMODE = "TARGET") and HASTARGET {
             set vel_displayed to (TARGET:velocity:orbit-ship:velocity:orbit):mag.
             set vel_type to " +".
         }

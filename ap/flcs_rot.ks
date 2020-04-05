@@ -235,6 +235,10 @@ function ap_flcs_rot {
     }
 }
 
+function ap_flcs_rot_maxrates {
+    return list(RAD2DEG*prate_max,RAD2DEG*yrate_max,RAD2DEG*rrate_max).
+}
+
 function ap_flcs_rot_status_string {
 
     local hud_str is "".
@@ -263,7 +267,7 @@ function ap_flcs_rot_status_string {
         char(10) + "WA " + round_dec(WING_AREA,1).
     }
 
-    if ( false) { // roll debug
+    if ( true) { // roll debug
     set hud_str to hud_str+
         char(10) + "rpid" + " " + round_dec(rratePD:KP,2) + " " + round_dec(rrateI:KI,2) + " " + round_dec(rratePD:KD,2) +
         char(10) + "rmax" + " " + round_dec(RAD2DEG*rrate_max,1) +

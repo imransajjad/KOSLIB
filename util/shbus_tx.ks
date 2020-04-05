@@ -23,7 +23,8 @@ ship:name,
 "sethost     flcs sends acks to host",
 "unsethost   set/unset self as host",
 "hello       hello to flcs",
-"rst         reset flcs",
+"rst         reboot flcs",
+"neu         neutralize controls",
 "inv         invalid message").
 
 if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
@@ -118,6 +119,8 @@ local function parse_command {
                     cpu:activate().
                 }
             }
+        } else if commtext:STARTSWITH("neu"){
+            set ship:control:neutralize to true.
         } else if commtext:STARTSWITH("inv"){
             util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
         } else if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {

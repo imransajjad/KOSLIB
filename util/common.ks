@@ -98,10 +98,21 @@ function haversine {
     set fore to sin(lat0)*cos(dlong)*cos(lat1) - cos(lat0)*sin(lat1).
     set left to sin(dlong)*cos(lat1).
 
-    // list[0] is roll
+    // list[0] is eject
     // list[1] is total angular difference
     return list(arctan2(-left,-fore) ,arccos(top)).
 
+}
+
+function haversine_dir {
+    parameter dir0.
+    parameter dirf.
+
+    local dir_temp is R(90,0,0)*(-dir0)*(dirf).
+    local total is wrap_angle_until(90-dir_temp:pitch).
+    local roll is (180-dir_temp:roll).
+    local eject is dir_temp:yaw.
+    return list( eject, total, roll ).
 }
 
 function pitch_yaw_from_dir {

@@ -119,7 +119,8 @@ function ap_engine_throttle_auto {
 }
 
 function ap_engine_throttle_map {
-    SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(pilot_input_u0).
+    parameter input_throttle is pilot_input_u0.
+    SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
     common_func().
 }
 
