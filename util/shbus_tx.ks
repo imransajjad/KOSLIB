@@ -24,6 +24,7 @@ ship:name,
 "unsethost   set/unset self as host",
 "hello       hello to flcs",
 "rst         reboot flcs",
+"prm         reload flcs params",
 "neu         neutralize controls",
 "inv         invalid message").
 
@@ -102,6 +103,8 @@ local function parse_command {
             util_shbus_tx_msg("SETHOST", core:tag ).
         } else if commtext:STARTSWITH("unsethost") {
             util_shbus_tx_msg("SETHOST", "" ).
+        } else if commtext:STARTSWITH("prm"){
+            util_shbus_tx_msg("RPARAM").
         } else if  commtext:STARTSWITH("help") {
             if commtext:contains(" ") {
                 print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).

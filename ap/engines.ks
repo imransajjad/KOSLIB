@@ -17,7 +17,7 @@ local vpid is PIDLOOP(
     AP_ENGINES_V_PID_KP,
     AP_ENGINES_V_PID_KI,
     AP_ENGINES_V_PID_KD,
-    0.0,1.0).
+    0.0, 1.0).
 
 
 // initial generic maps / auto throttles
@@ -86,7 +86,7 @@ local function turbojet_throttle_auto {
 
 local forward_thrust is true.
 local function turbofan_common {
-    if my_throttle <= 0 and brakes and vel > 25{
+    if my_throttle <= 0.0 and brakes and vel > 25{
         if forward_thrust {
             set forward_thrust to false.
             for e in MAIN_ENGINES {

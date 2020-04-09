@@ -9,7 +9,7 @@ set g0 to 9.806.
 
 FUNCTION sat {
     PARAMETER X.
-    PARAMETER Lim.
+    PARAMETER Lim is 1.0.
     IF X > Lim { RETURN Lim.}
     IF X < -Lim { RETURN -Lim.}
     RETURN X.
@@ -100,7 +100,7 @@ function haversine {
 
     // list[0] is eject
     // list[1] is total angular difference
-    return list(arctan2(-left,-fore) ,arccos(top)).
+    return list(arctan2(-left,-fore) ,arccos(sat(top))).
 
 }
 
@@ -113,6 +113,15 @@ function haversine_dir {
     local roll is (180-dir_temp:roll).
     local eject is dir_temp:yaw.
     return list( eject, total, roll ).
+}
+
+function dir_haversine {
+    parameter have_list. // eject, total, roll
+
+    //local dir_have is R(wrap_angle_until(90-have_list[1]), have_list[0], 180-have_list[2]).
+    //local dir_have is R(0,)*R(-total,0,0)*R(90,0,0).
+
+    return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
 }
 
 function pitch_yaw_from_dir {
@@ -188,4 +197,13 @@ function sign {
         return -1.0.
     }
     return 0.0.
+}
+
+function reload_params_from_base {
+    IF has_connection_to_base() {
+        COPYPATH("0:/param/"+string_acro(ship:name)+".ks","param").
+        run "param".
+        return "reloaded params".
+    }
+    return "no has_connection_to_base".
 }

@@ -15,29 +15,30 @@ local USE_GCAS is (defined AP_NAV_GCAS_ENABLED) and AP_NAV_GCAS_ENABLED.
 local AP_NAV_VERT_G is 0.1.
 local AP_NAV_HOR_G is 1.0.
 
+local lock W_PITCH_NOM to max(50,vel)/(g0*AP_NAV_ROT_GNOM_VERT).
+local lock W_YAW_NOM to max(50,vel)/(g0*AP_NAV_ROT_GNOM_LAT).
+
 local VSET_MAN is FALSE.
-local PSET_MAN is FALSE.
+local ESET_MAN is FALSE.
 local HSET_MAN is FALSE.
 
 local V_SET_PREV is -1.0.
 local V_SET is -1.0.
-local P_SET is 0.0.
+local E_SET is 0.0.
 local R_SET is 0.0.
 local H_SET is 90.0.
 
 local H_CLOSE is false.
 local WP_FOLLOW_MODE is 0.
-local WP_FOLLOW_MODE_STRS is list("WP_ESC", "WP_ARC", "WP_HEAD").
+local WP_FOLLOW_MODE_STRS is list("NAV_ARC", "NAV_Q").
 
-local W_ELEV_SET is 0.0.
-local W_AZIM_SET is 0.0.
+local W_PITCH_SET is 0.0.
+local W_YAW_SET is 0.0.
 
-local gain_multiply is 1.0.
-
-IF SHIP:AIRSPEED > 1.0 {
+IF vel > 1.0 {
     set V_SET_PREV to vel.
     set V_SET to vel.
-    set P_SET to vel_pitch.
+    set E_SET to vel_pitch.
     set H_SET to vel_bear.
     set R_SET to 0.0.
 }
@@ -47,23 +48,29 @@ local real_geodistance is 0.0.
 local vec_scale is 1.0.
 local vec_width is 2.0.
 
-local debug_vec1 TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,1.0),
-            "", vec_scale, true, vec_width, true ).
-local debug_vec2 TO VECDRAW(V(0,0,0), V(0,0,0), RGB(1.0,1.0,0.0),
-            "", vec_scale, true, vec_width, true ).
-local debug_vec3 TO VECDRAW(V(0,0,0), V(0,0,0), RGB(1.0,0,1.0),
-            "", vec_scale, true, vec_width, true ).
-local debug_vec4 TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0.5,1,1),
-            "", vec_scale, true, vec_width, true ).
-local debug_vec5 TO VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0.5,1),
-            "", vec_scale, true, vec_width, true ).
+if (false) { // debug
+    set nav_debug_vec0 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec1 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,1),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec2 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec3 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,1,0),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec4 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,1,1),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec5 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,1,1),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec6 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,0,0),
+                "", vec_scale, true, vec_width, true ).
+}
 
 FUNCTION ap_nav_do_flcs_rot {
 
     local head_error is wrap_angle_until(H_SET - vel_bear).
-    local pitch_error is wrap_angle_until(P_SET - vel_pitch).
+    local pitch_error is wrap_angle_until(E_SET - vel_pitch).
 
-    local have_roll_pitch is haversine(vel_pitch,vel_bear,P_SET,H_SET).
+    local have_roll_pitch is haversine(vel_pitch,vel_bear,E_SET,H_SET).
     local roll_w is outerweight(have_roll_pitch[1], AP_NAV_ROLL_W_MIN, AP_NAV_ROLL_W_MAX).
     local roll_target is R_SET + 
         roll_w*wrap_angle_until(have_roll_pitch[0]) +
@@ -72,11 +79,19 @@ FUNCTION ap_nav_do_flcs_rot {
         set roll_target to 0.
     }
 
-    ap_flcs_rot(
-    gain_multiply*AP_NAV_K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_ELEV_SET  + sin(roll)*W_AZIM_SET,
-    gain_multiply*AP_NAV_K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_ELEV_SET + cos(roll)*W_AZIM_SET,
-    gain_multiply*AP_NAV_K_ROLL*(roll_target - roll),
-    true ).
+    if USE_GCAS and GCAS_ACTIVE {
+        ap_flcs_rot(
+        AP_NAV_GCAS_GAIN_MULTIPLIER*AP_NAV_K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET,
+        AP_NAV_GCAS_GAIN_MULTIPLIER*AP_NAV_K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET,
+        AP_NAV_GCAS_GAIN_MULTIPLIER*AP_NAV_K_ROLL*(roll_target - roll),
+        true ).
+    } else {
+        ap_flcs_rot(
+        sat(AP_NAV_K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET, 2.0*W_PITCH_NOM),
+        sat(AP_NAV_K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET, 2.0*W_YAW_NOM),
+        AP_NAV_K_ROLL*(roll_target - roll),
+        true ).
+    }
 }
 
 // does maneuver nodes in spaceflight when they are encountered
@@ -133,23 +148,28 @@ function ap_nav_gcas {
                 set GCAS_ACTIVE to true.
                 util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"ACTIVE").
                 print "GCAS ACTIVE".
-                set gain_multiply to AP_NAV_GCAS_GAIN_MULTIPLIER.
-
-                set P_SET to escape_pitch.
-                set H_SET to vel_bear.
-                set R_SET to 0.
-                set W_ELEV_SET to DEG2RAD*rates[0].
-                set W_AZIM_SET to 0.
-                set V_SET to AP_NAV_VSET_MAX.
-
                 ap_mode_set("NAV").
 
             } else if GCAS_ACTIVE and not (ship:altitude+impact_vector*ship:up:vector-sticky_factor*AP_NAV_GCAS_MARGIN < impact_alt ) {
                 ap_mode_set("FLCS").
-                set gain_multiply to 1.0.
                 print "GCAS INACTIVE".
                 util_hud_pop_right("NAV_GCAS").
                 set GCAS_ACTIVE to false.
+            }
+
+            if GCAS_ACTIVE {
+                set E_SET to escape_pitch.
+                set H_SET to vel_bear.
+                set R_SET to 0.
+                set W_PITCH_SET to 0*DEG2RAD*rates[0].
+                set W_YAW_SET to 0.
+                set V_SET to AP_NAV_VSET_MAX.
+
+                if (ship:altitude - AP_NAV_GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
+                {
+                    print "GCAS FLOOR BREACHED".
+                    util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"BREACHED").
+                }
             }
 
             if not GCAS_ACTIVE and not (ship:altitude+straight_vector*ship:up:vector-AP_NAV_GCAS_MARGIN < 
@@ -162,13 +182,19 @@ function ap_nav_gcas {
     } else if GCAS_ARMED or GCAS_ACTIVE {
         // if GEAR or SAS, undo everything
         ap_mode_set("FLCS").
-        set gain_multiply to 1.0.
         util_hud_pop_right("NAV_GCAS").
         set GCAS_ARMED to false.
         set GCAS_ACTIVE to false.
     }
     return GCAS_ACTIVE.
 }
+
+
+local arc_have is list(0,0,0).
+local head_have is list(0,0,0).
+local new_have is list(0,0,0).
+local outer_circle_flip is 0.
+local closeness is 1.0.
 
 function ap_nav_disp {
     // for waypoint in waypoint_queue, set pitch, heading to waypoint, ELSE
@@ -188,7 +214,7 @@ function ap_nav_disp {
         return.
     }
 
-    set PSET_MAN to false.
+    set ESET_MAN to false.
     set HSET_MAN to false.
     set VSET_MAN to false.
 
@@ -213,28 +239,28 @@ function ap_nav_disp {
 
             if abs(hdiff) < linear_climb_boundary {
                 set H_CLOSE to true.
-                set W_ELEV_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
-                set P_SET to RAD2DEG*sqrt(abs(hdiff)*AP_NAV_VERT_G*g0)/(max(vel,1.0))*sat(hdiff,1.0).
+                set W_PITCH_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
+                set E_SET to RAD2DEG*sqrt(abs(hdiff)*AP_NAV_VERT_G*g0)/(max(vel,1.0))*sat(hdiff,1.0).
             } else {
                 set H_CLOSE to false.
-                set W_ELEV_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
-                set P_SET to 0.95*pitch.
-                if (pitch > max_vangle and W_ELEV_SET > 0) or 
-                    (pitch < -max_vangle and W_ELEV_SET < 0){
-                        set W_ELEV_SET to 0.
-                        set P_SET to sat(pitch,max_vangle).
+                set W_PITCH_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
+                set E_SET to 0.95*pitch.
+                if (pitch > max_vangle and W_PITCH_SET > 0) or 
+                    (pitch < -max_vangle and W_PITCH_SET < 0){
+                        set W_PITCH_SET to 0.
+                        set E_SET to sat(pitch,max_vangle).
                 }
             }
 
 
 
             //if abs(hdiff) > linear_climb_boundary {
-            //    set P_SET to max_climb*sat(hdiff,1).
-            //    set P_SET to vel_pitch+sat(P_SET-vel_pitch, 3.0).
+            //    set E_SET to max_climb*sat(hdiff,1).
+            //    set E_SET to vel_pitch+sat(E_SET-vel_pitch, 3.0).
             //} else if abs(hdiff) > local_climb_boundary {
-            //    set P_SET to arccos(1-abs(hdiff)/level_radius)*sat(hdiff,1).
+            //    set E_SET to arccos(1-abs(hdiff)/level_radius)*sat(hdiff,1).
             //} else {
-            //    set P_SET to local_gain*hdiff.
+            //    set E_SET to local_gain*hdiff.
             //    // still haven't dealt with coriolis+centrifugal force
             //}
         }
@@ -262,114 +288,58 @@ function ap_nav_disp {
             local wp_final_head is heading(cur_wayp[5],cur_wayp[4]).
             local current_vel_head is heading(vel_bear,vel_pitch).
 
+            set WP_FOLLOW_MODE to 0.
+
             local bear_to_final is rotatefromto(wp_final_head:vector,wp_vec).
-            local arc_direction is bear_to_final*bear_to_final*wp_final_head.
-            local arc_have is haversine_dir(arc_direction,wp_final_head).
-
-            local outer_circle_flip is (choose 180 if (vdot(wp_vec,wp_final_head:vector) < 0) else 0).
-
-
-            local large_radius is wp_vec:mag/2/cos(90-arc_have[1]/2).
-            local large_center_uvec is angleaxis(-arc_have[0]-outer_circle_flip,arc_direction:vector)*arc_direction:topvector.
-
-
-            set debug_vec1:start to large_radius*large_center_uvec.
-            set debug_vec1:vec to large_radius*ship:up:vector.
-            set debug_vec2:vec to wp_vec.
-
-            local vel_have is haversine_dir(current_vel_head,wp_final_head).
-            local small_center_uvec_inter is angleaxis(-vel_have[0],current_vel_head:vector)*current_vel_head:topvector.
-            //set small_center_uvec_inter to large_center_uvec.
-
-            local small_center_uvec_final is (large_radius*large_center_uvec - wp_vec):normalized.
-
+            set arc_have to haversine_dir(bear_to_final*bear_to_final*wp_final_head,wp_final_head).
+            set head_have to haversine_dir(bear_to_final*wp_final_head,wp_final_head).
+            
+            local large_radius is abs(wp_vec:mag/2/cos(90-arc_have[1]/2)).
             local final_radius is max(50,cur_wayp[1]^2)/(AP_NAV_ROT_GNOM_VERT*g0).
-            local inter_radius is max(50,((cur_wayp[1]+vel)^2)/4)/(AP_NAV_ROT_GNOM_VERT*g0).
+            set closeness to (final_radius/large_radius)^2.
 
-            local direct_vec is wp_vec+final_radius*small_center_uvec_final-inter_radius*small_center_uvec_inter.
-
-            set debug_vec3:start to wp_vec.
-            set debug_vec3:vec to final_radius*small_center_uvec_final.
-            set debug_vec4:vec to inter_radius*small_center_uvec_inter.
-
-            set debug_vec5:vec to large_radius*large_center_uvec.
+            set outer_circle_flip to (choose 1 if (vdot(wp_vec,wp_final_head:vector) < 0) else 0).
+            if outer_circle_flip = 1 {
+                set new_have to list( head_have[0]-180, ((1-closeness)*(head_have[1]) + closeness*wrap_angle_until(arc_have[1])), 0 ).
+            } else {
+                set new_have to list( head_have[0]-180, ((1-closeness)*head_have[1] + closeness*wrap_angle_until(arc_have[1])), 0 ).
+            }
             
-            set debug_vec1:show to true.
-            set debug_vec2:show to true.
-            set debug_vec3:show to true.
-            set debug_vec4:show to true.
-            set debug_vec5:show to true.
+            local new_arc_direction is wp_final_head*dir_haversine(new_have).
 
-            //// find center of turn circle
-            //local center_target is wp_vec - final_radius*est_rollvec.
-            //local center_target_right is wp_vec + final_radius*est_rollvec.
+            local centripetal_vector is angleaxis(arc_have[0]-180-180*outer_circle_flip,new_arc_direction:vector)*current_vel_head:topvector.
 
-            //local inter_radius is max(50,cur_wayp[1]^2)/(AP_NAV_ROT_GNOM_VERT*g0).
-            //local current_center is -inter_radius*current_vel_head:starvector.
+            if (false) { // debug
+                set nav_debug_vec0:vec to 30*centripetal_vector.
+                set nav_debug_vec1:vec to 100*(bear_to_final*bear_to_final*wp_final_head):vector.
+                set nav_debug_vec2:vec to 100*(bear_to_final*wp_final_head):vector.
+                set nav_debug_vec3:vec to 100*new_arc_direction:vector.
+                set test_have to list(135,45,0).
+                //set nav_debug_vec1:vec to 100*dir_haversine(new_have):starvector.
+                //set nav_debug_vec2:vec to 100*dir_haversine(new_have):topvector.
+                //set nav_debug_vec3:vec to 100*dir_haversine(new_have):vector.
+                local ship_raw is R(0,0,0).
 
-            //if center_target_right:mag < center_target:mag {
-            //    set center_target to center_target_right.
-            //    set current_center to final_radius*current_vel_head:starvector.
-            //}
-            //set current_center to current_center + 0.1*final_radius*wp_final_head:topvector.
-
-            //set WP_ARC to ((vectorangle(center_target-current_center,ship:SRFPROGRADE:vector) > 30) or
-                        //(center_target-current_center):mag/(ship:SRFPROGRADE:vector*(center_target-current_center)/(center_target-current_center):mag) < 1.5).
-
-            //set WP_ARC to ( wp_vec*wp_final_head:vector > 0 and wp_vec:mag < 3*inter_radius).
-
-            //if not WP_ARC {
-            //    set WP_ARC to ( (wp_vec-current_center):mag < inter_radius).
-            //}
-            //if not WP_ARC {
-            //    set WP_ARC to ( ship:SRFPROGRADE:vector*center_target <= 0).
-            //} else {
-            //    set WP_ARC to ( ship:SRFPROGRADE:vector*center_target < 0.17*center_target:mag).
-            //}
-            //set WP_ARC to true.
-            if WP_FOLLOW_MODE = 0 {
-                if (large_radius > 0.75*final_radius) {
-                    set WP_FOLLOW_MODE to 1.
-                }
-            } else if WP_FOLLOW_MODE = 1 {
-                if (large_radius <= 0.5*final_radius) {
-                    set WP_FOLLOW_MODE to 0.
-                } else if (large_radius > 2.0*final_radius) {
-                    set WP_FOLLOW_MODE to 2.
-                }
-            } else if WP_FOLLOW_MODE = 2 {
-                if (large_radius <= 1.05*final_radius) {
-                    set WP_FOLLOW_MODE to 1.
-                }
+                set nav_debug_vec4:vec to 30*wp_final_head:starvector.
+                set nav_debug_vec5:vec to 30*wp_final_head:topvector.
+                set nav_debug_vec6:vec to 30*wp_final_head:vector.
+                
+                set nav_debug_vec0:show to true.
+                set nav_debug_vec1:show to true.
+                set nav_debug_vec2:show to true.
+                set nav_debug_vec3:show to true.
+                set nav_debug_vec4:show to true.
+                set nav_debug_vec5:show to true.
+                set nav_debug_vec6:show to true.
             }
 
-            if AG { set WP_FOLLOW_MODE to 1.}
-
-
-            if WP_FOLLOW_MODE = 0 {
-                set WP_FOLLOW_MODE to 0. // WP_ESC
-            } else if WP_FOLLOW_MODE = 1 {
-                local py_temp is pitch_yaw_from_dir(arc_direction).
-                set WP_FOLLOW_MODE to 1. // WP_ARC
-                set WP_ARC to true.
-                set P_SET to py_temp[0].
-                set H_SET to py_temp[1].
-                set R_SET to 0.
-                set W_ELEV_SET to max(50,vel)/inter_radius*(current_vel_head:topvector*small_center_uvec_inter).
-                set W_AZIM_SET to max(50,vel)/inter_radius*(current_vel_head:starvector*small_center_uvec_inter).
-            } else if WP_FOLLOW_MODE = 2 {
-                set WP_FOLLOW_MODE to 2. // WP_HEAD
-                set guide_dir to direct_vec:direction.
-                set guide_dir_py to R(90,0,0)*(-SHIP:UP)*guide_dir.
-                set P_SET to (mod(guide_dir_py:pitch+90,180)-90).
-                set H_SET to (360-guide_dir_py:yaw).
-                set R_SET to 0.
-                set W_ELEV_SET to 0.
-                set W_AZIM_SET to 0.
-            }
-
-            
-
+            local py_temp is pitch_yaw_from_dir(new_arc_direction).
+            set E_SET to py_temp[0].
+            set H_SET to py_temp[1].
+            set R_SET to 0.
+            //set W_PITCH_SET to max(50,vel)/large_radius*(current_vel_head:topvector*centripetal_vector).
+            //set W_YAW_SET to max(50,vel)/large_radius*(current_vel_head:starvector*centripetal_vector).
+            //print " " + round_dec(W_PITCH_SET,5) + "/" + round_dec(W_YAW_SET,5).
         }
 
         // if waypoint has any form of destination
@@ -389,24 +359,28 @@ function ap_nav_disp {
                     print "dist " + round_dec(wp_vec:mag,2).
                     PRINT "Reached Waypoint " + util_wp_queue_length().
                     util_wp_done().
-                    set WP_ARC to false.
+                    if util_wp_queue_length() = 0 {
+                        SET E_SET TO vel_pitch.
+                        SET H_SET TO vel_bear.
+                        SET V_SET TO vel.
+                    }
                 }
             }
         }
     }
     ELSE {
-        set W_ELEV_SET to 0.0.
-        set W_AZIM_SET to 0.0.
+        set W_PITCH_SET to 0.0.
+        set W_YAW_SET to 0.0.
         IF AP_FLCS_CHECK() {
-            SET P_SET TO vel_pitch.
+            SET E_SET TO vel_pitch.
             SET H_SET TO vel_bear.
             SET V_SET TO vel.
         } ELSE IF AP_VEL_CHECK() {
-            SET P_SET TO vel_pitch.
+            SET E_SET TO vel_pitch.
             SET H_SET TO vel_bear.
             SET VSET_MAN TO TRUE.
         } ELSE IF AP_NAV_CHECK() {
-            SET PSET_MAN TO TRUE.
+            SET ESET_MAN TO TRUE.
             SET HSET_MAN TO TRUE.
             SET VSET_MAN TO TRUE.
         }
@@ -420,10 +394,10 @@ function ap_nav_disp {
             //vec_info_draw().
         }
     }
-    IF PSET_MAN{
+    IF ESET_MAN {
         SET INC TO 2.0*deadzone(pilot_input_u1,0.25).
         IF INC <> 0 {
-            SET P_SET To sat(P_SET + INC, 90).
+            SET E_SET To sat(E_SET + INC, 90).
             //vec_info_draw().
         }
     }
@@ -437,19 +411,19 @@ function ap_nav_disp {
 }
 
 function ap_nav_get_data {
-    return list(V_SET,H_SET,P_SET,R_SET).
+    return list(V_SET,H_SET,E_SET,R_SET).
 }
 
 function ap_nav_get_direction {
-    return heading(H_SET,P_SET).
+    return heading(H_SET,E_SET).
 }
 
 function ap_nav_get_head {
     return H_SET.
 }
 
-function ap_nav_get_pitch {
-    return P_SET.
+function ap_nav_get_elev {
+    return E_SET.
 }
 
 function ap_nav_get_vel {
@@ -475,7 +449,7 @@ function ap_nav_status_string {
         }      
     }
     if AP_MODE_NAV {
-        set vs_string to vs_string+ char(10)+"["+round_dec(P_SET,2)+","+round(H_SET)+"]".
+        set vs_string to vs_string+ char(10)+"["+round_dec(E_SET,2)+","+round(H_SET)+"]".
     }
     if (true) { // debug
         set vs_string to vs_string+ char(10)+ WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE].
@@ -483,17 +457,11 @@ function ap_nav_status_string {
         if USE_WP and (util_wp_queue_length() > 0) {
             local cur_wayp is util_wp_queue_first().
             if cur_wayp:length = 6 {
-                local wp_vec is LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]).
-                local wp_final_head is heading(cur_wayp[5],cur_wayp[4]).
-                
-                local final_rotation is rotatefromto(wp_final_head:vector,wp_vec).
-
-                local arc_have is haversine_dir(final_rotation*final_rotation*wp_final_head,wp_final_head).
-                local est_rad is wp_vec:mag/2/cos(arc_have[1]/2).
-                set vs_string to vs_string+ char(10)+"ej " + round_dec(arc_have[0],2) + 
-                                            char(10)+"ta " + round_dec(arc_have[1],2) + 
-                                            char(10)+"r  " + round_dec(est_rad,2) +
-                                            char(10)+"wpv*wpfh " + sign(vdot(wp_vec,wp_final_head:vector)).
+                set vs_string to vs_string+ char(10)+"a_have " + round_dec(arc_have[0],2) + "/" + round_dec(arc_have[1],2) + 
+                                            char(10)+"h_have " + round_dec(head_have[0],2) + "/" + round_dec(head_have[1],2) + 
+                                            char(10)+"n_have " + round_dec(new_have[0],2) + "/" + round_dec(new_have[1],2) + 
+                                            char(10)+"c  " + round_dec(closeness,7) +
+                                            char(10)+"outer " + outer_circle_flip.
             }
         }
     }

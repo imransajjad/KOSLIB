@@ -98,24 +98,6 @@ local function generate_takeoff_seq {
 
 local function generate_landing_seq {
     parameter distance.
-    parameter vel.
-    parameter speed.
-    parameter GSlope.
-
-    local long_ofs is distance/ship:body:radius*RAD2DEG.
-
-    local landing_sequence is LIST(
-    list(-1, 75 +args[0]*sin(abs(GSlope)), vel, -0.0485911247,-74.73766837-long_ofs),
-    list(-1, -2),
-    list(-1, 75, speed,    -0.0485911247,-74.73766837,-abs(GSlope),90.4),
-    list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
-    list(-1, -1)). // brakes
-
-    return landing_sequence.
-}
-
-local function generate_landing_seq_dev {
-    parameter distance.
     parameter speed.
     parameter GSlope.
 
@@ -138,10 +120,11 @@ local function generate_landing_seq_dev {
 
     local landing_sequence is LIST(
     list(-1, 75 +distance*sin(GSlope), speed, -0.0485911247,-74.73766837-long_ofs,-GSlope,90.4),
+    list(-1, 75 +distance*sin(GSlope)/2, speed, -0.0485911247,-74.73766837-long_ofs/2,-GSlope,90.4),
     list(-1, -2),
     list(-1, 70 + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
     list(-1, 70, 0,    lat_td, longtd,-0.05,90.4),
-    list(-1, 70,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
+    list(-1, 68,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
     list(-1, -1)). // brakes
 
     return landing_sequence.
@@ -210,7 +193,7 @@ function util_wp_parse_command {
     } else if commtext:STARTSWITH("wpk(") and args:length = 2 {
         insert_waypoint(list(-1,args[0],args[1],-0.048,-74.69,0,90)).
     } else if commtext:STARTSWITH("wpl(") and args:length = 3 {
-        for wp_seq_i in generate_landing_seq_dev(args[0],args[1],args[2]) {
+        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2]) {
             insert_waypoint(wp_seq_i).
         }
     } else if commtext:STARTSWITH("wpto(") and args:length = 1 {

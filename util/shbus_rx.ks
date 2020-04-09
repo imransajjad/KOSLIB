@@ -54,6 +54,8 @@ function util_shbus_rx_check_for_messages {
             util_shbus_rx_send_back_ack("Hello from "+core:tag).
         } else if received_msg:content[0] = "SETHOST" {
             find_and_set_hostproc(received_msg:content[1]).
+        } else if received_msg:content[0] = "RPARAM" {
+            util_shbus_rx_send_back_ack(reload_params_from_base()).
         } else if UTIL_WP_ENABLED and util_wp_decode_rx_msg(received_msg) {
             print "wp decoded.".
         } else if UTIL_FLDR_ENABLED and util_fldr_decode_rx_msg(received_msg) {

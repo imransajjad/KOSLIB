@@ -137,6 +137,18 @@ local function gain_schedule {
         set LF2G to LF2G/3.
     }
     set LF2G to LF2G/(AP_FLCS_PITCH_SPECIFIC_INERTIA*loadfactor*airflow_c_u)/kuniverse:timewarp:rate.
+
+    set pratePID:KP to AP_FLCS_ROT_PR_KP*LF2G.
+    set pratePID:KI to AP_FLCS_ROT_PR_KI*LF2G.
+    set pratePID:KD to AP_FLCS_ROT_PR_KD*LF2G.
+
+    set yratePID:KP to AP_FLCS_ROT_YR_KP*LF2G.
+    set yratePID:KI to AP_FLCS_ROT_YR_KI*LF2G.
+    set yratePID:KD to AP_FLCS_ROT_YR_KD*LF2G.
+    
+    set rratePD:KP to AP_FLCS_ROT_RR_KP*LF2G.
+    set rrateI:KI to AP_FLCS_ROT_RR_KI*LF2G.
+    set rratePD:KD to AP_FLCS_ROT_RR_KD*LF2G.
 }
 
 
@@ -196,7 +208,7 @@ function ap_flcs_rot {
             set rrateI:SETPOINT TO rrate_max*u3.
         }
 
-        set SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
+        set SHIP:CONTROL:YAW TO yratePID:UPDATE(TIME:SECONDS, yaw_rate)
             +SHIP:CONTROL:YAWTRIM.
 
         local roll_pd is rratePD:UPDATE(TIME:SECONDS, roll_rate).
@@ -207,10 +219,10 @@ function ap_flcs_rot {
             rrateI:RESET().
         }
 
-        set SHIP:CONTROL:ROLL TO LF2G*( roll_pd + roll_i ) +
+        set SHIP:CONTROL:ROLL TO ( roll_pd + roll_i ) +
             SHIP:CONTROL:ROLLTRIM.
 
-        set SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
+        set SHIP:CONTROL:PITCH TO pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
             SHIP:CONTROL:PITCHTRIM.
 
         IF (BRAKES <> LAST_AGB) {
@@ -257,25 +269,25 @@ function ap_flcs_rot_status_string {
 
     if ( false) { // pitch debug
     set hud_str to hud_str+
-        char(10) + "ppid" + " " + round_dec(pratePID:KP,2) + " " + round_dec(pratePID:KI,2) + " " + round_dec(pratePID:KD,2) +
+        char(10) + "ppid" + " " + round_dec(AP_FLCS_ROT_PR_KP,2) + " " + round_dec(AP_FLCS_ROT_PR_KI,2) + " " + round_dec(AP_FLCS_ROT_PR_KD,2) +
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
         char(10) + "pask" + " " + round_dec(RAD2DEG*pratePID:SETPOINT,1) +
         char(10) + "pact" + " " + round_dec(RAD2DEG*pitch_rate,1) +
         char(10) + "perr" + " " + round_dec(RAD2DEG*pratePID:ERROR,1) +
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
-        char(10) + "LF2G " + round_dec(LF2G,1) +
+        char(10) + "LF2G " + round_dec(LF2G,3) +
         char(10) + "WA " + round_dec(WING_AREA,1).
     }
 
-    if ( true) { // roll debug
+    if ( false) { // roll debug
     set hud_str to hud_str+
-        char(10) + "rpid" + " " + round_dec(rratePD:KP,2) + " " + round_dec(rrateI:KI,2) + " " + round_dec(rratePD:KD,2) +
+        char(10) + "rpid" + " " + round_dec(AP_FLCS_ROT_RR_KP,2) + " " + round_dec(AP_FLCS_ROT_RR_KI,2) + " " + round_dec(AP_FLCS_ROT_RR_KD,2) +
         char(10) + "rmax" + " " + round_dec(RAD2DEG*rrate_max,1) +
         char(10) + "rask" + " " + round_dec(RAD2DEG*rratePD:SETPOINT,1) +
         char(10) + "ract" + " " + round_dec(RAD2DEG*roll_rate,1) +
         char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePD:ERROR,1) +
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
-        char(10) + "LF2G " + round_dec(LF2G,1) +
+        char(10) + "LF2G " + round_dec(LF2G,3) +
         char(10) + "WA " + round_dec(WING_AREA,1).
     }
 
