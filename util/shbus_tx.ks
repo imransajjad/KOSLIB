@@ -76,10 +76,46 @@ local function print_help_by_tag {
     print "tag not found".
 }
 
-local function print_acks {
-    wait 0.04.
-    wait 0.04.
-    flush_core_messages().
+local function do_action_group_or_key {
+    parameter key_in.
+    if key_in = "1" {
+        toggle AG1.
+    } else if key_in = "2" {
+        toggle AG2.
+    } else if key_in = "3" {
+        toggle AG3.
+    } else if key_in = "4" {
+        toggle AG4.
+    } else if key_in = "5" {
+        toggle AG5.
+    } else if key_in = "6" {
+        toggle AG6.
+    } else if key_in = "7" {
+        toggle AG7.
+    } else if key_in = "8" {
+        toggle AG8.
+    } else if key_in = "9" {
+        toggle AG9.
+    } else if key_in = "0" {
+        toggle AG10.
+    } else if key_in = "g" {
+        toggle GEAR.
+    } else if key_in = "r" {
+        toggle RCS.
+    } else if key_in = "t" {
+        toggle SAS.
+    } else if key_in = "u" {
+        toggle LIGHTS.
+    } else if key_in = "b" {
+        toggle BRAKES.
+    } else if key_in = "m" {
+        toggle MAPVIEW.
+    } else if key_in = " " {
+        print "stage manually".
+    } else {
+        return false.
+    }
+    return true.
 }
 
 local function parse_command {
@@ -88,12 +124,6 @@ local function parse_command {
         return true.
     }
 
-    //local first_end is get_single_command_end(commtextfull).
-    //local commtext is commtextfull:SUBSTRING(0,first_end+1).
-    //local commtextnext is "".
-    //if commtextfull:length > first_end+1 {
-    //    set commtextnext to commtextfull:SUBSTRING(first_end+1,commtextfull:length-first_end-1).
-    //}
     for comm in commtextfull:split(";") {
 
         local commtext is comm:trim().
@@ -122,6 +152,8 @@ local function parse_command {
                     cpu:activate().
                 }
             }
+        } else if commtext:length = 1 and do_action_group_or_key(commtext){
+            print("key "+commtext).
         } else if commtext:STARTSWITH("neu"){
             set ship:control:neutralize to true.
         } else if commtext:STARTSWITH("inv"){
@@ -138,12 +170,13 @@ local function parse_command {
             print("Could not parse command.").
             return false.
         }
-        print_acks().
+        util_shbus_tx_get_acks().
     }
+    flush_core_messages().
     return true.
 }
 
-function util_shbus_get_acks {
+function util_shbus_tx_get_acks {
     PARAMETER ECHO is true.
     // -1 indicates error condition ( no ack available)
     wait 0.04.

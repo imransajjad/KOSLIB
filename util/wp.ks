@@ -191,7 +191,7 @@ function util_wp_parse_command {
             PRINT "Could not find target".
         }
     } else if commtext:STARTSWITH("wpk(") and args:length = 2 {
-        insert_waypoint(list(-1,args[0],args[1],-0.048,-74.69,0,90)).
+        insert_waypoint(list(-1,args[0],args[1],-0.048,-74.69)).
     } else if commtext:STARTSWITH("wpl(") and args:length = 3 {
         for wp_seq_i in generate_landing_seq(args[0],args[1],args[2]) {
             insert_waypoint(wp_seq_i).

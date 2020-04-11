@@ -179,7 +179,6 @@ local function display_land_stats {
 }
 
 
-set LAST_AGB to false.
 local FLCSon is true.
 function ap_flcs_rot {
     PARAMETER u1. // pitch
@@ -225,14 +224,6 @@ function ap_flcs_rot {
         set SHIP:CONTROL:PITCH TO pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
             SHIP:CONTROL:PITCHTRIM.
 
-        IF (BRAKES <> LAST_AGB) {
-            set LAST_AGB to BRAKES.
-            if not LAST_AGB {
-                rrateI:RESET().
-                yratePID:RESET().
-                pratePID:RESET().
-            }
-        }
         if not FLCSon {
             set FLCSon to true.
         }

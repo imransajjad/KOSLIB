@@ -206,7 +206,7 @@ function util_fldr_parse_command {
         }
     } ELSE IF commtext:STARTSWITH("logengine") {
         util_shbus_tx_msg("FLDR_GET_ENGINE").
-        local received is util_shbus_get_acks().
+        local received is util_shbus_tx_get_acks().
         if received = -1 {
             print "FLCS did not return engine name.".
         } else {
