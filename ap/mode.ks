@@ -1,14 +1,15 @@
 
 GLOBAL AP_MODE_ENABLED IS TRUE.
+local PARAM is readJson("1:/param.json")["AP_MODE"].
 
 global LIST_AVAIL_AP_MODES is list().
 
-if not (defined AP_MODE_FLCS_ENABLED) {set AP_MODE_FLCS_ENABLED to true.}
+set AP_MODE_FLCS_ENABLED to true.
 // flcs mode is always available
 
-if not (defined AP_MODE_VEL_ENABLED) {set AP_MODE_VEL_ENABLED to false.}
-if not (defined AP_MODE_NAV_ENABLED) {set AP_MODE_NAV_ENABLED to false.}
-if not (defined AP_MODE_NONE_ENABLED) {set AP_MODE_NONE_ENABLED to false.}
+set AP_MODE_VEL_ENABLED to (choose PARAM["VEL_ENABLED"] if PARAM:haskey("VEL_ENABLED") else false ).
+set AP_MODE_NAV_ENABLED to (choose PARAM["NAV_ENABLED"] if PARAM:haskey("NAV_ENABLED") else false ).
+set AP_MODE_NONE_ENABLED to (choose PARAM["NONE_ENABLED"] if PARAM:haskey("NONE_ENABLED") else false ).
 
 // AP MODE STUFF
 
@@ -99,6 +100,7 @@ function ap_mode_get_str{
     else if AP_MODE_NAV { return "NAV".}
     else if AP_MODE_VEL { return "VEL".}
     else if AP_MODE_NONE { return "N/A".}
+    else { return "".}
 }
 
 function AP_SAS_CHECK {

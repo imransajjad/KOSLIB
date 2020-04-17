@@ -1,0 +1,96 @@
+{
+    "entries": [
+        "AP_FLCS_ROT",
+        {
+            "entries": [
+                "GLIM_VERT", 3.5,
+                "GLIM_LAT",  0.75,
+                "GLIM_LONG", 5,
+                "CORNER_VELOCITY", 60,
+                "START_MASS", 85.9,
+                "MAX_ROLL", 4.712,
+                "PR_KP",2.5,
+                "PR_KI",3.1,
+                "PR_KD",0.01,
+                "YR_KP",1.0,
+                "YR_KI",0.0,
+                "YR_KD",0.0,
+                "RR_KP",0.15,
+                "RR_KI",0.0,
+                "RR_KD",0.0
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_ENGINES",
+        {
+            "entries": [
+                "V_PID_KP", 0.020,
+                "V_PID_KI", 0.015,
+                "V_PID_KD", 0.01,
+                "MAIN_ENGINE_NAME", "turboFanSize2"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_NAV",
+        {
+            "entries": [
+                "ROT_GNOM_VERT", 0.5,
+                "ROT_GNOM_LAT", 0.2,
+                "ROT_GNOM_LONG", 1,
+                
+                "K_PITCH", 0.025,
+                "K_YAW", 0.005,
+                "K_ROLL", 0.10,
+                "K_HEADING", 2.0,
+                "ROLL_W_MIN", 90.0,
+                "ROLL_W_MAX", 180.0,
+                "BANK_MAX", 30,
+                "VSET_MAX", 350,
+                "GEAR_HEIGHT", 4.8,
+                
+                "GCAS_ENABLED", true,
+                "GCAS_MARGIN", 30,
+                "GCAS_GAIN_MULTIPLIER", 5.0
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_MODE",
+        {
+            "entries": [
+                "FLCS_ENABLED", true,
+                "VEL_ENABLED", true,
+                "NAV_ENABLED", true
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_HUD",
+        {
+            "entries": [
+                "ON_START", true,
+                "CAMERA_HEIGHT", 1.2,
+                "CAMERA_RIGHT", -0.4,
+                
+                "GSLOPE", 3.0,
+                "GHEAD", 90.4,
+                "PITCH_DIV", 5.0,
+                "FLARE_ALT", 40,
+                "SHIP_HEIGHT", 4.8
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_SHSYS",
+        {
+            "entries": [
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_SHBUS",
+        {
+            "entries": [
+                "FLCS_PROC_TAG", "flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        }
+    ],
+    "$type": "kOS.Safe.Encapsulation.Lexicon"
+}

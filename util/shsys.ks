@@ -4,12 +4,33 @@ GLOBAL UTIL_SHSYS_ENABLED IS true.
 local cargo_bay_opened_count is 0.
 local other_ships is UNIQUESET().
 
-IF NOT (DEFINED UTIL_SHSYS_ARM_RLAUNCH_STATUS) { global UTIL_SHSYS_ARM_RLAUNCH_STATUS is false.}
+local PARAM is readJson("param.json")["UTIL_SHSYS"].
 
-IF NOT (DEFINED MAIN_ENGINE_NAME) { global MAIN_ENGINE_NAME is "".}
-IF NOT (DEFINED MAIN_ANTENNAS_NAME) { global MAIN_ANTENNAS_NAME is "".}
-IF NOT (DEFINED AUX_ANTENNAS_NAME) { global AUX_ANTENNAS_NAME is "".}
 
+local MAIN_ANTENNAS_NAME is (choose PARAM["MAIN_ANTENNAS_NAME"]
+        if PARAM:haskey("MAIN_ANTENNAS_NAME") else "").
+local AUX_ANTENNAS_NAME is (choose PARAM["AUX_ANTENNAS_NAME"]
+        if PARAM:haskey("AUX_ANTENNAS_NAME") else "").
+
+local ARM_RLAUNCH_STATUS is (choose PARAM["ARM_RLAUNCH_STATUS"]
+        if PARAM:haskey("ARM_RLAUNCH_STATUS") else false).
+
+local ATMOS_ESCAPE_STAGE is (choose PARAM["ATMOS_ESCAPE_STAGE"]
+        if PARAM:haskey("ATMOS_ESCAPE_STAGE") else false).
+local ATMOS_ESCAPE_ALT is (choose PARAM["ATMOS_ESCAPE_ALT"]
+        if PARAM:haskey("ATMOS_ESCAPE_ALT") else false).
+
+local REENTRY_STAGE is (choose PARAM["REENTRY_STAGE"]
+        if PARAM:haskey("REENTRY_STAGE") else false).
+local REENTRY_ALT is (choose PARAM["REENTRY_ALT"]
+        if PARAM:haskey("REENTRY_ALT") else false).
+local PARACHUTE_ALT is (choose PARAM["PARACHUTE_ALT"]
+        if PARAM:haskey("PARACHUTE_ALT") else false).
+
+local PARAM is readJson("1:/param.json").
+local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
+        if PARAM:haskey("AP_ENGINES") and
+        PARAM["AP_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
 
 
 local main_engines is get_parts_tagged(MAIN_ENGINE_NAME).
@@ -25,7 +46,7 @@ local arm_parachutes is false.
 
 // sets systems according to where spacecraft is
 local function iterate_spacecraft_system_state {
-    if UTIL_SHSYS_ARM_RLAUNCH_STATUS {
+    if ARM_RLAUNCH_STATUS {
         if not (ship:status = prev_status) {
             set prev_status to ship:status.
 
@@ -48,13 +69,13 @@ local function iterate_spacecraft_system_state {
         }
 
         // open solar panels and antennas if out of atmosphere
-        if arm_panels_and_antennas and ship:altitude > UTIL_SHSYS_ATMOS_ESCAPE_ALT 
+        if arm_panels_and_antennas and ship:altitude > ATMOS_ESCAPE_ALT 
             and ship:verticalspeed >= 0 {
             set arm_panels_and_antennas to false.
             print "SHSYS: PANELS".
             print "SHSYS: antennas".
 
-            until (STAGE:NUMBER <= UTIL_SHSYS_ATMOS_ESCAPE_STAGE) {
+            until (STAGE:NUMBER <= ATMOS_ESCAPE_STAGE) {
                 stage.
             }
 
@@ -67,13 +88,13 @@ local function iterate_spacecraft_system_state {
             }
         }
 
-        if arm_for_reentry and ship:altitude < UTIL_SHSYS_REENTRY_ALT
+        if arm_for_reentry and ship:altitude < REENTRY_ALT
             and ship:verticalspeed < 0 {
             set arm_for_reentry to false.
             set arm_parachutes to true.
             print "SHSYS: reentry".
 
-            until (STAGE:NUMBER <= UTIL_SHSYS_REENTRY_STAGE) {
+            until (STAGE:NUMBER <= REENTRY_STAGE) {
                 stage.
             }
 
@@ -86,7 +107,7 @@ local function iterate_spacecraft_system_state {
             }
         }
         if arm_parachutes and 
-            (ship:altitude < (UTIL_SHSYS_PARACHUTE_ALT- ship:geoposition:terrainheight)){
+            (ship:altitude < (PARACHUTE_ALT- ship:geoposition:terrainheight)){
             set arm_parachutes to false.
             set CHUTES to true.
             print "SHSYS: CHUTES".

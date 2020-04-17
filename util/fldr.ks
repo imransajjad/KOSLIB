@@ -10,13 +10,17 @@ local PREV_AG is AG5.
 
 
 local Ts is 0.04.
-local Tdur is 5.0.
+local Tdur is 0.0.
 local Tdel is 0.
 
 local logtag to "".
 local filename is "".
 
-IF NOT (DEFINED MAIN_ENGINE_NAME) { global MAIN_ENGINE_NAME is "".}
+
+local PARAM is readJson("1:/param.json").
+local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
+        if PARAM:haskey("AP_ENGINES") and
+        PARAM["AP_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
 
 local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
@@ -160,7 +164,6 @@ function util_fldr_get_help_str {
         "logtime(T)   total log time=T",
         "logdt(dt)    log interval =dt",
         "logtag TAG   set log tag",
-        "logengine    get engine string",
         "log          start logging",
         "testlog      start test, log",
         "listloginfo  list logs",
@@ -203,15 +206,6 @@ function util_fldr_parse_command {
             set logtag to commtext:replace("logtag ", "_"):replace(".","").
         } else {
             set logtag to "".
-        }
-    } ELSE IF commtext:STARTSWITH("logengine") {
-        util_shbus_tx_msg("FLDR_GET_ENGINE").
-        local received is util_shbus_tx_get_acks().
-        if received = -1 {
-            print "FLCS did not return engine name.".
-        } else {
-            set MAIN_ENGINE_NAME to received.
-            set MAIN_ENGINES to get_engines(MAIN_ENGINE_NAME).
         }
     } ELSE IF commtext = "log" {
         start_logging().
@@ -327,9 +321,7 @@ function util_fldr_decode_rx_msg {
     } ELSE IF opcode = "FLDR_RUN_TEST" {
         run_test_control().
     } ELSE IF opcode = "FLDR_PRINT_TEST" {
-        util_shbus_rx_send_back_ack(print_sequences()).
-    } ELSE IF opcode = "FLDR_GET_ENGINE" {
-        util_shbus_rx_send_back_ack(MAIN_ENGINE_NAME).
+        util_shbus_rx_send_back_ack(print_sequences()). 
     } else {
         util_shbus_rx_send_back_ack("could not decode fldr rx msg").
         print "could not decode fldr rx msg".

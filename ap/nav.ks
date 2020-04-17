@@ -1,5 +1,25 @@
 
 GLOBAL AP_NAV_ENABLED IS TRUE.
+local PARAM is readJson("1:/param.json")["AP_NAV"].
+
+// glimits
+local ROT_GNOM_VERT is (choose PARAM["ROT_GNOM_VERT"] if PARAM:haskey("ROT_GNOM_VERT") else 0).
+local ROT_GNOM_LAT is (choose PARAM["ROT_GNOM_LAT"] if PARAM:haskey("ROT_GNOM_LAT") else 0).
+local ROT_GNOM_LONG is (choose PARAM["ROT_GNOM_LONG"] if PARAM:haskey("ROT_GNOM_LONG") else 0).
+
+local K_PITCH is (choose PARAM["K_PITCH"] if PARAM:haskey("K_PITCH") else 0).
+local K_YAW is (choose PARAM["K_YAW"] if PARAM:haskey("K_YAW") else 0).
+local K_ROLL is (choose PARAM["K_ROLL"] if PARAM:haskey("K_ROLL") else 0).
+local K_HEADING is (choose PARAM["K_HEADING"] if PARAM:haskey("K_HEADING") else 0).
+local ROLL_W_MIN is (choose PARAM["ROLL_W_MIN"] if PARAM:haskey("ROLL_W_MIN") else 0).
+local ROLL_W_MAX is (choose PARAM["ROLL_W_MAX"] if PARAM:haskey("ROLL_W_MAX") else 0).
+local BANK_MAX is (choose PARAM["BANK_MAX"] if PARAM:haskey("BANK_MAX") else 0).
+local VSET_MAX is (choose PARAM["VSET_MAX"] if PARAM:haskey("VSET_MAX") else 0).
+local GEAR_HEIGHT is (choose PARAM["GEAR_HEIGHT"] if PARAM:haskey("GEAR_HEIGHT") else 0).
+
+local GCAS_ENABLED is (choose PARAM["GCAS_ENABLED"] if PARAM:haskey("GCAS_ENABLED") else false).
+local GCAS_MARGIN is (choose PARAM["GCAS_MARGIN"] if PARAM:haskey("GCAS_MARGIN") else 0).
+local GCAS_GAIN_MULTIPLIER is (choose PARAM["GCAS_GAIN_MULTIPLIER"] if PARAM:haskey("GCAS_GAIN_MULTIPLIER") else 0).
 
 // required global, will not modify
 // roll, pitch, yaw
@@ -10,13 +30,14 @@ GLOBAL AP_NAV_ENABLED IS TRUE.
 local lock AG to AG3.
 
 local USE_WP is (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED.
-local USE_GCAS is (defined AP_NAV_GCAS_ENABLED) and AP_NAV_GCAS_ENABLED.
+local USE_GCAS is (defined GCAS_ENABLED) and GCAS_ENABLED.
+local GEAR_HEIGHT is (choose GEAR_HEIGHT if defined GEAR_HEIGHT else 0).
 
 local AP_NAV_VERT_G is 0.1.
 local AP_NAV_HOR_G is 1.0.
 
-local lock W_PITCH_NOM to max(50,vel)/(g0*AP_NAV_ROT_GNOM_VERT).
-local lock W_YAW_NOM to max(50,vel)/(g0*AP_NAV_ROT_GNOM_LAT).
+local lock W_PITCH_NOM to max(50,vel)/(g0*ROT_GNOM_VERT).
+local lock W_YAW_NOM to max(50,vel)/(g0*ROT_GNOM_LAT).
 
 local VSET_MAN is FALSE.
 local ESET_MAN is FALSE.
@@ -48,7 +69,9 @@ local real_geodistance is 0.0.
 local vec_scale is 1.0.
 local vec_width is 2.0.
 
-if (false) { // debug
+local debug_vectors is false.
+
+if (debug_vectors) { // debug
     set nav_debug_vec0 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),
                 "", vec_scale, true, vec_width, true ).
     set nav_debug_vec1 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,1),
@@ -71,25 +94,25 @@ FUNCTION ap_nav_do_flcs_rot {
     local pitch_error is wrap_angle_until(E_SET - vel_pitch).
 
     local have_roll_pitch is haversine(vel_pitch,vel_bear,E_SET,H_SET).
-    local roll_w is outerweight(have_roll_pitch[1], AP_NAV_ROLL_W_MIN, AP_NAV_ROLL_W_MAX).
+    local roll_w is outerweight(have_roll_pitch[1], ROLL_W_MIN, ROLL_W_MAX).
     local roll_target is R_SET + 
         roll_w*wrap_angle_until(have_roll_pitch[0]) +
-        (1-roll_w)*sat( AP_NAV_K_HEADING*head_error, AP_NAV_BANK_MAX).
+        (1-roll_w)*sat( K_HEADING*sat(head_error,90), BANK_MAX).
     if ship:status = "LANDED" {
         set roll_target to 0.
     }
 
     if USE_GCAS and GCAS_ACTIVE {
         ap_flcs_rot(
-        AP_NAV_GCAS_GAIN_MULTIPLIER*AP_NAV_K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET,
-        AP_NAV_GCAS_GAIN_MULTIPLIER*AP_NAV_K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET,
-        AP_NAV_GCAS_GAIN_MULTIPLIER*AP_NAV_K_ROLL*(roll_target - roll),
+        GCAS_GAIN_MULTIPLIER*K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET,
+        GCAS_GAIN_MULTIPLIER*K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET,
+        GCAS_GAIN_MULTIPLIER*K_ROLL*(roll_target - roll),
         true ).
     } else {
         ap_flcs_rot(
-        sat(AP_NAV_K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET, 2.0*W_PITCH_NOM),
-        sat(AP_NAV_K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET, 2.0*W_YAW_NOM),
-        AP_NAV_K_ROLL*(roll_target - roll),
+        sat(K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET, 2.0*W_PITCH_NOM),
+        sat(K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET, 2.0*W_YAW_NOM),
+        K_ROLL*(roll_target - roll),
         true ).
     }
 }
@@ -104,6 +127,7 @@ local GCAS_ACTIVE is false.
 local straight_vector is V(0,0,0).
 local impact_vector is V(0,0,0).
 local impact_alt is 0.
+local old_mode_str is "".
 
 function ap_nav_gcas {
     // ground collision avoidance system
@@ -129,7 +153,7 @@ function ap_nav_gcas {
                 ship:srfprograde:topvector*( RAD2DEG*vel/rates[0]*(1-cos(vel_pitch_up))).
 
         if not GCAS_ARMED {
-            if (ship:altitude+straight_vector*ship:up:vector-AP_NAV_GCAS_MARGIN <
+            if (ship:altitude+straight_vector*ship:up:vector-GCAS_MARGIN <
                     max(ship:geoposition:terrainheight,0)) {
                 util_hud_push_right("NAV_GCAS", "GCAS").
                 print "GCAS armed".
@@ -143,15 +167,16 @@ function ap_nav_gcas {
 
             set impact_alt to max(latlng(impact_latitude,impact_longitude):terrainheight,0).
 
-            if not GCAS_ACTIVE and (ship:altitude+impact_vector*ship:up:vector-AP_NAV_GCAS_MARGIN < impact_alt ) {
+            if not GCAS_ACTIVE and (ship:altitude+impact_vector*ship:up:vector-GCAS_MARGIN < impact_alt ) {
                 // GCAS is active here, will put in NAV mode after setting headings etc
                 set GCAS_ACTIVE to true.
                 util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"ACTIVE").
                 print "GCAS ACTIVE".
+                set old_mode_str to ap_mode_get_str().
                 ap_mode_set("NAV").
 
-            } else if GCAS_ACTIVE and not (ship:altitude+impact_vector*ship:up:vector-sticky_factor*AP_NAV_GCAS_MARGIN < impact_alt ) {
-                ap_mode_set("FLCS").
+            } else if GCAS_ACTIVE and not (ship:altitude+impact_vector*ship:up:vector-sticky_factor*GCAS_MARGIN < impact_alt ) {
+                ap_mode_set(old_mode_str).
                 print "GCAS INACTIVE".
                 util_hud_pop_right("NAV_GCAS").
                 set GCAS_ACTIVE to false.
@@ -163,16 +188,16 @@ function ap_nav_gcas {
                 set R_SET to 0.
                 set W_PITCH_SET to 0*DEG2RAD*rates[0].
                 set W_YAW_SET to 0.
-                set V_SET to AP_NAV_VSET_MAX.
+                set V_SET to VSET_MAX.
 
-                if (ship:altitude - AP_NAV_GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
+                if (ship:altitude - GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
                 {
                     print "GCAS FLOOR BREACHED".
                     util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"BREACHED").
                 }
             }
 
-            if not GCAS_ACTIVE and not (ship:altitude+straight_vector*ship:up:vector-AP_NAV_GCAS_MARGIN < 
+            if not GCAS_ACTIVE and not (ship:altitude+straight_vector*ship:up:vector-GCAS_MARGIN < 
                     max(ship:geoposition:terrainheight,0)) {
                 util_hud_pop_right("NAV_GCAS").
                 print "GCAS disarmed".
@@ -181,7 +206,7 @@ function ap_nav_gcas {
         }
     } else if GCAS_ARMED or GCAS_ACTIVE {
         // if GEAR or SAS, undo everything
-        ap_mode_set("FLCS").
+        ap_mode_set(old_mode_str).
         util_hud_pop_right("NAV_GCAS").
         set GCAS_ARMED to false.
         set GCAS_ACTIVE to false.
@@ -274,7 +299,7 @@ function ap_nav_disp {
 
         } else if cur_wayp:length = 4 {
             // altitude, velocity, lat, long
-            set geo_target to LATLNG(cur_wayp[2],cur_wayp[3]).
+            local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
             set H_SET to geo_target:HEADING.
 
             set R_SET to 0.
@@ -284,21 +309,22 @@ function ap_nav_disp {
         // set everything if waypoint has target orientation
         if cur_wayp:length = 6 {
             // altitude, velocity, lat, long, final_pitch, final_heading
-            local wp_vec is LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]).
+            local wp_vec is LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]+
+                 (choose GEAR_HEIGHT if GEAR else 0)).
             local wp_final_head is heading(cur_wayp[5],cur_wayp[4]).
             local current_vel_head is heading(vel_bear,vel_pitch).
 
             set WP_FOLLOW_MODE to 0.
+            set outer_circle_flip to (choose 1 if (vdot(wp_vec,wp_final_head:vector) < 0) else 0).
 
             local bear_to_final is rotatefromto(wp_final_head:vector,wp_vec).
             set arc_have to haversine_dir(bear_to_final*bear_to_final*wp_final_head,wp_final_head).
             set head_have to haversine_dir(bear_to_final*wp_final_head,wp_final_head).
             
             local large_radius is abs(wp_vec:mag/2/cos(90-arc_have[1]/2)).
-            local final_radius is max(50,cur_wayp[1]^2)/(AP_NAV_ROT_GNOM_VERT*g0).
+            local final_radius is max(50,cur_wayp[1]^2)/(ROT_GNOM_VERT*g0).
             set closeness to (final_radius/large_radius)^2.
 
-            set outer_circle_flip to (choose 1 if (vdot(wp_vec,wp_final_head:vector) < 0) else 0).
             if outer_circle_flip = 1 {
                 set new_have to list( head_have[0]-180, ((1-closeness)*(head_have[1]) + closeness*wrap_angle_until(arc_have[1])), 0 ).
             } else {
@@ -309,7 +335,7 @@ function ap_nav_disp {
 
             local centripetal_vector is angleaxis(arc_have[0]-180-180*outer_circle_flip,new_arc_direction:vector)*current_vel_head:topvector.
 
-            if (false) { // debug
+            if (debug_vectors) { // debug
                 set nav_debug_vec0:vec to 30*centripetal_vector.
                 set nav_debug_vec1:vec to 100*(bear_to_final*bear_to_final*wp_final_head):vector.
                 set nav_debug_vec2:vec to 100*(bear_to_final*wp_final_head):vector.
@@ -390,7 +416,7 @@ function ap_nav_disp {
     IF VSET_MAN AND is_active_vessel() {
         SET INC TO 2.7*deadzone(2*pilot_input_u0-1,0.1).
         IF INC <> 0 {
-            SET V_SET To MIN(MAX(V_SET+INC,-1),AP_NAV_VSET_MAX).
+            SET V_SET To MIN(MAX(V_SET+INC,-1),VSET_MAX).
             //vec_info_draw().
         }
     }
@@ -451,8 +477,13 @@ function ap_nav_status_string {
     if AP_MODE_NAV {
         set vs_string to vs_string+ char(10)+"["+round_dec(E_SET,2)+","+round(H_SET)+"]".
     }
-    if (true) { // debug
+    if (false) { // debug
         set vs_string to vs_string+ char(10)+ WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE].
+
+        set vs_string to vs_string+ char(10)+ "NAV_K " + round_dec(K_PITCH,5) + 
+                                  char(10)+    "  " + round_dec(K_YAW,5) + 
+                                  char(10)+    "  " + round_dec(K_ROLL,5) + 
+                                  char(10)+    "  " + round_dec(K_HEADING,5).
 
         if USE_WP and (util_wp_queue_length() > 0) {
             local cur_wayp is util_wp_queue_first().

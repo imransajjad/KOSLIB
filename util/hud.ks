@@ -6,6 +6,18 @@ IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
 IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
 
+local PARAM is readJson("1:/param.json")["UTIL_HUD"].
+
+local ON_START is (choose PARAM["ON_START"] if PARAM:haskey("ON_START") else false).
+local CAMERA_HEIGHT is (choose PARAM["CAMERA_HEIGHT"] if PARAM:haskey("CAMERA_HEIGHT") else 0).
+local CAMERA_RIGHT is (choose PARAM["CAMERA_RIGHT"] if PARAM:haskey("CAMERA_RIGHT") else 0).
+
+local GSLOPE is (choose PARAM["GSLOPE"] if PARAM:haskey("GSLOPE") else -2.5).
+local GHEAD is (choose PARAM["GHEAD"] if PARAM:haskey("GHEAD") else 90.4).
+local PITCH_DIV is (choose PARAM["PITCH_DIV"] if PARAM:haskey("PITCH_DIV") else 5).
+local FLARE_ALT is (choose PARAM["FLARE_ALT"] if PARAM:haskey("FLARE_ALT") else 20).
+local SHIP_HEIGHT is (choose PARAM["SHIP_HEIGHT"] if PARAM:haskey("SHIP_HEIGHT") else 2).
+
 CLEARVECDRAWS().
 
 local hud_text_dict_left is lexicon().
@@ -18,8 +30,8 @@ local hud_land_slope is -2.5.
 local hud_land_head is 90.4.
 
 local lock camera_offset_vec to SHIP:CONTROLPART:position + 
-    UTIL_HUD_CAMERA_HEIGHT*ship:facing:topvector + 
-    UTIL_HUD_CAMERA_RIGHT*ship:facing:starvector.
+    CAMERA_HEIGHT*ship:facing:topvector + 
+    CAMERA_RIGHT*ship:facing:starvector.
 
 // draw a vector on the ap_nav desired heading
 local nav_init_draw is false.
@@ -131,11 +143,11 @@ local function ladder_vec_draw {
     if hud_setting_dict["on"] and hud_setting_dict["ladder"] and is_active_vessel() and not MAPVIEW and vel > 1.0 {
 
         local closest_pitch is sat(
-            round(vel_pitch/UTIL_HUD_PITCH_DIV)*UTIL_HUD_PITCH_DIV,
-            90-UTIL_HUD_PITCH_DIV-1).
-        set ladder_vec_list[0][1] to closest_pitch+UTIL_HUD_PITCH_DIV.
+            round(vel_pitch/PITCH_DIV)*PITCH_DIV,
+            90-PITCH_DIV-1).
+        set ladder_vec_list[0][1] to closest_pitch+PITCH_DIV.
         set ladder_vec_list[1][1] to closest_pitch.
-        set ladder_vec_list[2][1] to closest_pitch-UTIL_HUD_PITCH_DIV.
+        set ladder_vec_list[2][1] to closest_pitch-PITCH_DIV.
 
         local camera_offset is camera_offset_vec.
 
@@ -205,10 +217,10 @@ local function land_vecdraw {
         set land_vert:color to hud_color.
         set land_hori:color to hud_color.
 
-        local flare_alt is ship:altitude-ship:geoposition:terrainheight-UTIL_HUD_SHIP_HEIGHT.
+        local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
 
-        set land_hori:label to (choose "AGL "+round_dec(flare_alt,1)
-                    if (flare_alt < UTIL_HUD_FLARE_ALT ) else "").
+        set land_hori:label to (choose "AGL "+round_dec(ground_alt,1)
+                    if (ground_alt < FLARE_ALT ) else "").
 
         set land_vert:show to true.
         set land_hori:show to true.
@@ -314,7 +326,7 @@ local function control_part_vec_draw {
     }
     if is_active_vessel() and hud_setting_dict["on"] and not MAPVIEW {
 
-        set control_part_vec:vec to SHIP:CONTROLPART:position + UTIL_HUD_CAMERA_HEIGHT*ship:facing:topvector.
+        set control_part_vec:vec to SHIP:CONTROLPART:position + CAMERA_HEIGHT*ship:facing:topvector.
         set control_part_vec:show to true.
     } else {
         set control_part_vec:show to false.
@@ -324,9 +336,9 @@ local function control_part_vec_draw {
 
 // main function of HUD
 function util_hud_init {
-    set hud_land_head to UTIL_HUD_GHEAD.
-    set hud_land_slope to -abs(UTIL_HUD_GSLOPE).
-    set hud_setting_dict["on"] to UTIL_HUD_ON_START.
+    set hud_land_head to GHEAD.
+    set hud_land_slope to -abs(GSLOPE).
+    set hud_setting_dict["on"] to ON_START.
 }
 
 local hud_interval is 2.
@@ -468,3 +480,4 @@ function util_hud_decode_rx_msg {
 }
 
 // RX SECTION END
+

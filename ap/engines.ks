@@ -1,12 +1,29 @@
 
 GLOBAL AP_ENGINES_ENABLED IS true.
 
-function ap_engines_get_total_thrust {
-    local total_thrust is 0.
-    for e in main_engine_list {
-        set total_thrust to total_thrust+e:MAXTHRUST.
-    }
-    return total_thrust.
+
+local PARAM is readJson("1:/param.json")["AP_ENGINES"].
+
+local TOGGLE_X is (choose PARAM["TOGGLE_X"] if PARAM:haskey("TOGGLE_X") else 0).
+local TOGGLE_Y is (choose PARAM["TOGGLE_Y"] if PARAM:haskey("TOGGLE_Y") else 0).
+local TOGGLE_VEL is (choose PARAM["TOGGLE_VEL"] if PARAM:haskey("TOGGLE_VEL") else 0).
+local V_PID_KP is (choose PARAM["V_PID_KP"] if PARAM:haskey("V_PID_KP") else 0.01).
+local V_PID_KI is (choose PARAM["V_PID_KI"] if PARAM:haskey("V_PID_KI") else 0.004).
+local V_PID_KD is (choose PARAM["V_PID_KD"] if PARAM:haskey("V_PID_KD") else 0).
+local MAIN_ENGINE_NAME is (choose PARAM["MAIN_ENGINE_NAME"] if PARAM:haskey("MAIN_ENGINE_NAME") else 0).
+
+
+local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
+
+local auto_throttle_func is generic_throttle_auto@.
+local mapped_throttle_func is no_map@.
+local common_func is generic_common@.
+
+if MAIN_ENGINE_NAME = "turboJet" {
+    set auto_throttle_func to turbojet_throttle_auto@.
+    set mapped_throttle_func to turbojet_throttle_map@.
+} else if MAIN_ENGINE_NAME = "turboFanSize2" {
+    set common_func to turbofan_common@.
 }
 
 local lock MAX_TMR TO ap_engines_get_total_thrust()/SHIP:MASS.
@@ -14,11 +31,20 @@ local lock MAX_TMR TO ap_engines_get_total_thrust()/SHIP:MASS.
 local my_throttle is 0.0.
 
 local vpid is PIDLOOP(
-    AP_ENGINES_V_PID_KP,
-    AP_ENGINES_V_PID_KI,
-    AP_ENGINES_V_PID_KD,
+    V_PID_KP,
+    V_PID_KI,
+    V_PID_KD,
     0.0, 1.0).
 
+
+
+function ap_engines_get_total_thrust {
+    local total_thrust is 0.
+    for e in MAIN_ENGINES {
+        set total_thrust to total_thrust+e:MAXTHRUST.
+    }
+    return total_thrust.
+}
 
 // initial generic maps / auto throttles
 
@@ -48,22 +74,22 @@ local function turbojet_throttle_map {
         return my_throttle.
     }
 
-    local MaxDryThrottle_x is AP_ENGINES_TOGGLE_X-0.05.
+    local MaxDryThrottle_x is TOGGLE_X-0.05.
 
     IF NOT (MAIN_ENGINES:length = 0){
-        IF u0 > AP_ENGINES_TOGGLE_X AND MAIN_ENGINES[0]:MODE = "Dry"
+        IF u0 > TOGGLE_X AND MAIN_ENGINES[0]:MODE = "Dry"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
-        IF u0 <= AP_ENGINES_TOGGLE_X AND MAIN_ENGINES[0]:MODE = "Wet"
+        IF u0 <= TOGGLE_X AND MAIN_ENGINES[0]:MODE = "Wet"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
     }
 
     if u0 <= MaxDryThrottle_x {
         SET my_throttle TO (u0/MaxDryThrottle_x).
-    } else if u0 <= AP_ENGINES_TOGGLE_X AND u0 > MaxDryThrottle_x{
+    } else if u0 <= TOGGLE_X AND u0 > MaxDryThrottle_x{
         SET my_throttle TO 1.0.
-    } else if u0 > AP_ENGINES_TOGGLE_X {
-        SET my_throttle TO ((1-AP_ENGINES_TOGGLE_Y)*u0 + 
-            (AP_ENGINES_TOGGLE_Y-AP_ENGINES_TOGGLE_X))/(1-AP_ENGINES_TOGGLE_X).
+    } else if u0 > TOGGLE_X {
+        SET my_throttle TO ((1-TOGGLE_Y)*u0 + 
+            (TOGGLE_Y-TOGGLE_X))/(1-TOGGLE_X).
     }
 
     return max(my_throttle,0.0).
@@ -72,9 +98,9 @@ local function turbojet_throttle_map {
 local function turbojet_throttle_auto {
     parameter v_set.
     IF NOT (MAIN_ENGINES:length = 0){
-        IF v_set > AP_ENGINES_TOGGLE_VEL AND MAIN_ENGINES[0]:MODE = "Dry"
+        IF v_set > TOGGLE_VEL AND MAIN_ENGINES[0]:MODE = "Dry"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
-        IF v_set <= AP_ENGINES_TOGGLE_VEL AND MAIN_ENGINES[0]:MODE = "Wet"
+        IF v_set <= TOGGLE_VEL AND MAIN_ENGINES[0]:MODE = "Wet"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
     }
 
@@ -106,14 +132,8 @@ local function turbofan_common {
     }
 }
 
-IF NOT (DEFINED MAIN_ENGINE_NAME) { set MAIN_ENGINE_NAME to "".}
-local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
-
-local auto_throttle_func is generic_throttle_auto@.
-local mapped_throttle_func is no_map@.
-local common_func is generic_common@.
-
 function ap_engine_throttle_auto {
+    // this function depends on AP_NAV_ENABLED
     SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
     common_func().
 }
@@ -124,19 +144,4 @@ function ap_engine_throttle_map {
     common_func().
 }
 
-function ap_engine_init {
-    set MAIN_ENGINES to get_engines(MAIN_ENGINE_NAME).
 
-    if MAIN_ENGINE_NAME = "turboJet" {
-        if (defined AP_NAV_ENABLED) and AP_NAV_ENABLED {
-            set auto_throttle_func to turbojet_throttle_auto@.
-            set mapped_throttle_func to turbojet_throttle_map@.
-        } else {
-            set auto_throttle_func to turbojet_throttle_map@.
-            set mapped_throttle_func to turbojet_throttle_map@.
-        }    
-    } else if MAIN_ENGINE_NAME = "turboFanSize2" {
-        set common_func to turbofan_common@.
-    }
-
-}

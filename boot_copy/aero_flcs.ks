@@ -6,15 +6,13 @@ function has_connection_to_base {
     } else {
         return true.
     }
-    return false.
 }
 
 WAIT UNTIL SHIP:LOADED.
 IF has_connection_to_base() {
     COPYPATH("0:/koslib/util/common.ks","util_common").
     run once "util_common".
-
-    COPYPATH("0:/param/"+string_acro(ship:name)+".ks","param").
+    COPYPATH("0:/param/"+string_acro(ship:name)+".json","param.json").
 
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
@@ -50,7 +48,6 @@ LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
 LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
 
-run once "param".
 run once "util_common".
 
 run once "util_wp".
@@ -67,7 +64,7 @@ run once "ap_mode".
 
 GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
 
-ap_engine_init().
+util_hud_init().
 flush_core_messages().
 
 // main loop

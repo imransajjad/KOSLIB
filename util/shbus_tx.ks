@@ -3,12 +3,16 @@ GLOBAL UTIL_SHBUS_TX_ENABLED IS true.
 
 // TX SECTION
 
-IF NOT (DEFINED FLCS_PROC) {GLOBAL FLCS_PROC IS 0. } // required global.
+local PARAM is readJson("1:/param.json")["UTIL_SHBUS"].
+
+local FLCS_PROC is (choose PROCESSOR(PARAM["FLCS_PROC_TAG"]) if PARAM:haskey("FLCS_PROC_TAG") else 0).
+
+local PARAM is readJson("1:/param.json").
 
 local lock H to terminal:height.
 local lock W to terminal:width.
 
-global HELP_LIST is LIST(
+local HELP_LIST is LIST(
 " ",
 ship:name,
 "SHBUS_TX running on "+core:tag,
@@ -24,26 +28,34 @@ ship:name,
 "unsethost   set/unset self as host",
 "hello       hello to flcs",
 "rst         reboot flcs",
-"prm         reload flcs params",
 "neu         neutralize controls",
 "inv         invalid message").
 
-if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
-    local newlist is util_wp_get_help_str().
-    for i in range(0,newlist:length) {
-        HELP_LIST:add(newlist[i]).
+local HELP_LIST_UPDATED is false.
+local function update_help_list {
+    if HELP_LIST_UPDATED {
+        return.
     }
-}
-if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED {
-    local newlist is util_fldr_get_help_str().
-    for i in range(0,newlist:length) {
-        HELP_LIST:add(newlist[i]).
+    if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
+        local newlist is util_wp_get_help_str().
+        for i in range(0,newlist:length) {
+            HELP_LIST:add(newlist[i]).
+        }
+        set HELP_LIST_UPDATED to true.
     }
-}
-if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED {
-    local newlist is util_hud_get_help_str().
-    for i in range(0,newlist:length) {
-        HELP_LIST:add(newlist[i]).
+    if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED {
+        local newlist is util_fldr_get_help_str().
+        for i in range(0,newlist:length) {
+            HELP_LIST:add(newlist[i]).
+        }
+        set HELP_LIST_UPDATED to true.
+    }
+    if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED {
+        local newlist is util_hud_get_help_str().
+        for i in range(0,newlist:length) {
+            HELP_LIST:add(newlist[i]).
+        }
+        set HELP_LIST_UPDATED to true.
     }
 }
 
@@ -61,11 +73,13 @@ local function print_help_page_by_index {
 local function print_help_page {
     parameter page.
     local page_size is H-4.
+    update_help_list().
     print_help_page_by_index(page_size*page).
 }
 
 local function print_help_by_tag {
     parameter tag.
+    update_help_list().
     local hi is HELP_LIST:iterator.
     until not hi:next {
         if (hi:value:STARTSWITH(tag) ){
@@ -133,8 +147,6 @@ local function parse_command {
             util_shbus_tx_msg("SETHOST", core:tag ).
         } else if commtext:STARTSWITH("unsethost") {
             util_shbus_tx_msg("SETHOST", "" ).
-        } else if commtext:STARTSWITH("prm"){
-            util_shbus_tx_msg("RPARAM").
         } else if  commtext:STARTSWITH("help") {
             if commtext:contains(" ") {
                 print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
@@ -252,7 +264,6 @@ local function print_lowest_line_again {
 
 wait 1.0.
 CLEARSCREEN.
-print_help_page(0).
 
 function util_shbus_tx_get_input {
     print_overflowed_line().
@@ -308,12 +319,12 @@ function util_shbus_tx_get_input {
 
 
 function util_shbus_tx_do_command {
-    parameter comm_string is "".
+    parameter comm_string_input is "".
 
-    if comm_string = "" {
+    if comm_string_input = "" {
         print "util_shbus_tx_do_command invalid param".
     } else {
-        parse_command(comm_string).
+        parse_command(comm_string_input).
     }
 }
 

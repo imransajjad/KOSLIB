@@ -117,10 +117,6 @@ function haversine_dir {
 
 function dir_haversine {
     parameter have_list. // eject, total, roll
-
-    //local dir_have is R(wrap_angle_until(90-have_list[1]), have_list[0], 180-have_list[2]).
-    //local dir_have is R(0,)*R(-total,0,0)*R(90,0,0).
-
     return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
 }
 
@@ -129,7 +125,6 @@ function pitch_yaw_from_dir {
     local guide_dir_py to R(90,0,0)*(-SHIP:UP)*dir.
     return list( (mod(guide_dir_py:pitch+90,180)-90) ,
                  (360-guide_dir_py:yaw) ).
-    // returns list(pitch,bear).
 }
 
 function remainder {
@@ -169,6 +164,8 @@ function get_parts_tagged {
             tagged_list:add(e).
         }
     }
+    print "get_parts_tagged " + tag.
+    print tagged_list.
     return tagged_list.
 }
 
@@ -197,13 +194,4 @@ function sign {
         return -1.0.
     }
     return 0.0.
-}
-
-function reload_params_from_base {
-    IF has_connection_to_base() {
-        COPYPATH("0:/param/"+string_acro(ship:name)+".ks","param").
-        run "param".
-        return "reloaded params".
-    }
-    return "no has_connection_to_base".
 }

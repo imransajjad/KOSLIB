@@ -119,11 +119,11 @@ local function generate_landing_seq {
     local long_ofs is distance/ship:body:radius*RAD2DEG.
 
     local landing_sequence is LIST(
-    list(-1, 75 +distance*sin(GSlope), speed, -0.0485911247,-74.73766837-long_ofs,-GSlope,90.4),
-    list(-1, 75 +distance*sin(GSlope)/2, speed, -0.0485911247,-74.73766837-long_ofs/2,-GSlope,90.4),
+    list(-1, 69 + flare_h +distance*tan(GSlope), speed, -0.0485911247,longtd-flare_long-long_ofs,-GSlope,90.4),
+    list(-1, 69 + flare_h +distance*tan(GSlope)/2, speed, -0.0485911247,longtd-flare_long-long_ofs/2,-GSlope,90.4),
     list(-1, -2),
-    list(-1, 70 + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
-    list(-1, 70, 0,    lat_td, longtd,-0.05,90.4),
+    list(-1, 69 + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
+    list(-1, 69, 0,    lat_td, longtd,-0.05,90.4),
     list(-1, 68,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4),
     list(-1, -1)). // brakes
 
