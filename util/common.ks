@@ -9,7 +9,7 @@ set g0 to 9.806.
 
 FUNCTION sat {
     PARAMETER X.
-    PARAMETER Lim.
+    PARAMETER Lim is 1.0.
     IF X > Lim { RETURN Lim.}
     IF X < -Lim { RETURN -Lim.}
     RETURN X.
@@ -91,8 +91,6 @@ function haversine {
 
     parameter lat1.
     parameter lng1.
-    parameter canyon is 5.0. // degrees
-
 
     set dlong to -(lng1-lng0).
 
@@ -100,10 +98,33 @@ function haversine {
     set fore to sin(lat0)*cos(dlong)*cos(lat1) - cos(lat0)*sin(lat1).
     set left to sin(dlong)*cos(lat1).
 
-    // list[0] is roll
+    // list[0] is eject
     // list[1] is total angular difference
-    return list(arctan2(-left,-fore) ,arccos(top)).
+    return list(arctan2(-left,-fore) ,arccos(sat(top))).
 
+}
+
+function haversine_dir {
+    parameter dir0.
+    parameter dirf.
+
+    local dir_temp is R(90,0,0)*(-dir0)*(dirf).
+    local total is wrap_angle_until(90-dir_temp:pitch).
+    local roll is (180-dir_temp:roll).
+    local eject is dir_temp:yaw.
+    return list( eject, total, roll ).
+}
+
+function dir_haversine {
+    parameter have_list. // eject, total, roll
+    return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
+}
+
+function pitch_yaw_from_dir {
+    parameter dir.
+    local guide_dir_py to R(90,0,0)*(-SHIP:UP)*dir.
+    return list( (mod(guide_dir_py:pitch+90,180)-90) ,
+                 (360-guide_dir_py:yaw) ).
 }
 
 function remainder {
@@ -127,8 +148,50 @@ function is_active_vessel {
 function get_engines {
     parameter tag.
     local main_engine_list is LIST().
-    for e in SHIP:PARTSDUBBED(tag){
-        main_engine_list:add(e).
+    if not (tag = "") {
+        for e in SHIP:PARTSDUBBED(tag){
+            main_engine_list:add(e).
+        }
     }
     return main_engine_list.
+}
+
+function get_parts_tagged {
+    parameter tag.
+    local tagged_list is LIST().
+    if not (tag = "") {
+        for e in SHIP:PARTSDUBBED(tag){
+            tagged_list:add(e).
+        }
+    }
+    print "get_parts_tagged " + tag.
+    print tagged_list.
+    return tagged_list.
+}
+
+function string_acro {
+    parameter strin.
+    local strout is "".
+    for substr in strin:split(" ") {
+        set strout to strout+substr[0].
+    }
+    return strout.
+}
+
+function flush_core_messages {
+    PARAMETER ECHO is true.
+    UNTIL CORE:MESSAGES:EMPTY {
+        SET RECEIVED TO CORE:MESSAGES:POP.
+        IF ECHO {print RECEIVED:CONTENT.}
+    }
+}
+
+function sign {
+    parameter x.
+    if (x > 0) {
+        return +1.0.
+    } else if (x < 0) {
+        return -1.0.
+    }
+    return 0.0.
 }

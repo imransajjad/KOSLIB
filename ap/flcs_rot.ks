@@ -1,202 +1,319 @@
 
 GLOBAL AP_FLCS_ROT_ENABLED IS true.
 
+local PARAM is readJson("param.json")["AP_FLCS_ROT"].
+
+// glimits
+local GLIM_VERT is (choose PARAM["GLIM_VERT"] if PARAM:haskey("GLIM_VERT") else 0).
+local GLIM_LAT is (choose PARAM["GLIM_LAT"] if PARAM:haskey("GLIM_LAT") else 0).
+local GLIM_LONG is (choose PARAM["GLIM_LONG"] if PARAM:haskey("GLIM_LONG") else 0).
+
+local CORNER_VELOCITY is (choose PARAM["CORNER_VELOCITY"] if PARAM:haskey("CORNER_VELOCITY") else 0).
+
+
+local RATE_SCHEDULE_ENABLED is (choose PARAM["RATE_SCHEDULE_ENABLED"] if PARAM:haskey("RATE_SCHEDULE_ENABLED") else false).
+local START_MASS is (choose PARAM["START_MASS"] if PARAM:haskey("START_MASS") else 0).
+
+local GAIN_SCHEDULE_ENABLED is (choose PARAM["GAIN_SCHEDULE_ENABLED"] if PARAM:haskey("GAIN_SCHEDULE_ENABLED") else 0).
+local PITCH_SPECIFIC_INERTIA is (choose PARAM["PITCH_SPECIFIC_INERTIA"] if PARAM:haskey("PITCH_SPECIFIC_INERTIA") else 0).
+
+// rate limits
+local MAX_ROLL is (choose PARAM["MAX_ROLL"] if PARAM:haskey("MAX_ROLL") else 0).
+
+// pitch rate PID gains
+local PR_KP is (choose PARAM["PR_KP"] if PARAM:haskey("PR_KP") else 0).
+local PR_KI is (choose PARAM["PR_KI"] if PARAM:haskey("PR_KI") else 0).
+local PR_KD is (choose PARAM["PR_KD"] if PARAM:haskey("PR_KD") else 0).
+
+// yaw rate PID gains
+local YR_KP is (choose PARAM["YR_KP"] if PARAM:haskey("YR_KP") else 0).
+local YR_KI is (choose PARAM["YR_KI"] if PARAM:haskey("YR_KI") else 0).
+local YR_KD is (choose PARAM["YR_KD"] if PARAM:haskey("YR_KD") else 0).
+
+// roll rate PID gains
+local RR_KP is (choose PARAM["RR_KP"] if PARAM:haskey("RR_KP") else 0).
+local RR_KI is (choose PARAM["RR_KI"] if PARAM:haskey("RR_KI") else 0).
+local RR_KD is (choose PARAM["RR_KD"] if PARAM:haskey("RR_KD") else 0).
+
 // USES AG6
 
 local lock AG to AG6.
 
 // FLCS PID STUFF
 
-local lock pitch_rate to (-(SHIP:ANGULARVEL-KERBIN:ANGULARVEL)*SHIP:FACING:STARVECTOR).
-local lock yaw_rate to ((SHIP:ANGULARVEL-KERBIN:ANGULARVEL)*SHIP:FACING:TOPVECTOR).
-local lock roll_rate to (-(SHIP:ANGULARVEL-KERBIN:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
+local lock pitch_rate to (-(SHIP:ANGULARVEL-SHIP:BODY:ANGULARVEL)*SHIP:FACING:STARVECTOR).
+local lock yaw_rate to ((SHIP:ANGULARVEL-SHIP:BODY:ANGULARVEL)*SHIP:FACING:TOPVECTOR).
+local lock roll_rate to (-(SHIP:ANGULARVEL-SHIP:BODY:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 
-local lock LOADFACTOR to SHIP:DYNAMICPRESSURE/SHIP:MASS.
 
 local lock LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
 local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
 
+local lock DELTA_ALPHA to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
+local lock alpha to -(mod(DELTA_ALPHA:PITCH+180,360)-180).
 
-//RATE_DEG_MAX IS 45.
-//GLIMIT_MAX IS 12.
-//CORNER_VEL IS (GLIMIT_MAX*g0/(RATE_DEG_MAX*DEG2RAD)) ~ 145 m/s.
 
-local CORNER_VEL is 145.
+local function cl_sched {
+    parameter v.
 
-local CORNER_Q is (CORNER_VEL/345)^2.
-local W_V_MAX is (AP_FLCS_ROT_GLIM_VERT*g0/CORNER_VEL).
-local W_L_MAX is (AP_FLCS_ROT_GLIM_LAT*g0/CORNER_VEL).
+    if ( v < 100) {
+        return -(5/100)*v + 8.5.
+    } else if (v < 300) {
+        return -(2.5/200)*v + 4.75.
+    } else if (v < 2100) {
+        return -(0.2/700)*v + 1.09.
+    } else {
+        return 0.49.
+    }
+}
 
-local lock GLimiter to ( W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q) >
-    AP_FLCS_ROT_GLIM_VERT*g0/vel).
+local function cd_sched {
+    parameter v.
+
+    if (v < 50) {
+        return 1.0.
+    } else if ( v < 100) {
+        return -(0.5/50)*v + 1.5.
+    } else if (v < 300) {
+        return 0.5.
+    } else if (v < 400) {
+        return (1.0/100)*v - 2.5.
+    } else if (v < 500) {
+        return -(0.3/100)*v + 2.7.
+    } else {
+        return 1.2.
+    }
+}
+
+local MIN_FLCS_Q is 0.0003.
+local MIN_PITCH_RATE is 2.5*DEG2RAD.
+
+local MIN_SEA_Q is 1.0*(50/420)^2.
+local CORNER_SEA_Q is 1.0*(CORNER_VELOCITY/420)^2.
+local W_V_MAX is (GLIM_VERT*g0/CORNER_VELOCITY).
+local W_L_MAX is (GLIM_LAT*g0/CORNER_VELOCITY).
+
+local sc_geo_alpha is 0.32.
+local WING_AREA is 0.
+
+local lock GLimiter to ( prate_max+0.0001 + g0/vel*cos(vel_pitch)*cos(roll) >
+    GLIM_VERT*g0/vel ).
 
 local pratePID is PIDLOOP(
-    AP_FLCS_ROT_PR_KP,
-    AP_FLCS_ROT_PR_KI,
-    AP_FLCS_ROT_PR_KD,
+    PR_KP,
+    PR_KI,
+    PR_KD,
     -1.0,1.0).
-local lock prate_max to MIN(
-    W_V_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
-    AP_FLCS_ROT_GLIM_VERT*g0/vel).
+local pitch_rate is 0.
+if (RATE_SCHEDULE_ENABLED)
+{
+    set WING_AREA to W_V_MAX/
+            (CORNER_SEA_Q*cl_sched(CORNER_VELOCITY)*sc_geo_alpha)
+            *(START_MASS*CORNER_VELOCITY).
+    lock prate_max to 
+        max(
+            MIN_PITCH_RATE,
+            min(
+                WING_AREA*sc_geo_alpha*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel),
+                GLIM_VERT*g0/vel
+                ) - g0/vel*cos(vel_pitch)*cos(roll)
+            ).
+} else {
+    lock prate_max to max(
+            MIN_PITCH_RATE,
+            min(
+                (vel/CORNER_VELOCITY)*W_V_MAX,
+                GLIM_VERT*g0/vel
+                ) - g0/vel*cos(vel_pitch)*cos(roll)
+            ).
+}
 
 local yratePID is PIDLOOP(
-    AP_FLCS_ROT_YR_KP,
-    AP_FLCS_ROT_YR_KI,
-    AP_FLCS_ROT_YR_KD,
+    YR_KP,
+    YR_KI,
+    YR_KD,
     -1.0,1.0).
 local lock yrate_max to MIN(
-    W_L_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_Q),
-    AP_FLCS_ROT_GLIM_LAT*g0/vel).
+    W_L_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_SEA_Q),
+    GLIM_LAT*g0/vel).
 
-local rratePID is PIDLOOP(
-    AP_FLCS_ROT_RR_KP,
-    AP_FLCS_ROT_RR_KI,
-    AP_FLCS_ROT_RR_KD,
+local rratePD is PIDLOOP(
+    RR_KP,
+    0,
+    RR_KD,
     -1.0,1.0).
-local lock rrate_max to MIN(
-    4*PI*(vel/CORNER_VEL),
-    4*PI).
 
-local K_theta is 10.0.
-local Kd_theta is 2.8.
+local rrateI is PIDLOOP(
+    0,
+    RR_KI,
+    0,
+    -0.05,0.05).
 
-local ROLL_I_ON is FALSE.
+local lock rrate_max to sat(vel/CORNER_VELOCITY*MAX_ROLL, CORNER_VELOCITY/vel*MAX_ROLL).
 
+
+local LF2G is 1.0.
 local prev_AG is AG.
-local gain is 1.0.
-
-local SASon is false.
-
-
 local function gain_schedule {
-    //SET gain TO (1.0/(1.0))/(1.0+KUNIVERSE:TIMEWARP:WARP).
+
+    local loadfactor is max(ship:q,MIN_SEA_Q)/ship:mass.
+    local alsat is sat(alpha,35).
+    local airflow_c_u is cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
+        cd_sched(max(50,vel))*(2*cos(alsat)*sin(alsat)^2).
+
+    set LF2G to 1.0.
+
     if prev_AG <> AG {
-        if AG {
-        set gain to 1.0/3.
-        } else{
-            set gain to 1.0.
-        }
         set prev_AG to AG.
-        print "LF2G: " + round_dec(gain,2).
+        print "LF2G: " + round_dec(LF2G,2).
     }
-    return gain.
-}
+    if prev_AG {
+        set LF2G to LF2G/3.
+    }
+    set LF2G to LF2G/(PITCH_SPECIFIC_INERTIA*loadfactor*airflow_c_u)/kuniverse:timewarp:rate.
 
-LOCK LF2G TO gain_schedule().
+    set pratePID:KP to PR_KP*LF2G.
+    set pratePID:KI to PR_KI*LF2G.
+    set pratePID:KD to PR_KD*LF2G.
 
-
-local function check_for_sas {
-    IF SAS AND NOT SASon {
-        SET SASon to true.
-        SET PITCH_PID_I TO 0.0.
-        SET PITCH_PID_D TO 0.0.
-        SET ROLL_PID_I TO 0.0.
-        SET ROLL_PID_D TO 0.0.
-        rratePID:RESET().
-        yratePID:RESET().
-        pratePID:RESET().
-        //plockPID:RESET().
-        SET SHIP:CONTROL:NEUTRALIZE to TRUE.
-    }
-    IF NOT SAS AND SASon {
-        SET SASon to false.
-    }
-}
-
-SET pitch_lock_armed TO false.
-SET pitch_lock TO false.
-SET Vlast TO 0.0.
-SET Vslast TO 0.0.
-local function check_for_pitch_lock {
-    IF GEAR AND NOT pitch_lock_armed AND (SHIP:STATUS = "FLYING"){
-        PRINT "check_for_pitch_lock: pitch_lock_armed".
-        SET pitch_lock_armed TO true.
-        if pilot_input_u0 > 0.6 {
-            print "    throttle>0.6 will unlock pitch".
-        }
-    }
-    IF SHIP:STATUS = "LANDED" AND pitch_lock_armed AND (NOT pitch_lock){
-        SET pratePID:KI TO AP_FLCS_ROT_PR_KI_ALT.
-        SET pratePID:KP TO AP_FLCS_ROT_PR_KP_ALT.
-        
-        PRINT "check_for_pitch_lock: pitch_locked".
-        PRINT "    pitch         "+ round_dec(pitch,2).
-        PRINT "    v/vs at land  "+ round_dec(Vlast,2) + "/"+round_dec(Vslast,2).
-        SET pitch_lock TO true.
-        SET pitch_lock_armed TO false.
-  
-
-    }
-    IF pitch_lock AND 
-    ((vel < 30) OR (ABS(pilot_input_u1) > 0.6) OR (pilot_input_u0 > 0.6)){
-        SET pratePID:KI TO AP_FLCS_ROT_PR_KI.
-        SET pratePID:KP TO AP_FLCS_ROT_PR_KP.
-
-        SET pitch_set_point TO 0.
-        SET pitch_lock TO false.
-        PRINT "check_for_pitch_lock: pitch_unlocked".
-    }
-    IF NOT GEAR AND pitch_lock_armed {
-        SET pitch_lock_armed TO false.
-        PRINT "check_for_pitch_lock: pitch_lock_unarmed".
-    }
-    SET Vlast TO vel.
-    SET Vslast TO SHIP:VERTICALSPEED.
+    set yratePID:KP to YR_KP*LF2G.
+    set yratePID:KI to YR_KI*LF2G.
+    set yratePID:KD to YR_KD*LF2G.
     
+    set rratePD:KP to RR_KP*LF2G.
+    set rrateI:KI to RR_KI*LF2G.
+    set rratePD:KD to RR_KD*LF2G.
 }
 
-SET LAST_AGB TO FALSE.
-SET PITCH_LANDING_GAINS TO TRUE.
-SET PITCH_NORMAL_KI TO pratePID:KI.
-SET PITCH_NORMAL_KP TO pratePID:KP.
 
-SET rratePID_KI TO rratePID:KI.
-SET ROLL_I_ON TO TRUE.
-local function check_for_cog_offset {
-    IF (ABS(LATOFS) > 0.01) AND NOT ROLL_I_ON {
-        SET ROLL_I_ON TO TRUE.
-        SET rratePID:KI TO rratePID_KI.
-    } ELSE IF NOT (ABS(LATOFS) > 0.01) AND ROLL_I_ON {
-        SET ROLL_I_ON TO FALSE.
-        SET rratePID:KI TO 0.0.
-        rratePID:RESET().
+local Vslast is 0.0.
+local prev_land is SHIP:STATUS.
+local function display_land_stats {
+    if not (SHIP:STATUS = prev_land) {
+        if SHIP:STATUS = "LANDED" {
+            local land_stats is "FLCS_ROT landed" + char(10) +
+                "  pitch "+ round_dec(pitch,2) + char(10) +
+                "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
+            if UTIL_HUD_ENABLED {
+                util_hud_push_left("FLCS_ROT_LAND_STATS" , land_stats ).
+            }
+            print land_stats.
+        } else if SHIP:STATUS = "FLYING" {
+            if UTIL_HUD_ENABLED {
+                util_hud_pop_left("FLCS_ROT_LAND_STATS").
+            }
+            //print "FLCS_ROT flying gains".
+        }
+        set prev_land to SHIP:STATUS.
+    }
+    if ship:status = "FLYING" {
+        SET Vslast TO SHIP:VERTICALSPEED.
     }
 }
 
+
+local FLCSon is true.
 function ap_flcs_rot {
     PARAMETER u1. // pitch
     PARAMETER u2. // yaw
-    PARAMETER u3. // roll
+    PARAMETER u3. // roll in radians/sec
+    parameter direct_mode is false.
+    // in direct_mode, u1,u2,u3 are expected to be direct rate values
+    // else they are stick inputs
 
-    check_for_sas().
-    check_for_pitch_lock().
-    check_for_cog_offset().
+    IF not SAS and ship:q > MIN_FLCS_Q {
 
-    IF not SASon {
+        if (defined GAIN_SCHEDULE_ENABLED) and GAIN_SCHEDULE_ENABLED {
+            gain_schedule().
+        }
+        display_land_stats().
 
-        set pratePID:SETPOINT TO prate_max*u1.
-        set yratePID:SETPOINT TO yrate_max*u2.
-        set rratePID:SETPOINT TO rrate_max*u3.
+        if direct_mode {
+            set pratePID:SETPOINT TO sat(u1,prate_max).
+            set yratePID:SETPOINT TO sat(u2,yrate_max).
+            set rratePD:SETPOINT TO sat(u3,rrate_max).
+            set rrateI:SETPOINT TO sat(u3,rrate_max).
+        } else {
+            set pratePID:SETPOINT TO prate_max*u1.
+            set yratePID:SETPOINT TO yrate_max*u2.
+            set rratePD:SETPOINT TO rrate_max*u3.
+            set rrateI:SETPOINT TO rrate_max*u3.
+        }
 
-        set SHIP:CONTROL:YAW TO LF2G*yratePID:UPDATE(TIME:SECONDS, yaw_rate)
+        set SHIP:CONTROL:YAW TO yratePID:UPDATE(TIME:SECONDS, yaw_rate)
             +SHIP:CONTROL:YAWTRIM.
-        set SHIP:CONTROL:ROLL TO LF2G*rratePID:UPDATE(TIME:SECONDS, roll_rate)
-            +SHIP:CONTROL:ROLLTRIM.
 
-        set SHIP:CONTROL:PITCH TO LF2G*pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
+        local roll_pd is rratePD:UPDATE(TIME:SECONDS, roll_rate).
+        local roll_i is 0.
+        if (abs(u3) < 0.2) {
+            set roll_i to rrateI:UPDATE(TIME:SECONDS, roll_rate).
+        } else {
+            rrateI:RESET().
+        }
+
+        set SHIP:CONTROL:ROLL TO ( roll_pd + roll_i ) +
+            SHIP:CONTROL:ROLLTRIM.
+
+        set SHIP:CONTROL:PITCH TO pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
             SHIP:CONTROL:PITCHTRIM.
 
-        IF (BRAKES <> LAST_AGB) {
-            set LAST_AGB to BRAKES.
-            if not LAST_AGB {
-                rratePID:RESET().
-                yratePID:RESET().
-                pratePID:RESET().
-            }
+        if not FLCSon {
+            set FLCSon to true.
+        }
+    } else {
+        if FLCSon {
+            set FLCSon to false.
+            rrateI:RESET().
+            yratePID:RESET().
+            pratePID:RESET().
+            SET SHIP:CONTROL:NEUTRALIZE to TRUE.
         }
     }
 }
 
+function ap_flcs_rot_maxrates {
+    return list(RAD2DEG*prate_max,RAD2DEG*yrate_max,RAD2DEG*rrate_max).
+}
+
 function ap_flcs_rot_status_string {
-    return ""+round_dec( vel*pitch_rate/g0 ,1) + ( choose "GL" if GLimiter else "G").
+
+    local hud_str is "".
+
+    if (ship:q > MIN_FLCS_Q) {
+        set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
+        char(10) + char(945) + " " + round_dec(alpha,1).    
+    }
+    
+
+
+    if ( false) { // orbit info
+        set hud_str to hud_str + ( choose char(10)+"t Ap "+round(eta:apoapsis)+"s" if eta:apoapsis > 25 and Vslast > 10 else "") +
+        ( choose char(10)+"t Ap "+round(eta:apoapsis-ship:orbit:period)+"s" if (eta:apoapsis-ship:orbit:period) < -25 and Vslast < -10 else "").
+    }
+
+    if ( false) { // pitch debug
+    set hud_str to hud_str+
+        char(10) + "ppid" + " " + round_dec(PR_KP,2) + " " + round_dec(PR_KI,2) + " " + round_dec(PR_KD,2) +
+        char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
+        char(10) + "pask" + " " + round_dec(RAD2DEG*pratePID:SETPOINT,1) +
+        char(10) + "pact" + " " + round_dec(RAD2DEG*pitch_rate,1) +
+        char(10) + "perr" + " " + round_dec(RAD2DEG*pratePID:ERROR,1) +
+        char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
+        char(10) + "LF2G " + round_dec(LF2G,3) +
+        char(10) + "WA " + round_dec(WING_AREA,1).
+    }
+
+    if ( false) { // roll debug
+    set hud_str to hud_str+
+        char(10) + "rpid" + " " + round_dec(RR_KP,2) + " " + round_dec(RR_KI,2) + " " + round_dec(RR_KD,2) +
+        char(10) + "rmax" + " " + round_dec(RAD2DEG*rrate_max,1) +
+        char(10) + "rask" + " " + round_dec(RAD2DEG*rratePD:SETPOINT,1) +
+        char(10) + "ract" + " " + round_dec(RAD2DEG*roll_rate,1) +
+        char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePD:ERROR,1) +
+        char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
+        char(10) + "LF2G " + round_dec(LF2G,3) +
+        char(10) + "WA " + round_dec(WING_AREA,1).
+    }
+
+    return hud_str.
 }

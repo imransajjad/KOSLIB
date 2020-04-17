@@ -1,0 +1,43 @@
+{
+    "entries": [
+        "AP_NAV",
+        {
+            "entries": [
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_MODE",
+        {
+            "entries": [
+                "FLCS_ENABLED", true,
+                "NAV_ENABLED", true
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_SHSYS",
+        {
+            "entries": [
+
+                "ARM_RLAUNCH_STATUS", true,
+
+                "ATMOS_ESCAPE_STAGE", 1,
+                "ATMOS_ESCAPE_ALT", 75000,
+                
+                "REENTRY_STAGE", 0,
+                "REENTRY_ALT", 65000,
+                "PARACHUTE_ALT", 1000,
+
+                "AUX_ANTENNAS_NAME", "omni_antenna"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_SHBUS",
+        {
+            "entries": [
+                "FLCS_PROC_TAG", "flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        }
+    ],
+    "$type": "kOS.Safe.Encapsulation.Lexicon"
+}

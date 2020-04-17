@@ -1,7 +1,7 @@
 
 // Required Dependencies
-// UTIL_SHBUS_TX_ENABLED
-// UTIL_SHBUS_RX_ENABLED
+// UTIL_SHBUS_TX_ENABLED (for tx commands)
+// UTIL_SHBUS_RX_ENABLED (for rx commands)
 
 GLOBAL UTIL_FLDR_ENABLED IS true.
 
@@ -9,25 +9,22 @@ local lock AG to AG5.
 local PREV_AG is AG5.
 
 
-local Ts is UTIL_FLDR_TS.
-local Tdur is UTIL_FLDR_TDUR.
-local Tdel is UTIL_FLDR_TDEL.
+local Ts is 0.04.
+local Tdur is 0.0.
+local Tdel is 0.
 
 local logtag to "".
 local filename is "".
 
-local MAIN_ENGINES is get_engines(main_engine_name).
+
+local PARAM is readJson("1:/param.json").
+local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
+        if PARAM:haskey("AP_ENGINES") and
+        PARAM["AP_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
+
+local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
 // TX SECTION
-
-local function string_acro {
-    PARAMETER strin.
-    LOCAL strout IS "".
-    FOR SUBSTR IN strin:split(" ") {
-        SET strout TO strout+SUBSTR[0].
-    }
-    RETURN strout.
-}
 
 local function list_logs {
     if exists("logs"){
@@ -62,6 +59,8 @@ local function print_pos_info {
     print "lng  " + SHIP:GEOPOSITION:LNG.
     print "h    " + SHIP:ALTITUDE.
     print "vs   " + SHIP:AIRSPEED.
+    print "engine " + MAIN_ENGINE_NAME.
+    print "logtag " + logtag.
 }
 
 local function start_logging {
@@ -131,7 +130,7 @@ local function start_logging {
     LOG "" to filename.
 
     SET starttime to TIME:SECONDS.
-    UNTIL TIME:SECONDS-starttime > Tdur {
+    UNTIL (TIME:SECONDS-starttime > Tdur) and (Tdur > 0) {
         LOG TIME:SECONDS+","+u0+","+u1+","+u2+","+u3+
             ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
             ","+thrust+","+pitch+","+yaw+","+roll+
@@ -162,19 +161,20 @@ function util_fldr_get_help_str {
     return list(
         " ",
         "UTIL_FLDR running on "+core:tag,
-        "logtime(...)  set_log_duration(dur).",
-        "logdt(...)  set_log_deltat(Ts).",
-        "logtag [TAG].  set log tag.",
-        "log.  start_logging().",
-        "testlog.  start_test_log().",
-        "listloginfo.  list_logs().",
-        "sendlogs.  send_logs().",
-        "logstp(...).  send_pulse_time(...).",
-        "logsu0(...).  send_throttle_seq(...).",
-        "logsu1(...).  send_pitch_seq(...).",
-        "logsu2(...).  send_yaw_seq(...).",
-        "logsu3(...).  send_roll_seq(...).",
-        "logsupr.  print test sequences"
+        "logtime(T)   total log time=T",
+        "logdt(dt)    log interval =dt",
+        "logtag TAG   set log tag",
+        "log          start logging",
+        "testlog      start test, log",
+        "listloginfo  list logs",
+        "sendlogs     send logs",
+        "logstp(SEQ)  set pulse_time(SEQ)",
+        "logsu0(SEQ)  set throttle_seq(SEQ)",
+        "logsu1(SEQ)  set pitch_seq(SEQ)",
+        "logsu2(SEQ)  set yaw_seq(SEQ)",
+        "logsu3(SEQ)  set roll_seq(SEQ)",
+        "logsupr.  print test sequences",
+        "  SEQ = sequence of num"
         ).
 }
 
@@ -185,8 +185,12 @@ function util_fldr_parse_command {
 
     // don't even try if it's not a log command
     if commtext:contains("log") {
-        if commtext:contains("(") AND commtext:contains(").") {
+        if commtext:contains("(") AND commtext:contains(")") {
             set args to util_shbus_raw_input_to_args(commtext).
+            if args:length = 0 {
+                print "fldr args empty".
+                return true.
+            }
         }
     } else {
         return false.
@@ -197,17 +201,21 @@ function util_fldr_parse_command {
         SET Tdur TO args[0].
     } ELSE IF commtext:STARTSWITH("logdt(") {
         SET Ts TO args[0].
-    } ELSE IF commtext:STARTSWITH("logtag ") {
-        set logtag to commtext:replace("logtag ", "_"):replace(".","").
-    } ELSE IF commtext:STARTSWITH("log.") {
+    } ELSE IF commtext:STARTSWITH("logtag") {
+        if commtext:length > 7 {
+            set logtag to commtext:replace("logtag ", "_"):replace(".","").
+        } else {
+            set logtag to "".
+        }
+    } ELSE IF commtext = "log" {
         start_logging().
-    } ELSE IF commtext:STARTSWITH("testlog.") {
+    } ELSE IF commtext = "testlog" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
         start_logging().
-    } ELSE IF commtext:STARTSWITH("listloginfo.") {
+    } ELSE IF commtext:STARTSWITH("listloginfo") {
         print_pos_info().
         list_logs().
-    } ELSE IF commtext:STARTSWITH("sendlogs.") {
+    } ELSE IF commtext:STARTSWITH("sendlogs") {
         send_logs().
     } ELSE IF commtext:STARTSWITH("logstp(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
@@ -228,7 +236,7 @@ function util_fldr_parse_command {
     } ELSE IF commtext:STARTSWITH("logsu3(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U3", args).
         PRINT "Sent SET_SEQ_U3 "+ args:join(" ").
-    } ELSE IF commtext:STARTSWITH("logsupr.") {
+    } ELSE IF commtext:STARTSWITH("logsupr") {
         util_shbus_tx_msg("FLDR_PRINT_TEST").
     } else {
         return false.
@@ -244,12 +252,19 @@ SET U_seq TO LIST(LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0
 SET PULSE_TIMES TO LIST(0,0,0,0,0).
 
 function print_sequences {
-    print "times".
-    float_list_print(PULSE_TIMES,2).
-    print "set sequences".
-    for U in U_seq {
-        float_list_print(U,2).
+    local pstr is "times" + char(10).
+    for t in PULSE_TIMES {
+        set pstr to pstr + round_dec(t,2) + " ".
     }
+    set pstr to pstr + char(10) + "set sequences" + char(10).
+    for U in U_seq {
+        for ux in U {
+            set pstr to pstr + round_dec(ux,2) + " ".
+        }
+        set pstr to pstr + char(10).
+    }
+    print pstr.
+    return pstr.
 }
 
 // Run a test sequence
@@ -306,8 +321,9 @@ function util_fldr_decode_rx_msg {
     } ELSE IF opcode = "FLDR_RUN_TEST" {
         run_test_control().
     } ELSE IF opcode = "FLDR_PRINT_TEST" {
-        print_sequences().
+        util_shbus_rx_send_back_ack(print_sequences()). 
     } else {
+        util_shbus_rx_send_back_ack("could not decode fldr rx msg").
         print "could not decode fldr rx msg".
         return false.
     }
