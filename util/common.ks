@@ -165,8 +165,12 @@ function get_parts_tagged {
             tagged_list:add(e).
         }
     }
-    print "get_parts_tagged " + tag.
-    print tagged_list.
+    if tagged_list:length > 0 {
+        print "get_parts_tagged " + tag.
+        for p in tagged_list {
+            print p:name.
+        }
+    }
     return tagged_list.
 }
 

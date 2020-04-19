@@ -416,19 +416,17 @@ function util_hud_parse_command {
     local args is list().
 
     if commtext:startswith("hud") {
-        if commtext:contains("(") AND commtext:contains(")") {
-            set args to util_shbus_raw_input_to_args(commtext).
-            if args:length = 0 {
-                print "hud args empty".
-                return true.
-            }
+        set args to util_shbus_tx_raw_input_to_args(commtext).
+        if not (args = -1) and args:length = 0 {
+            print "hud args expected but empty".
+            return true.
         }
     } else {
         return false.
     }
 
     if commtext:startswith("hudsw") {
-        local newkey is commtext:replace("hudsw ", ""):replace(".","").
+        local newkey is args.
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
     } else if commtext:startswith("hudland(") {
         util_shbus_tx_msg("HUD_LAND_SET", args).

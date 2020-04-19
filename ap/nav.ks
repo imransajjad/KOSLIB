@@ -51,7 +51,7 @@ local H_SET is 90.0.
 
 local H_CLOSE is false.
 local WP_FOLLOW_MODE is 0.
-local WP_FOLLOW_MODE_STRS is list("NAV_ARC", "NAV_Q").
+local WP_FOLLOW_MODE_STRS is list("NAV_ARC", "NAV_Q", "NAV_HOLD").
 
 local W_PITCH_SET is 0.0.
 local W_YAW_SET is 0.0.
@@ -215,10 +215,144 @@ function ap_nav_gcas {
 }
 
 
-local arc_have is list(0,0,0).
 local head_have is list(0,0,0).
 local new_have is list(0,0,0).
+
+local wp_vec is V(0,0,0).
+local wp_final_head is R(0,0,0).
+local final_radius is 100.
 local farness is 1.0.
+
+// handles a surface type waypoint
+local function srf_wp_disp {
+    parameter wp.
+    set V_SET to wp["vel"].
+
+    if wp:haskey("roll") {
+        set H_SET to vel_bear.
+        set R_SET to wp["roll"].
+        set W_PITCH_SET to 0.
+        set W_YAW_SET to 0.
+        set WP_FOLLOW_MODE to 2. // hold state
+    } else {
+        set R_SET to 0.
+
+        set wp_vec to
+            latlng(wp["lat"],wp["lng"]):
+                altitudeposition(wp["alt"]+
+                (choose GEAR_HEIGHT if GEAR else 0)).
+        set wp_final_head to heading(wp["head"],wp["elev"]).
+
+        set final_radius to max(50,wp["vel"]^2)/(wp["nomg"]*g0).
+        set farness to wp_vec:mag/final_radius.
+
+        if farness > 170.5 {
+            set H_SET to latlng(wp["lat"],wp["lng"]):heading.
+            set WP_FOLLOW_MODE to 1. // just get close enough
+        } else {
+            set WP_FOLLOW_MODE to 0. // align to final orientation
+        }
+    }
+
+    // climb/descend to target altitude
+    if ((WP_FOLLOW_MODE = 1) or (WP_FOLLOW_MODE = 2)) and wp:haskey("alt") {
+
+        local max_vangle is 30.
+
+        local max_vturn is AP_NAV_VERT_G/vel.
+
+        local linear_climb_boundary is (max(vel,1.0)^2)/(AP_NAV_VERT_G*g0)*(1-cos(max_vangle)).
+        //set local_climb_boundary to 0.1*level_radius.
+        //set local_gain to arccos(1-abs(local_climb_boundary)/level_radius)/local_climb_boundary.
+        local hdiff is wp["alt"] - ship:ALTITUDE.
+
+        if abs(hdiff) < linear_climb_boundary {
+            set H_CLOSE to true.
+            set W_PITCH_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
+            set E_SET to RAD2DEG*sqrt(abs(hdiff)*AP_NAV_VERT_G*g0)/(max(vel,1.0))*sat(hdiff,1.0).
+        } else {
+            set H_CLOSE to false.
+            set W_PITCH_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
+            set E_SET to 0.95*pitch.
+            if (pitch > max_vangle and W_PITCH_SET > 0) or
+                (pitch < -max_vangle and W_PITCH_SET < 0){
+                    set W_PITCH_SET to 0.
+                    set E_SET to sat(pitch,max_vangle).
+            }
+        }
+
+    }
+
+    // set everything if waypoint has target orientation
+    if (WP_FOLLOW_MODE = 0) {
+        // extract altitude, velocity, lat, long, final_pitch, final_heading
+
+        set head_have to haversine_dir((-wp_final_head)*wp_vec:direction).
+
+        if (1-2/farness*sin(head_have[1]) > 0) {
+            set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
+                        / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
+        }
+        else
+        {
+            set alpha_x to head_have[1].
+        }
+        set new_have to list(head_have[0],head_have[1]+alpha_x, head_have[2]).
+        set c_have to list(head_have[0],head_have[1]+alpha_x-90, head_have[2]).
+
+        local new_arc_direction is wp_final_head*dir_haversine(new_have).
+        local centripetal_vector is wp_final_head*dir_haversine(c_have):vector.
+
+        if (debug_vectors) { // debug
+            local bear_to_final is rotateFromTo(wp_vec,wp_final_head:vector).
+            set nav_debug_vec0:vec to wp_vec.
+            set nav_debug_vec1:vec to final_radius*centripetal_vector. // arc
+            set nav_debug_vec2:vec to wp_vec.
+            set nav_debug_vec3:vec to 100*new_arc_direction:vector. // res
+
+            set nav_debug_vec4:vec to 30*wp_final_head:starvector.
+            set nav_debug_vec5:vec to 30*wp_final_head:topvector.
+            set nav_debug_vec6:vec to 30*wp_final_head:vector.
+
+            set nav_debug_vec0:show to true.
+            set nav_debug_vec1:show to true.
+            set nav_debug_vec2:show to true.
+            set nav_debug_vec3:show to true.
+            set nav_debug_vec4:show to true.
+            set nav_debug_vec5:show to true.
+            set nav_debug_vec6:show to true.
+        }
+
+        local py_temp is pitch_yaw_from_dir(new_arc_direction).
+        set E_SET to py_temp[0].
+        set H_SET to py_temp[1].
+        set R_SET to 0.
+
+    }
+
+    // if waypoint has any form of destination
+    if wp:haskey("lat") and wp:haskey("lng") and wp:haskey("alt") {
+        local arc_radius is (ship:body:radius+ship:altitude).
+        set real_geodistance TO
+            arc_radius*DEG2RAD*haversine(ship:geoposition:lat,
+                ship:geoposition:lng, wp["lat"],wp["lng"])[1].
+
+        IF (real_geodistance/vel < 3) {
+            if ( vectorangle(wp_vec,ship:velocity:surface) > 30)
+                    or (real_geodistance/vel < 1.5){
+                print "dist " + round_dec(wp_vec:mag,2).
+                PRINT "Reached Waypoint " + util_wp_queue_length().
+                util_wp_done().
+                if util_wp_queue_length() = 0 {
+                    SET E_SET TO vel_pitch.
+                    SET H_SET TO vel_bear.
+                    SET V_SET TO vel.
+                }
+            }
+        }
+    }
+}
+
 
 function ap_nav_disp {
     // for waypoint in waypoint_queue, set pitch, heading to waypoint, ELSE
@@ -246,144 +380,8 @@ function ap_nav_disp {
 
     IF USE_WP and (util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
-        set V_SET to cur_wayp[1].
-
-
-        // climb/descend to target altitude
-        if cur_wayp:length = 3 or cur_wayp:length = 4 {
-
-            local max_vangle is 30.
-
-            local max_vturn is AP_NAV_VERT_G/vel.
-
-            local linear_climb_boundary is (max(vel,1.0)^2)/(AP_NAV_VERT_G*g0)*(1-cos(max_vangle)).
-            //set local_climb_boundary to 0.1*level_radius.
-            //set local_gain to arccos(1-abs(local_climb_boundary)/level_radius)/local_climb_boundary.
-            local hdiff is cur_wayp[0] - ship:ALTITUDE.
-
-            if abs(hdiff) < linear_climb_boundary {
-                set H_CLOSE to true.
-                set W_PITCH_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
-                set E_SET to RAD2DEG*sqrt(abs(hdiff)*AP_NAV_VERT_G*g0)/(max(vel,1.0))*sat(hdiff,1.0).
-            } else {
-                set H_CLOSE to false.
-                set W_PITCH_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
-                set E_SET to 0.95*pitch.
-                if (pitch > max_vangle and W_PITCH_SET > 0) or 
-                    (pitch < -max_vangle and W_PITCH_SET < 0){
-                        set W_PITCH_SET to 0.
-                        set E_SET to sat(pitch,max_vangle).
-                }
-            }
-
-
-
-            //if abs(hdiff) > linear_climb_boundary {
-            //    set E_SET to max_climb*sat(hdiff,1).
-            //    set E_SET to vel_pitch+sat(E_SET-vel_pitch, 3.0).
-            //} else if abs(hdiff) > local_climb_boundary {
-            //    set E_SET to arccos(1-abs(hdiff)/level_radius)*sat(hdiff,1).
-            //} else {
-            //    set E_SET to local_gain*hdiff.
-            //    // still haven't dealt with coriolis+centrifugal force
-            //}
-        }
-        
-        // set roll and heading targets
-        if cur_wayp:length = 3 {
-            // altitude, velocity, delta_heading
-
-            set H_SET to vel_bear.
-            set R_SET to cur_wayp[2].
-
-        } else if cur_wayp:length = 4 {
-            // altitude, velocity, lat, long
-            local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
-            set H_SET to geo_target:HEADING.
-
-            set R_SET to 0.
-            // still haven't dealt with coriolis force
-        }
-
-        // set everything if waypoint has target orientation
-        if cur_wayp:length = 6 {
-            // altitude, velocity, lat, long, final_pitch, final_heading
-            local wp_vec is LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]+
-                 (choose GEAR_HEIGHT if GEAR else 0)).
-            local wp_final_head is heading(cur_wayp[5],cur_wayp[4]).
-            local current_vel_head is heading(vel_bear,vel_pitch).
-
-            set WP_FOLLOW_MODE to 0.
-            set outer_circle_flip to (choose 1 if (vdot(wp_vec,wp_final_head:vector) < 0) else 0).
-            set head_have to haversine_dir((-wp_final_head)*wp_vec:direction).
-
-            local final_radius is max(50,cur_wayp[1]^2)/(ROT_GNOM_VERT*g0).
-            set farness to wp_vec:mag/final_radius.
-
-            if (1-2/farness*sin(head_have[1]) > 0) {
-                set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
-                            / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
-            }
-            else
-            {
-                set alpha_x to head_have[1].
-            }
-            set new_have to list(head_have[0],head_have[1]+alpha_x, head_have[2]).
-            set c_have to list(head_have[0],head_have[1]+alpha_x-90, head_have[2]).
-            
-            local new_arc_direction is wp_final_head*dir_haversine(new_have).
-            local centripetal_vector is wp_final_head*dir_haversine(c_have):vector.
-
-            if (debug_vectors) { // debug
-                local bear_to_final is rotateFromTo(wp_vec,wp_final_head:vector).
-                set nav_debug_vec0:vec to wp_vec.
-                set nav_debug_vec1:vec to final_radius*centripetal_vector. // arc
-                set nav_debug_vec2:vec to wp_vec.
-                set nav_debug_vec3:vec to 100*new_arc_direction:vector. // res
-
-                set nav_debug_vec4:vec to 30*wp_final_head:starvector.
-                set nav_debug_vec5:vec to 30*wp_final_head:topvector.
-                set nav_debug_vec6:vec to 30*wp_final_head:vector.
-
-                set nav_debug_vec0:show to true.
-                set nav_debug_vec1:show to true.
-                set nav_debug_vec2:show to true.
-                set nav_debug_vec3:show to true.
-                set nav_debug_vec4:show to true.
-                set nav_debug_vec5:show to true.
-                set nav_debug_vec6:show to true.
-            }
-
-            local py_temp is pitch_yaw_from_dir(new_arc_direction).
-            set E_SET to py_temp[0].
-            set H_SET to py_temp[1].
-            set R_SET to 0.
-        }
-
-        // if waypoint has any form of destination
-        if cur_wayp:length > 3 {
-
-            local geo_target is LATLNG(cur_wayp[2],cur_wayp[3]).
-            local DIRECT_DISTANCE is geo_target:altitudeposition(cur_wayp[0]):MAG.
-            local wp_vec is LATLNG(cur_wayp[2],cur_wayp[3]):altitudeposition(cur_wayp[0]).
-
-            local arc_radius is (ship:body:radius+ship:altitude).
-            set real_geodistance TO
-                arc_radius*DEG2RAD*haversine(ship:geoposition:lat,ship:geoposition:lng, cur_wayp[2],cur_wayp[3])[1].
-
-            IF (real_geodistance/vel < 3) {
-                if ( vectorangle(wp_vec,ship:velocity:surface) > 30)
-                        or (real_geodistance/vel < 1.5){
-                    print "dist " + round_dec(wp_vec:mag,2).
-                    PRINT "Reached Waypoint " + util_wp_queue_length().
-                    util_wp_done().
-                    if util_wp_queue_length() = 0 {
-                        SET E_SET TO vel_pitch.
-                        SET H_SET TO vel_bear.
-                        SET V_SET TO vel.
-                    }
-                }
-            }
+        if cur_wayp["mode"] = "srf" {
+            srf_wp_disp(cur_wayp).
         }
     }
     ELSE {
@@ -478,12 +476,9 @@ function ap_nav_status_string {
                                   char(10)+    "  " + round_dec(K_HEADING,5).
 
         if USE_WP and (util_wp_queue_length() > 0) {
-            local cur_wayp is util_wp_queue_first().
-            if cur_wayp:length = 6 {
-                set vs_string to vs_string+ char(10)+"h_have " + round_dec(head_have[0],2) + "/" + round_dec(head_have[1],2) +
-                                            char(10)+"n_have " + round_dec(new_have[0],2) + "/" + round_dec(new_have[1],2) +
-                                            char(10)+"/\  " + round_dec(farness,7).
-            }
+            set vs_string to vs_string+ char(10)+"h_have " + round_dec(head_have[0],2) + "/" + round_dec(head_have[1],2) +
+                                        char(10)+"n_have " + round_dec(new_have[0],2) + "/" + round_dec(new_have[1],2) +
+                                        char(10)+"/\  " + round_dec(farness,7).
         }
     }
     return vs_string.

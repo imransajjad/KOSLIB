@@ -112,15 +112,8 @@ local function start_logging {
     LOCAL LOCK lat TO SHIP:GEOPOSITION:LAT.
     LOCAL LOCK lng TO SHIP:GEOPOSITION:LNG.
 
-    
-
-    if has_connection_to_base(){
-        set filename to "0:/logs/log_"+string_acro(SHIP:NAME)+"_"+TIME:CALENDAR:REPLACE(":","")+
-            "_"+TIME:CLOCK:REPLACE(":","")+logtag+".csv".
-    } else {
-        set filename to "1:/logs/log_"+string_acro(SHIP:NAME)+"_"+TIME:CALENDAR:REPLACE(":","")+
-            "_"+TIME:CLOCK:REPLACE(":","")+logtag+".csv".
-    }
+    set filename to (choose "0" if has_connection_to_base() else "1")+":/logs/log_"+string_acro(SHIP:NAME)+"_"+TIME:CALENDAR:REPLACE(":","")+
+            "_"+TIME:CLOCK:REPLACE(":","")+"_"+logtag+".csv".
 
     SET filename TO filename:REPLACE(" ", "_").
     SET filename TO filename:REPLACE(",", "").
@@ -185,12 +178,10 @@ function util_fldr_parse_command {
 
     // don't even try if it's not a log command
     if commtext:contains("log") {
-        if commtext:contains("(") AND commtext:contains(")") {
-            set args to util_shbus_raw_input_to_args(commtext).
-            if args:length = 0 {
-                print "fldr args empty".
-                return true.
-            }
+        set args to util_shbus_tx_raw_input_to_args(commtext).
+        if not (args = -1) and args:length = 0 {
+            print "fldr args expected but empty".
+            return true.
         }
     } else {
         return false.
@@ -203,7 +194,7 @@ function util_fldr_parse_command {
         SET Ts TO args[0].
     } ELSE IF commtext:STARTSWITH("logtag") {
         if commtext:length > 7 {
-            set logtag to commtext:replace("logtag ", "_"):replace(".","").
+            set logtag to args.
         } else {
             set logtag to "".
         }

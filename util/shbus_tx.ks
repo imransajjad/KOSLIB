@@ -208,20 +208,27 @@ function util_shbus_tx_msg {
     }
 }
 
-function util_shbus_raw_input_to_args {
+function util_shbus_tx_raw_input_to_args {
+    // will return a list of numbers, a string or -1 (no args in command)
     parameter commtext.
+    if commtext:contains("(") AND commtext:contains(")") {
+        local arg_start is commtext:FIND("(").
+        local arg_end is commtext:FINDLAST(")").
+        if arg_end-arg_start <= 1 {
+            return list().
+        }
+        local arg_strings is commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
+        local numlist is list().
+        for i in arg_strings {
+            numlist:add( i:toscalar() ).
+        }
+        return numlist.
+    }
+    if commtext:split(" "):length = 2 {
+        return commtext:split(" ")[1].
 
-    local arg_start is commtext:FIND("(").
-    local arg_end is commtext:FINDLAST(")").
-    if arg_end-arg_start <= 1 {
-        return list().
     }
-    local arg_strings is commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
-    local numlist is list().
-    for i in arg_strings {
-        numlist:add( i:toscalar() ).
-    }
-    return numlist.
+    return -1.
 }
 
 local COMM_STRING is core:tag:tolower()+"@"+string_acro(ship:name)+":~$".
