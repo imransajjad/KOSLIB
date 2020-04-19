@@ -218,8 +218,7 @@ function ap_nav_gcas {
 local arc_have is list(0,0,0).
 local head_have is list(0,0,0).
 local new_have is list(0,0,0).
-local outer_circle_flip is 0.
-local closeness is 1.0.
+local farness is 1.0.
 
 function ap_nav_disp {
     // for waypoint in waypoint_queue, set pitch, heading to waypoint, ELSE
@@ -316,40 +315,36 @@ function ap_nav_disp {
 
             set WP_FOLLOW_MODE to 0.
             set outer_circle_flip to (choose 1 if (vdot(wp_vec,wp_final_head:vector) < 0) else 0).
+            set head_have to haversine_dir((-wp_final_head)*wp_vec:direction).
 
-            local bear_to_final is rotatefromto(wp_final_head:vector,wp_vec).
-            set arc_have to haversine_dir(bear_to_final*bear_to_final*wp_final_head,wp_final_head).
-            set head_have to haversine_dir(bear_to_final*wp_final_head,wp_final_head).
-            
-            local large_radius is abs(wp_vec:mag/2/cos(90-arc_have[1]/2)).
             local final_radius is max(50,cur_wayp[1]^2)/(ROT_GNOM_VERT*g0).
-            set closeness to (final_radius/large_radius)^2.
+            set farness to wp_vec:mag/final_radius.
 
-            if outer_circle_flip = 1 {
-                set new_have to list( head_have[0]-180, ((1-closeness)*(head_have[1]) + closeness*wrap_angle_until(arc_have[1])), 0 ).
-            } else {
-                set new_have to list( head_have[0]-180, ((1-closeness)*head_have[1] + closeness*wrap_angle_until(arc_have[1])), 0 ).
+            if (1-2/farness*sin(head_have[1]) > 0) {
+                set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
+                            / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
             }
+            else
+            {
+                set alpha_x to head_have[1].
+            }
+            set new_have to list(head_have[0],head_have[1]+alpha_x, head_have[2]).
+            set c_have to list(head_have[0],head_have[1]+alpha_x-90, head_have[2]).
             
             local new_arc_direction is wp_final_head*dir_haversine(new_have).
-
-            local centripetal_vector is angleaxis(arc_have[0]-180-180*outer_circle_flip,new_arc_direction:vector)*current_vel_head:topvector.
+            local centripetal_vector is wp_final_head*dir_haversine(c_have):vector.
 
             if (debug_vectors) { // debug
-                set nav_debug_vec0:vec to 30*centripetal_vector.
-                set nav_debug_vec1:vec to 100*(bear_to_final*bear_to_final*wp_final_head):vector.
-                set nav_debug_vec2:vec to 100*(bear_to_final*wp_final_head):vector.
-                set nav_debug_vec3:vec to 100*new_arc_direction:vector.
-                set test_have to list(135,45,0).
-                //set nav_debug_vec1:vec to 100*dir_haversine(new_have):starvector.
-                //set nav_debug_vec2:vec to 100*dir_haversine(new_have):topvector.
-                //set nav_debug_vec3:vec to 100*dir_haversine(new_have):vector.
-                local ship_raw is R(0,0,0).
+                local bear_to_final is rotateFromTo(wp_vec,wp_final_head:vector).
+                set nav_debug_vec0:vec to wp_vec.
+                set nav_debug_vec1:vec to final_radius*centripetal_vector. // arc
+                set nav_debug_vec2:vec to wp_vec.
+                set nav_debug_vec3:vec to 100*new_arc_direction:vector. // res
 
                 set nav_debug_vec4:vec to 30*wp_final_head:starvector.
                 set nav_debug_vec5:vec to 30*wp_final_head:topvector.
                 set nav_debug_vec6:vec to 30*wp_final_head:vector.
-                
+
                 set nav_debug_vec0:show to true.
                 set nav_debug_vec1:show to true.
                 set nav_debug_vec2:show to true.
@@ -363,9 +358,6 @@ function ap_nav_disp {
             set E_SET to py_temp[0].
             set H_SET to py_temp[1].
             set R_SET to 0.
-            //set W_PITCH_SET to max(50,vel)/large_radius*(current_vel_head:topvector*centripetal_vector).
-            //set W_YAW_SET to max(50,vel)/large_radius*(current_vel_head:starvector*centripetal_vector).
-            //print " " + round_dec(W_PITCH_SET,5) + "/" + round_dec(W_YAW_SET,5).
         }
 
         // if waypoint has any form of destination
@@ -488,11 +480,9 @@ function ap_nav_status_string {
         if USE_WP and (util_wp_queue_length() > 0) {
             local cur_wayp is util_wp_queue_first().
             if cur_wayp:length = 6 {
-                set vs_string to vs_string+ char(10)+"a_have " + round_dec(arc_have[0],2) + "/" + round_dec(arc_have[1],2) + 
-                                            char(10)+"h_have " + round_dec(head_have[0],2) + "/" + round_dec(head_have[1],2) + 
-                                            char(10)+"n_have " + round_dec(new_have[0],2) + "/" + round_dec(new_have[1],2) + 
-                                            char(10)+"c  " + round_dec(closeness,7) +
-                                            char(10)+"outer " + outer_circle_flip.
+                set vs_string to vs_string+ char(10)+"h_have " + round_dec(head_have[0],2) + "/" + round_dec(head_have[1],2) +
+                                            char(10)+"n_have " + round_dec(new_have[0],2) + "/" + round_dec(new_have[1],2) +
+                                            char(10)+"/\  " + round_dec(farness,7).
             }
         }
     }

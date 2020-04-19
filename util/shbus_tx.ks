@@ -179,7 +179,7 @@ local function parse_command {
         //} else if util_dev_parse_command(commtext) {
         //  print "dev parsed".
         } else {
-            print("Could not parse command.").
+            print("Could not parse command("+ commtext:length + "):" + commtext).
             return false.
         }
         util_shbus_tx_get_acks().

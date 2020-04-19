@@ -105,19 +105,20 @@ function haversine {
 }
 
 function haversine_dir {
-    parameter dir0.
     parameter dirf.
 
-    local dir_temp is R(90,0,0)*(-dir0)*(dirf).
+    local dir_temp is R(90,0,0)*dirf.
     local total is wrap_angle_until(90-dir_temp:pitch).
-    local roll is (180-dir_temp:roll).
-    local eject is dir_temp:yaw.
+    local roll is dir_temp:roll.
+    local eject is wrap_angle_until(dir_temp:yaw).
     return list( eject, total, roll ).
 }
 
 function dir_haversine {
     parameter have_list. // eject, total, roll
-    return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
+    return R(-90,0,0)*R(90-have_list[1],have_list[0],have_list[2]).
+    // return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
+    // return R(0,0,have_list[0])*R(have_list[1],0,0).
 }
 
 function pitch_yaw_from_dir {
