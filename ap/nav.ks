@@ -53,8 +53,8 @@ local H_CLOSE is false.
 local WP_FOLLOW_MODE is 0.
 local WP_FOLLOW_MODE_STRS is list("NAV_ARC", "NAV_Q", "NAV_HOLD").
 
-local W_PITCH_SET is 0.0.
-local W_YAW_SET is 0.0.
+local W_E_SET is 0.0.
+local W_H_SET is 0.0.
 
 IF vel > 1.0 {
     set V_SET_PREV to vel.
@@ -104,14 +104,14 @@ FUNCTION ap_nav_do_flcs_rot {
 
     if USE_GCAS and GCAS_ACTIVE {
         ap_flcs_rot(
-        GCAS_GAIN_MULTIPLIER*K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET,
-        GCAS_GAIN_MULTIPLIER*K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET,
+        GCAS_GAIN_MULTIPLIER*K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_E_SET  + sin(roll)*W_H_SET,
+        GCAS_GAIN_MULTIPLIER*K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_E_SET + cos(roll)*W_H_SET,
         GCAS_GAIN_MULTIPLIER*K_ROLL*(roll_target - roll),
         true ).
     } else {
         ap_flcs_rot(
-        sat(K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_PITCH_SET  + sin(roll)*W_YAW_SET, 2.0*W_PITCH_NOM),
-        sat(K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_PITCH_SET + cos(roll)*W_YAW_SET, 2.0*W_YAW_NOM),
+        sat(K_PITCH*(cos(roll)*pitch_error + sin(roll)*head_error) + cos(roll)*W_E_SET  + sin(roll)*W_H_SET, 2.0*W_PITCH_NOM),
+        sat(K_YAW*(-sin(roll)*pitch_error + cos(roll)*head_error) - sin(roll)*W_E_SET + cos(roll)*W_H_SET, 2.0*W_YAW_NOM),
         K_ROLL*(roll_target - roll),
         true ).
     }
@@ -186,8 +186,8 @@ function ap_nav_gcas {
                 set E_SET to escape_pitch.
                 set H_SET to vel_bear.
                 set R_SET to 0.
-                set W_PITCH_SET to 0*DEG2RAD*rates[0].
-                set W_YAW_SET to 0.
+                set W_E_SET to 0*DEG2RAD*rates[0].
+                set W_H_SET to 0.
                 set V_SET to VSET_MAX.
 
                 if (ship:altitude - GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
@@ -226,17 +226,16 @@ local farness is 1.0.
 // handles a surface type waypoint
 local function srf_wp_disp {
     parameter wp.
-    set V_SET to wp["vel"].
 
     if wp:haskey("roll") {
+        set V_SET to wp["vel"].
         set H_SET to vel_bear.
         set R_SET to wp["roll"].
-        set W_PITCH_SET to 0.
-        set W_YAW_SET to 0.
+        set W_E_SET to 0.
+        set W_H_SET to 0.
         set WP_FOLLOW_MODE to 2. // hold state
     } else {
         set R_SET to 0.
-
         set wp_vec to
             latlng(wp["lat"],wp["lng"]):
                 altitudeposition(wp["alt"]+
@@ -246,7 +245,8 @@ local function srf_wp_disp {
         set final_radius to max(50,wp["vel"]^2)/(wp["nomg"]*g0).
         set farness to wp_vec:mag/final_radius.
 
-        if farness > 170.5 {
+        if wp_vec:mag > 10000 {
+            set V_SET to wp["vel"].
             set H_SET to latlng(wp["lat"],wp["lng"]):heading.
             set WP_FOLLOW_MODE to 1. // just get close enough
         } else {
@@ -268,15 +268,15 @@ local function srf_wp_disp {
 
         if abs(hdiff) < linear_climb_boundary {
             set H_CLOSE to true.
-            set W_PITCH_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
+            set W_E_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
             set E_SET to RAD2DEG*sqrt(abs(hdiff)*AP_NAV_VERT_G*g0)/(max(vel,1.0))*sat(hdiff,1.0).
         } else {
             set H_CLOSE to false.
-            set W_PITCH_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
+            set W_E_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
             set E_SET to 0.95*pitch.
-            if (pitch > max_vangle and W_PITCH_SET > 0) or
-                (pitch < -max_vangle and W_PITCH_SET < 0){
-                    set W_PITCH_SET to 0.
+            if (pitch > max_vangle and W_E_SET > 0) or
+                (pitch < -max_vangle and W_E_SET < 0){
+                    set W_E_SET to 0.
                     set E_SET to sat(pitch,max_vangle).
             }
         }
@@ -286,8 +286,11 @@ local function srf_wp_disp {
     // set everything if waypoint has target orientation
     if (WP_FOLLOW_MODE = 0) {
         // extract altitude, velocity, lat, long, final_pitch, final_heading
+        // set V_SET to convex(V_SET_PREV,wp["vel"],min(1,max(0,3-farness))).
+        set V_SET to wp["vel"].
 
         set head_have to haversine_dir((-wp_final_head)*wp_vec:direction).
+        local turn_on is false.
 
         if (1-2/farness*sin(head_have[1]) > 0) {
             set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
@@ -297,6 +300,11 @@ local function srf_wp_disp {
         {
             set alpha_x to head_have[1].
         }
+        if (alpha_x >= head_have[1]) and head_have[1] > ROLL_W_MIN {
+            set turn_on to true.
+            set alpha_x to head_have[1].
+        }
+
         set new_have to list(head_have[0],head_have[1]+alpha_x, head_have[2]).
         set c_have to list(head_have[0],head_have[1]+alpha_x-90, head_have[2]).
 
@@ -328,6 +336,16 @@ local function srf_wp_disp {
         set H_SET to py_temp[1].
         set R_SET to 0.
 
+        if turn_on {
+            local cur_vel_head is heading(H_SET, E_SET).
+            local w_mag is max(vel,7)/final_radius.
+            set W_E_SET to centripetal_vector*cur_vel_head:topvector*w_mag.
+            set W_H_SET to centripetal_vector*cur_vel_head:starvector*w_mag.
+        } else {
+            set W_E_SET to 0.
+            set W_H_SET to 0.
+        }
+
     }
 
     // if waypoint has any form of destination
@@ -336,11 +354,16 @@ local function srf_wp_disp {
         set real_geodistance TO
             arc_radius*DEG2RAD*haversine(ship:geoposition:lat,
                 ship:geoposition:lng, wp["lat"],wp["lng"])[1].
+        
+        local time_dir is ship:srfprograde:vector*wp_vec:normalized.
 
-        IF (real_geodistance/vel < 3) {
+        if (wp_vec:mag/(vel) < 3*time_dir) {
             if ( vectorangle(wp_vec,ship:velocity:surface) > 30)
-                    or (real_geodistance/vel < 1.5){
-                print "dist " + round_dec(wp_vec:mag,2).
+                    or (wp_vec:mag/vel < 1.0*time_dir){
+                print "dist ("+ round_dec(wp_vec*heading(vel_bear,vel_pitch):vector,2)
+                        + "," + round_dec(wp_vec*heading(vel_bear,vel_pitch):starvector,2)
+                        + "," + round_dec(wp_vec*heading(vel_bear,vel_pitch):topvector,2)
+                        + ")".
                 PRINT "Reached Waypoint " + util_wp_queue_length().
                 util_wp_done().
                 if util_wp_queue_length() = 0 {
@@ -378,15 +401,14 @@ function ap_nav_disp {
 
     set V_SET_PREV to V_SET.
 
-    IF USE_WP and (util_wp_queue_length() > 0) {
+    if USE_WP and (util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
         if cur_wayp["mode"] = "srf" {
             srf_wp_disp(cur_wayp).
         }
-    }
-    ELSE {
-        set W_PITCH_SET to 0.0.
-        set W_YAW_SET to 0.0.
+    } else {
+        set W_E_SET to 0.0.
+        set W_H_SET to 0.0.
         IF AP_FLCS_CHECK() {
             SET E_SET TO vel_pitch.
             SET H_SET TO vel_bear.
@@ -467,8 +489,9 @@ function ap_nav_status_string {
     if AP_MODE_NAV {
         set vs_string to vs_string+ char(10)+"["+round_dec(E_SET,2)+","+round(H_SET)+"]".
     }
-    if (false) { // debug
+    if (true) { // debug
         set vs_string to vs_string+ char(10)+ WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE].
+        set vs_string to vs_string+ char(10)+"["+round_dec(W_E_SET,5)+","+round_dec(W_H_SET,5)+"]".
 
         set vs_string to vs_string+ char(10)+ "NAV_K " + round_dec(K_PITCH,5) + 
                                   char(10)+    "  " + round_dec(K_YAW,5) + 
@@ -478,7 +501,8 @@ function ap_nav_status_string {
         if USE_WP and (util_wp_queue_length() > 0) {
             set vs_string to vs_string+ char(10)+"h_have " + round_dec(head_have[0],2) + "/" + round_dec(head_have[1],2) +
                                         char(10)+"n_have " + round_dec(new_have[0],2) + "/" + round_dec(new_have[1],2) +
-                                        char(10)+"/\  " + round_dec(farness,7).
+                                        char(10)+"/\  " + round_dec(farness,7) +
+                                        char(10)+"O  " + round_dec(final_radius,7).
         }
     }
     return vs_string.

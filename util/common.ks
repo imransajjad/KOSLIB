@@ -7,36 +7,43 @@ set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
 
-FUNCTION sat {
-    PARAMETER X.
-    PARAMETER Lim is 1.0.
-    IF X > Lim { RETURN Lim.}
-    IF X < -Lim { RETURN -Lim.}
-    RETURN X.
+function sat {
+    parameter X.
+    parameter Lim is 1.0.
+    IF X > Lim { return Lim.}
+    IF X < -Lim { return -Lim.}
+    return X.
 }
 
-FUNCTION deadzone {
-    PARAMETER X.
-    PARAMETER BAND.
-    If X > BAND { RETURN X-BAND.}
-    If X < -BAND { RETURN X+BAND.}
-    RETURN 0.
+function deadzone {
+    parameter X.
+    parameter BAND.
+    If X > BAND { return X-BAND.}
+    If X < -BAND { return X+BAND.}
+    return 0.
 }
 
-FUNCTION angle_vectors {
-    PARAMETER v1.
-    PARAMETER v2.
-    RETURN ARCCOS(vdot(v2,v1)/sqrt(vdot(v1,v1)*vdot(v2,v2))).
+function convex {
+    parameter X.
+    parameter Y.
+    parameter e.
+    return (1-e)*X + e*Y.
 }
 
-FUNCTION round_dec {
-    PARAMETER NUM.
-    PARAMETER FRAD_DIG.
-    RETURN ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
+function angle_vectors {
+    parameter v1.
+    parameter v2.
+    return ARCCOS(vdot(v2,v1)/sqrt(vdot(v1,v1)*vdot(v2,v2))).
 }
 
-FUNCTION list_print {
-    PARAMETER arg_in.
+function round_dec {
+    parameter NUM.
+    parameter FRAD_DIG.
+    return ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
+}
+
+function list_print {
+    parameter arg_in.
     LOCAL TOTAL_STRING is "".
     for e in arg_in{
         SET TOTAL_STRING TO TOTAL_STRING+e+ " ".
@@ -44,9 +51,9 @@ FUNCTION list_print {
     PRINT TOTAL_STRING.
 }
 
-FUNCTION float_list_print {
-    PARAMETER arg_in.
-    PARAMETER flen.
+function float_list_print {
+    parameter arg_in.
+    parameter flen.
     LOCAL TOTAL_STRING is "".
     for e in arg_in{
         SET TOTAL_STRING TO TOTAL_STRING+round_dec(e,flen)+ " ".
@@ -54,8 +61,8 @@ FUNCTION float_list_print {
     PRINT TOTAL_STRING.
 }
 
-FUNCTION wrap_angle_until {
-    PARAMETER theta.
+function wrap_angle_until {
+    parameter theta.
     UNTIL (theta < 180){
         SET theta TO theta-360.
     }
@@ -65,24 +72,24 @@ FUNCTION wrap_angle_until {
     return theta.
 }
 
-FUNCTION wrap_angle {
-    PARAMETER theta.
-    PARAMETER max_angle is 360.
+function wrap_angle {
+    parameter theta.
+    parameter max_angle is 360.
     return remainder(theta+max_angle/2,max_angle)-max_angle/2.
 }
 
-FUNCTION unit_vector {
+function unit_vector {
     parameter vector_in.
     return (1.0/vector_in:mag)*vector_in.
 }
 
-FUNCTION listsum {
-    PARAMETER L.
+function listsum {
+    parameter L.
     LOCAL TOTAL IS 0.
     for e in L{
         SET TOTAL TO TOTAL+e.
     }
-    RETURN TOTAL.
+    return TOTAL.
 }
 
 function haversine {
@@ -102,6 +109,17 @@ function haversine {
     // list[1] is total angular difference
     return list(arctan2(-left,-fore) ,arccos(sat(top))).
 
+}
+
+function haversine_latlng {
+    parameter lat0.
+    parameter lng0.
+
+    parameter eject.
+    parameter total.
+
+    local dir_temp is R(lat0-90,lng0,0)*R(90-total,180-eject,0).
+    return list(dir_temp:pitch,dir_temp:yaw).
 }
 
 function haversine_dir {
@@ -184,7 +202,7 @@ function string_acro {
 }
 
 function flush_core_messages {
-    PARAMETER ECHO is true.
+    parameter ECHO is true.
     UNTIL CORE:MESSAGES:EMPTY {
         SET RECEIVED TO CORE:MESSAGES:POP.
         IF ECHO {print RECEIVED:CONTENT.}

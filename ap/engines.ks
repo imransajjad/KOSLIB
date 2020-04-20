@@ -10,6 +10,7 @@ local TOGGLE_VEL is (choose PARAM["TOGGLE_VEL"] if PARAM:haskey("TOGGLE_VEL") el
 local V_PID_KP is (choose PARAM["V_PID_KP"] if PARAM:haskey("V_PID_KP") else 0.01).
 local V_PID_KI is (choose PARAM["V_PID_KI"] if PARAM:haskey("V_PID_KI") else 0.004).
 local V_PID_KD is (choose PARAM["V_PID_KD"] if PARAM:haskey("V_PID_KD") else 0).
+local AUTO_BRAKES is (choose PARAM["AUTO_BRAKES"] if PARAM:haskey("AUTO_BRAKES") else 0).
 local MAIN_ENGINE_NAME is (choose PARAM["MAIN_ENGINE_NAME"] if PARAM:haskey("MAIN_ENGINE_NAME") else 0).
 
 
@@ -98,14 +99,24 @@ local function turbojet_throttle_map {
 local function turbojet_throttle_auto {
     parameter v_set.
     IF NOT (MAIN_ENGINES:length = 0){
-        IF v_set > TOGGLE_VEL AND MAIN_ENGINES[0]:MODE = "Dry"
+        local ab_on is (v_set > TOGGLE_VEL or V_PID_KP*(ap_nav_get_vel() - vel) > 3.0).
+        // local ab_off is (v_set < TOGGLE_VEL or V_PID_KP*(ap_nav_get_vel() - vel) < 2.0).
+        IF ab_on and MAIN_ENGINES[0]:MODE = "Dry"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
-        IF v_set <= TOGGLE_VEL AND MAIN_ENGINES[0]:MODE = "Wet"
+        IF not ab_on and MAIN_ENGINES[0]:MODE = "Wet"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
     }
 
     set vpid:setpoint to v_set.
     set my_throttle to vpid:update(time:seconds, vel).
+    
+    if AUTO_BRAKES and not BRAKES {
+        set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -1.5  ) and 
+            ship:facing:vector*ship:srfprograde:vector > 0.99.
+    } else if AUTO_BRAKES {
+        set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -1.0  ) and 
+            ship:facing:vector*ship:srfprograde:vector > 0.99.
+    }
     return max(my_throttle,0.001).
 }
 

@@ -176,7 +176,7 @@ local function generate_takeoff_seq {
     return takeoff_sequence_WP.
 }
 
-local function generate_landing_seq {
+local function generate_landing_seq_backup {
     parameter distance.
     parameter speed.
     parameter GSlope.
@@ -184,6 +184,7 @@ local function generate_landing_seq {
     // -0.0487464272020686,-74.6999216423728 ideal touchdown point
     local lat_td is -0.0487464272020686.
     local longtd is -74.6999216423728.
+    local alt_td is 70.5.
 
     local flare_g is 0.1.
     local flare_radius is speed^2/flare_g/g0.
@@ -199,13 +200,55 @@ local function generate_landing_seq {
     local long_ofs is distance/ship:body:radius*RAD2DEG.
 
     local landing_sequence is LIST(
-    list(69 + flare_h +distance*tan(GSlope), speed, -0.0485911247,longtd-flare_long-long_ofs,-GSlope,90.4),
-    list(69 + flare_h +distance*tan(GSlope)/2, speed, -0.0485911247,longtd-flare_long-long_ofs/2,-GSlope,90.4),
+    list(alt_td + flare_h +distance*tan(GSlope), speed, -0.0485911247,longtd-flare_long-long_ofs,-GSlope,90.4),
+    list(alt_td + flare_h +distance*tan(GSlope)/2, speed, -0.0485911247,longtd-flare_long-long_ofs/2,-GSlope,90.4),
     list(-2),
-    list(69 + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
-    list(69, 0,    lat_td, longtd,-0.05,90.4,flare_g),
-    list(68,0,    -0.049359350,-74.625860287-0.01,-0.05,90.4,flare_g),
+    list(alt_td + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
+    list(alt_td, speed-10,    lat_td, longtd,-0.05,90.4,flare_g),
+    list(alt_td-1, -51,    -0.049359350,-74.625860287-0.01,-0.05,90.4,flare_g)). // brakes
+
+    return landing_sequence.
+}
+
+local function generate_landing_seq {
+    parameter distance.
+    parameter speed.
+    parameter GSlope.
+
+    local lat_stp is -0.0493672258730508.
+    local lng_stp is -74.6115615766677.
+    local alt_td is 70.5.
+    local runway_angle is 90.4.
+
+    local stop_dist is 1000.
+    local grdf is 10. // fraction of distance when to gear
+    local flare_g is 0.1.
+    local flare_radius is speed^2/flare_g/g0.
+    set GSlope to abs(GSlope).
+
+    local flare_long is flare_radius*sin(GSlope).
+    local flare_h is flare_radius*(1-cos(GSlope)).
+    //print flare_radius.
+    //print flare_long*DEG2RAD*ship:body:radius.
+    //print flare_h.
+
+    local p5 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance)/ship:body:radius*RAD2DEG).
+    local p4 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/2)/ship:body:radius*RAD2DEG).
+    local pgr is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/grdf)/ship:body:radius*RAD2DEG).
+    local p2f is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long)/ship:body:radius*RAD2DEG).
+    local p1td is haversine_latlng(lat_stp,lng_stp,runway_angle+180,stop_dist/ship:body:radius*RAD2DEG).
+    // local p1stp is haversine_latlng(lat_stp,lng_stp,0, 0).
+
+    local landing_sequence is LIST(
+    list(alt_td + flare_h +distance*tan(GSlope), speed, p5[0], p5[1], -GSlope,runway_angle),
+    list(alt_td + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
+    list(alt_td + flare_h +distance*tan(GSlope)/grdf, speed, pgr[0], pgr[1],-GSlope,runway_angle),
+    list(-2),
+    list(alt_td + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
+    list(alt_td, speed-10,    p1td[0], p1td[1], -0.05,runway_angle,flare_g),
+    list(alt_td-1, -1, lat_stp, lng_stp, -0.05,runway_angle,flare_g),
     list(-1)). // brakes
+    print "this function".
 
     return landing_sequence.
 }
@@ -272,8 +315,8 @@ function util_wp_parse_command {
         IF HASTARGET {
             PRINT "Found Target.".
                 insert_waypoint(-1,
-                construct_incomplete_waypoint(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
-                    WP_TAR:GEOPOSITION:LNG), cur_mode) ).
+                construct_incomplete_waypoint(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
+                    TARGET:GEOPOSITION:LNG), cur_mode) ).
             return true.
         } ELSE {
             PRINT "Could not find target".
@@ -336,10 +379,10 @@ local function waypoint_print_str {
     } else if WP["mode"] = "srf" {
         return WP["mode"] + " " + round(WP["alt"])
                         + " " + round(WP["vel"])
-                        + " (" + round_dec(WP["lat"],2)
-                        + "," + round_dec(WP["lng"],2)
-                        + ")(" + round(WP["elev"])
-                        + "," + round(WP["head"])
+                        + " (" + round_dec(wrap_angle_until(WP["lat"]),3)
+                        + "," + round_dec(wrap_angle_until(WP["lng"]),3)
+                        + ")(" + round_dec(wrap_angle_until(WP["elev"]),3)
+                        + "," + round_dec(wrap_angle_until(WP["head"]),3)
                         + ") " + round_dec(WP["nomg"],2).
     }
     return "".
