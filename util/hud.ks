@@ -42,7 +42,7 @@ local guide_tri_tr is 0.
 local function nav_vecdraw {
     local guide_far is 300.
     local guide_width is 0.4.
-    local guide_size is 0.5.
+    local guide_size is sin(0.5).
 
     if not nav_init_draw {
         IF not (DEFINED AP_NAV_ENABLED) or not (AP_NAV_ENABLED) {
@@ -73,34 +73,46 @@ local function nav_vecdraw {
         ( DEFINED AP_MODE_ENABLED and DEFINED AP_NAV_ENABLED and AP_MODE_NAV)){
 
         local nav_heading is ap_nav_get_direction().
-        local nav_vel is ap_nav_get_vel().
+        local nav_vel_error is sat(ap_nav_get_vel()-vel,10)/10.
         local camera_offset is camera_offset_vec.
 
-        set guide_tri_ll:start to camera_offset+guide_far*(nav_heading:vector-sin(guide_size)*nav_heading:starvector).
-        set guide_tri_ll:vec to guide_far*sin(guide_size)*
-            (nav_heading:starvector - nav_heading:topvector).
+        set guide_tri_ll:start to camera_offset+guide_far*(nav_heading:vector-(guide_size)*nav_heading:starvector).
+        set guide_tri_ll:vec to guide_far*(guide_size)*
+            ((1-nav_vel_error)*nav_heading:starvector - nav_heading:topvector).
 
-        set guide_tri_lr:start to camera_offset+guide_far*(nav_heading:vector+sin(guide_size)*nav_heading:starvector).
-        set guide_tri_lr:vec to guide_far*sin(guide_size)*
-            (-nav_heading:starvector - nav_heading:topvector).
+        set guide_tri_lr:start to camera_offset+guide_far*(nav_heading:vector+(guide_size)*nav_heading:starvector).
+        set guide_tri_lr:vec to guide_far*(guide_size)*
+            (-(1-nav_vel_error)*nav_heading:starvector - nav_heading:topvector).
 
-        set guide_tri_tl:start to camera_offset+guide_far*(nav_heading:vector-sin(guide_size)*nav_heading:starvector).
-        set guide_tri_tl:vec to guide_far*sin(guide_size)*
-            (nav_heading:starvector + nav_heading:topvector).
-
-        set guide_tri_tr:start to camera_offset+guide_far*(nav_heading:vector+sin(guide_size)*nav_heading:starvector).
-        set guide_tri_tr:vec to guide_far*sin(guide_size)*
-            (-nav_heading:starvector + nav_heading:topvector).
 
         set guide_tri_ll:color to hud_color.
         set guide_tri_lr:color to hud_color.
-        set guide_tri_tl:color to hud_color.
-        set guide_tri_tr:color to hud_color.
 
         set guide_tri_ll:show to true.
         set guide_tri_lr:show to true.
-        set guide_tri_tl:show to true.
-        set guide_tri_tr:show to true.
+
+        if (nav_heading:vector*ship:facing:vector > 0.966) {
+            set guide_tri_tl:start to camera_offset+guide_far*(nav_heading:vector-(guide_size)*nav_heading:starvector).
+            set guide_tri_tl:vec to guide_far*(guide_size)*
+                (nav_heading:starvector + nav_heading:topvector).
+
+            set guide_tri_tr:start to camera_offset+guide_far*(nav_heading:vector+(guide_size)*nav_heading:starvector).
+            set guide_tri_tr:vec to guide_far*(guide_size)*
+                (-nav_heading:starvector + nav_heading:topvector).
+
+            set guide_tri_tl:color to hud_color.
+            set guide_tri_tr:color to hud_color.
+
+            set guide_tri_tl:show to true.
+            set guide_tri_tr:show to true.
+        } else {
+            set guide_tri_tl:start to camera_offset+guide_far*(ship:facing:vector).
+            set guide_tri_tl:vec to camera_offset+guide_far*(nav_heading:vector-ship:facing:vector).
+            
+            set guide_tri_tl:color to hud_color.
+            set guide_tri_tl:show to true.
+            set guide_tri_tr:show to false.
+        }
     }
     else
     {
@@ -120,6 +132,7 @@ local function ladder_vec_draw {
     local ladder_far is 300.
     local ladder_width is 0.25.
     local ladder_scale is 1.0.
+    local ladder_size is ladder_far*sin(5.0).
 
     if not ladder_init_draw {
         set ladder_init_draw to true.

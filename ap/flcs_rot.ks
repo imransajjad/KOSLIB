@@ -315,5 +315,17 @@ function ap_flcs_rot_status_string {
         char(10) + "WA " + round_dec(WING_AREA,1).
     }
 
+    if ( false) { // yaw debug
+    set hud_str to hud_str+
+        char(10) + "ypid" + " " + round_dec(YR_KP,2) + " " + round_dec(YR_KI,2) + " " + round_dec(YR_KD,2) +
+        char(10) + "ymax" + " " + round_dec(RAD2DEG*yrate_max,1) +
+        char(10) + "yask" + " " + round_dec(RAD2DEG*yratePID:SETPOINT,1) +
+        char(10) + "yact" + " " + round_dec(RAD2DEG*yaw_rate,1) +
+        char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1) +
+        char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
+        char(10) + "LF2G " + round_dec(LF2G,3) +
+        char(10) + "WA " + round_dec(WING_AREA,1).
+    }
+
     return hud_str.
 }

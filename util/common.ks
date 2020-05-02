@@ -30,12 +30,6 @@ function convex {
     return (1-e)*X + e*Y.
 }
 
-function angle_vectors {
-    parameter v1.
-    parameter v2.
-    return ARCCOS(vdot(v2,v1)/sqrt(vdot(v1,v1)*vdot(v2,v2))).
-}
-
 function round_dec {
     parameter NUM.
     parameter FRAD_DIG.
@@ -217,4 +211,14 @@ function sign {
         return -1.0.
     }
     return 0.0.
+}
+
+function get_param {
+    parameter dict.
+    parameter key.
+    if dict:haskey(key) {
+        return dict[key].
+    } else {
+        return 0.
+    }
 }

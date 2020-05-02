@@ -205,7 +205,7 @@ local function generate_landing_seq_backup {
     list(-2),
     list(alt_td + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
     list(alt_td, speed-10,    lat_td, longtd,-0.05,90.4,flare_g),
-    list(alt_td-1, -51,    -0.049359350,-74.625860287-0.01,-0.05,90.4,flare_g)). // brakes
+    list(alt_td-1.5, -51,    -0.049359350,-74.625860287-0.01,-0.0,90.4,flare_g)). // brakes
 
     return landing_sequence.
 }
@@ -245,10 +245,9 @@ local function generate_landing_seq {
     list(alt_td + flare_h +distance*tan(GSlope)/grdf, speed, pgr[0], pgr[1],-GSlope,runway_angle),
     list(-2),
     list(alt_td + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
-    list(alt_td, speed-10,    p1td[0], p1td[1], -0.05,runway_angle,flare_g),
-    list(alt_td-1, -1, lat_stp, lng_stp, -0.05,runway_angle,flare_g),
+    list(alt_td, speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
+    list(alt_td-1.5, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
     list(-1)). // brakes
-    print "this function".
 
     return landing_sequence.
 }
@@ -357,7 +356,10 @@ local function fill_in_waypoint_data {
                 set wp["elev"] to 0.
                 set wp["head"] to latlng(wp["lat"],wp["lng"]):heading.
             }
-        if not wp:haskey("roll") and not wp:haskey("nomg") {
+        if not wp:haskey("roll") {
+            set wp["roll"] to 0.0.
+        }
+        if not wp:haskey("nomg") {
             set wp["nomg"] to max(0.05,max(ROT_GNOM_VERT,ROT_GNOM_LAT)).
         }
     } else if wp["mode"] = "snv" {
@@ -372,10 +374,6 @@ local function waypoint_print_str {
     PARAMETER WP.
     if WP["mode"] = "act" {
         return WP["mode"] + " " + WP["do_action"].
-    } else if WP["mode"] = "srf" and WP:haskey("roll") {
-        return WP["mode"] + " " + round(WP["alt"])
-                        + " " + round(WP["vel"])
-                        + " " + round(WP["roll"]).
     } else if WP["mode"] = "srf" {
         return WP["mode"] + " " + round(WP["alt"])
                         + " " + round(WP["vel"])
@@ -383,6 +381,7 @@ local function waypoint_print_str {
                         + "," + round_dec(wrap_angle_until(WP["lng"]),3)
                         + ")(" + round_dec(wrap_angle_until(WP["elev"]),3)
                         + "," + round_dec(wrap_angle_until(WP["head"]),3)
+                        + "," + round(WP["roll"])
                         + ") " + round_dec(WP["nomg"],2).
     }
     return "".

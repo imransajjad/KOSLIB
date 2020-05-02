@@ -66,6 +66,30 @@ local function generic_common {
     return.
 }
 
+local pre_out is 0.0.
+local function precharge_integrator {
+    set vpid:setpoint to vel.
+    if my_throttle > 0 {
+        set pre_out to vpid:update(time:seconds, vpid:output*vel/my_throttle).
+    }
+}
+
+local auto_brakes_used is false.
+local function apply_auto_brakes {
+    if AUTO_BRAKES and not GEAR {
+        set auto_brakes_used to true.
+        if BRAKES {
+            set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -0.5  ) and 
+                ship:facing:vector*ship:srfprograde:vector > 0.990. //~cos(2.5d)
+        } else {
+            set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -1.5  ) and 
+                ship:facing:vector*ship:srfprograde:vector > 0.990.
+        }
+    } else if auto_brakes_used {
+        set BRAKES to false.
+        set auto_brakes_used to false.
+    }
+}
 
 // Engine Specific functions
 
@@ -110,13 +134,6 @@ local function turbojet_throttle_auto {
     set vpid:setpoint to v_set.
     set my_throttle to vpid:update(time:seconds, vel).
     
-    if AUTO_BRAKES and not BRAKES {
-        set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -1.5  ) and 
-            ship:facing:vector*ship:srfprograde:vector > 0.99.
-    } else if AUTO_BRAKES {
-        set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -1.0  ) and 
-            ship:facing:vector*ship:srfprograde:vector > 0.99.
-    }
     return max(my_throttle,0.001).
 }
 
@@ -146,12 +163,14 @@ local function turbofan_common {
 function ap_engine_throttle_auto {
     // this function depends on AP_NAV_ENABLED
     SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
+    apply_auto_brakes().
     common_func().
 }
 
 function ap_engine_throttle_map {
     parameter input_throttle is pilot_input_u0.
     SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
+    precharge_integrator().
     common_func().
 }
 
