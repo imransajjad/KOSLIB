@@ -122,7 +122,7 @@ function ap_nav_do_flcs_rot {
     local roll_w is sat(have_roll_pre[1]/5,1.0).
 
     local roll_target is sat( 0*(ship_frame_error:z + ship_frame_ff:z) 
-                            + 0.9*roll_w*wrap_angle_until(have_roll_pre[0]) , 
+                            + roll_w*wrap_angle_until(have_roll_pre[0]) , 
                             (choose GEAR_BANK_MAX if GEAR else BANK_MAX)).
     
     if ship:status = "LANDED" {
@@ -340,6 +340,8 @@ local function srf_wp_disp {
         local q_simp is simple_q(ship:altitude,ship:airspeed).
 
         set E_SET to arcsin(sat(-K_Q*vel*(qtar/q_simp-1), sin_max_vangle)).
+        set E_SET to max(E_SET, -arcsin(max(1.0,ship:altitude/vel/5))).
+
     }
 
     // set everything if waypoint has target orientation
@@ -397,6 +399,8 @@ local function srf_wp_disp {
         set E_SET to py_temp[0].
         set H_SET to py_temp[1].
         set R_SET to 0.
+
+        set E_SET to max(E_SET, -arcsin(min(1.0,ship:altitude/vel/5))).
 
         if (WP_FOLLOW_MODE = 0) {
             local cur_vel_head_set is heading(H_SET, E_SET).

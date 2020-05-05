@@ -297,10 +297,7 @@ function ap_flcs_rot_status_string {
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
         char(10) + "pask" + " " + round_dec(RAD2DEG*pratePID:SETPOINT,1) +
         char(10) + "pact" + " " + round_dec(RAD2DEG*pitch_rate,1) +
-        char(10) + "perr" + " " + round_dec(RAD2DEG*pratePID:ERROR,1) +
-        char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
-        char(10) + "LF2G " + round_dec(LF2G,3) +
-        char(10) + "WA " + round_dec(WING_AREA,1).
+        char(10) + "perr" + " " + round_dec(RAD2DEG*pratePID:ERROR,1).
     }
 
     if ( false) { // roll debug
@@ -309,10 +306,7 @@ function ap_flcs_rot_status_string {
         char(10) + "rmax" + " " + round_dec(RAD2DEG*rrate_max,1) +
         char(10) + "rask" + " " + round_dec(RAD2DEG*rratePD:SETPOINT,1) +
         char(10) + "ract" + " " + round_dec(RAD2DEG*roll_rate,1) +
-        char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePD:ERROR,1) +
-        char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
-        char(10) + "LF2G " + round_dec(LF2G,3) +
-        char(10) + "WA " + round_dec(WING_AREA,1).
+        char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePD:ERROR,1).
     }
 
     if ( false) { // yaw debug
@@ -321,7 +315,11 @@ function ap_flcs_rot_status_string {
         char(10) + "ymax" + " " + round_dec(RAD2DEG*yrate_max,1) +
         char(10) + "yask" + " " + round_dec(RAD2DEG*yratePID:SETPOINT,1) +
         char(10) + "yact" + " " + round_dec(RAD2DEG*yaw_rate,1) +
-        char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1) +
+        char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1).
+    }
+
+    if ( false) { // q debug
+    set hud_str to hud_str+
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,3) +
         char(10) + "WA " + round_dec(WING_AREA,1).

@@ -151,7 +151,7 @@ local function parse_command {
             if commtext:contains(" ") {
                 print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
             } else if commtext:length > 5 {
-                print_help_page(util_shbus_raw_input_to_args(commtext)[0]).
+                print_help_page(util_shbus_tx_raw_input_to_args(commtext)[0]).
             } else {
                 print_help_page(0).
             }
