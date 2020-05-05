@@ -222,3 +222,27 @@ function get_param {
         return 0.
     }
 }
+
+function get_frame_accel_orbit {
+    // returns a force that if subtracted from the ship
+    // will result in a constant height in SOI
+    return ship:up:vector*(-1.0*g0 +
+        (VECTOREXCLUDE(ship:up:vector,ship:velocity:orbit):mag^2
+        /(ship:altitude+ship:body:radius))).
+}
+
+function get_frame_accel {
+    // if the negative of this value is applied to ship
+    // it will always move in a straight line in sidereal frame
+
+    return ship:up:vector*(-1.0*g0).
+}
+
+function simple_q {
+    // returns a non accurate dynamic pressure-like reading
+    // that can be used for some contol purposes
+    parameter height.
+    parameter velocity.
+
+    return constant:e^(-height/5000)*velocity^2.
+}

@@ -10,8 +10,7 @@ local ROT_GNOM_LONG is get_param(PARAM,"ROT_GNOM_LONG").
 local K_PITCH is get_param(PARAM,"K_PITCH").
 local K_YAW is get_param(PARAM,"K_YAW").
 local K_ROLL is get_param(PARAM,"K_ROLL").
-local K_HEADING is get_param(PARAM,"K_HEADING").
-local HAVE_CLOSE is get_param(PARAM,"HAVE_CLOSE").
+local K_Q is get_param(PARAM,"K_Q").
 local ROLL_W_MIN is get_param(PARAM,"ROLL_W_MIN").
 local ROLL_W_MAX is get_param(PARAM,"ROLL_W_MAX").
 local GEAR_BANK_MAX is get_param(PARAM,"GEAR_BANK_MAX").
@@ -43,8 +42,6 @@ local USE_WP is (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED.
 local USE_GCAS is (defined GCAS_ENABLED) and GCAS_ENABLED.
 local GEAR_HEIGHT is (choose GEAR_HEIGHT if defined GEAR_HEIGHT else 0).
 
-local AP_NAV_VERT_G is 0.1.
-local AP_NAV_HOR_G is 1.0.
 
 local lock W_PITCH_NOM to max(50,vel)/(g0*ROT_GNOM_VERT).
 local lock W_YAW_NOM to max(50,vel)/(g0*ROT_GNOM_LAT).
@@ -59,7 +56,7 @@ local H_SET is 90.0.
 
 local H_CLOSE is false.
 local WP_FOLLOW_MODE is 0.
-local WP_FOLLOW_MODE_STRS is list("NAV_ARC","NAV_HEAD", "NAV_Q", "NAV_HOLD").
+local WP_FOLLOW_MODE_STRS is list("NAV_ARC","NAV_CLOSE", "NAV_Q", "NAV_HOLD").
 
 local W_E_SET is 0.0.
 local W_H_SET is 0.0.
@@ -96,16 +93,9 @@ if (debug_vectors) { // debug
                 "", vec_scale, true, vec_width, true ).
 }
 
-function get_frame_accel {
-    // if the negative of this value is applied to ship
-    // it will always move in a straight line in sidereal frame
-
-    return cur_vel_head:topvector*(-1.0*g0).
-}
-
 function ap_nav_do_flcs_rot {
 
-    local wg is get_frame_accel()/max(1,vel)*RAD2DEG*cos(vel_pitch).
+    local wg is get_frame_accel_orbit()/max(1,vel)*RAD2DEG*cos(vel_pitch).
 
     local head_error is wrap_angle_until(H_SET - vel_bear).
     local elev_error is wrap_angle_until(E_SET - vel_pitch).
@@ -129,10 +119,10 @@ function ap_nav_do_flcs_rot {
 
     // local have_roll is haversine(0,0,W_E_SET+world_frame_w:y-wg*ship:up:vector,
     //                                 W_H_SET+world_frame_w:x).
-    local roll_w is 0*min(0,1-have_roll_pre[1]).
+    local roll_w is sat(have_roll_pre[1]/5,1.0).
 
-    local roll_target is sat( roll_w*(ship_frame_error:z + ship_frame_ff:z) 
-                            +wrap_angle_until(have_roll_pre[0]) , 
+    local roll_target is sat( 0*(ship_frame_error:z + ship_frame_ff:z) 
+                            + 0.9*roll_w*wrap_angle_until(have_roll_pre[0]) , 
                             (choose GEAR_BANK_MAX if GEAR else BANK_MAX)).
     
     if ship:status = "LANDED" {
@@ -345,29 +335,11 @@ local function srf_wp_disp {
     // climb/descend to target altitude
     if ((WP_FOLLOW_MODE = 3) or (WP_FOLLOW_MODE = 2)) and wp:haskey("alt") {
 
-        local max_vangle is 30.
+        local sin_max_vangle is sin(30).
+        local qtar is simple_q(wp["alt"],wp["vel"]).
+        local q_simp is simple_q(ship:altitude,ship:airspeed).
 
-        local max_vturn is AP_NAV_VERT_G/vel.
-
-        local linear_climb_boundary is (max(vel,1.0)^2)/(AP_NAV_VERT_G*g0)*(1-cos(max_vangle)).
-        //set local_climb_boundary to 0.1*level_radius.
-        //set local_gain to arccos(1-abs(local_climb_boundary)/level_radius)/local_climb_boundary.
-        local hdiff is wp["alt"] - ship:ALTITUDE.
-
-        if abs(hdiff) < linear_climb_boundary {
-            set H_CLOSE to true.
-            set W_E_SET to -(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
-            set E_SET to RAD2DEG*sqrt(abs(hdiff)*AP_NAV_VERT_G*g0)/(max(vel,1.0))*sat(hdiff,1.0).
-        } else {
-            set H_CLOSE to false.
-            set W_E_SET to +(AP_NAV_VERT_G*g0)/max(vel,1.0)*sat(hdiff,1.0).
-            set E_SET to 0.95*pitch.
-            if (pitch > max_vangle and W_E_SET > 0) or
-                (pitch < -max_vangle and W_E_SET < 0){
-                    set W_E_SET to 0.
-                    set E_SET to sat(pitch,max_vangle).
-            }
-        }
+        set E_SET to arcsin(sat(-K_Q*vel*(qtar/q_simp-1), sin_max_vangle)).
     }
 
     // set everything if waypoint has target orientation
@@ -538,7 +510,8 @@ function ap_nav_status_string {
             set vs_string to vs_string + "+".
         } else if (V_SET_PREV > V_SET){
             set vs_string to vs_string + "-".
-        }      
+        }
+        set vs_string to vs_string + WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE][4].
     }
     if AP_MODE_NAV {
         set vs_string to vs_string+ char(10)+"["+round_dec(E_SET,2)+","+round(H_SET)+"]".

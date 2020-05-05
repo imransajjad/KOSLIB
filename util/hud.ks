@@ -442,7 +442,11 @@ function util_hud_parse_command {
         local newkey is args.
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
     } else if commtext:startswith("hudland(") {
-        util_shbus_tx_msg("HUD_LAND_SET", args).
+        if args:length = 2 {
+            util_shbus_tx_msg("HUD_LAND_SET", args).
+        } else {
+            print "use args (pitch,bear)".
+        }
     } else {
         return false.
     }
@@ -473,6 +477,7 @@ function util_hud_decode_rx_msg {
     } else if opcode = "HUD_POPR" {
         hud_text_dict_right:remove(data[0]).
     } else if opcode = "HUD_SETTING_TOGGLE" {
+        if data[0] = "off" {set data[0] to "on".}
         if hud_setting_dict:haskey(data[0]) {
             set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
             set hud_color to RGB( 0, (choose 1 if hud_setting_dict["green"] else 0), 0 ).

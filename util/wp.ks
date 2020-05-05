@@ -101,21 +101,28 @@ local function construct_incomplete_waypoint {
         return wp.
     }
     print "received invalid waypoint data".
-    return -1.
+    set wp["mode"] to "inv".
+    return wp.
 }
 
 local function overwrite_waypoint {
     parameter index.
-    PARAMETER wp_lex.
-    util_shbus_tx_msg("OWR_WP", list(index,wp_lex)).
+    parameter wp_lex.
+    if not (wp_lex["mode"] = "inv") {
+        util_shbus_tx_msg("OWR_WP", list(index,wp_lex)).
+    }
 }
 local function insert_waypoint {
     parameter index.
-    PARAMETER wp_lex.
-    util_shbus_tx_msg("INS_WP", list(index,wp_lex)).
+    parameter wp_lex.
+    if not (wp_lex["mode"] = "inv") {
+        util_shbus_tx_msg("INS_WP", list(index,wp_lex)).
+    } else {
+        print "invalid".
+    }
 }
 local function remove_waypoint {
-    PARAMETER remindex.
+    parameter remindex.
     util_shbus_tx_msg("REM_WP", list(remindex)).
 }
 local function waypoints_print {
@@ -135,6 +142,7 @@ function util_wp_get_help_str {
         "wpqp        print wp list",
         "wpqd        purge wp list",
         "wpmd mode   mode is act, srf, snv, tar",
+        "wpd         delete first wp",
         "wpf(WP)     add wp to first ",
         "wpa(WP)     add wp to last ",
         "wpu(WP)     first wp write",
@@ -176,40 +184,6 @@ local function generate_takeoff_seq {
     return takeoff_sequence_WP.
 }
 
-local function generate_landing_seq_backup {
-    parameter distance.
-    parameter speed.
-    parameter GSlope.
-
-    // -0.0487464272020686,-74.6999216423728 ideal touchdown point
-    local lat_td is -0.0487464272020686.
-    local longtd is -74.6999216423728.
-    local alt_td is 70.5.
-
-    local flare_g is 0.1.
-    local flare_radius is speed^2/flare_g/g0.
-    set GSlope to abs(GSlope).
-
-    local flare_long is flare_radius*sin(GSlope)/ship:body:radius*RAD2DEG.
-    local flare_h is flare_radius*(1-cos(GSlope)).
-    //print flare_radius.
-    //print flare_long*DEG2RAD*ship:body:radius.
-    //print flare_h.
-
-
-    local long_ofs is distance/ship:body:radius*RAD2DEG.
-
-    local landing_sequence is LIST(
-    list(alt_td + flare_h +distance*tan(GSlope), speed, -0.0485911247,longtd-flare_long-long_ofs,-GSlope,90.4),
-    list(alt_td + flare_h +distance*tan(GSlope)/2, speed, -0.0485911247,longtd-flare_long-long_ofs/2,-GSlope,90.4),
-    list(-2),
-    list(alt_td + flare_h, speed, lat_td, longtd-flare_long,-GSlope,90.4),
-    list(alt_td, speed-10,    lat_td, longtd,-0.05,90.4,flare_g),
-    list(alt_td-1.5, -51,    -0.049359350,-74.625860287-0.01,-0.0,90.4,flare_g)). // brakes
-
-    return landing_sequence.
-}
-
 local function generate_landing_seq {
     parameter distance.
     parameter speed.
@@ -228,9 +202,6 @@ local function generate_landing_seq {
 
     local flare_long is flare_radius*sin(GSlope).
     local flare_h is flare_radius*(1-cos(GSlope)).
-    //print flare_radius.
-    //print flare_long*DEG2RAD*ship:body:radius.
-    //print flare_h.
 
     local p5 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance)/ship:body:radius*RAD2DEG).
     local p4 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/2)/ship:body:radius*RAD2DEG).
@@ -255,7 +226,7 @@ local function generate_landing_seq {
 // This function returns true if the command was parsed and Sent
 // Otherwise it returns false.
 function util_wp_parse_command {
-    PARAMETER commtext.
+    parameter commtext.
     local args is list().
 
     // don't even try if it's not a wp command
@@ -270,13 +241,13 @@ function util_wp_parse_command {
     }
 
     IF commtext:STARTSWITH("wpo(") {
-        overwrite_waypoint(args[0],
+        overwrite_waypoint(-args[0]-1,
             construct_incomplete_waypoint(args:SUBLIST(1,args:length-1), cur_mode) ).
     } ELSE IF commtext:STARTSWITH("wpi(") {
-        insert_waypoint(args[0],
+        insert_waypoint(-args[0]-2,
             construct_incomplete_waypoint(args:SUBLIST(1,args:length-1), cur_mode) ).
     } ELSE IF commtext:STARTSWITH("wpr(") {
-        remove_waypoint(args[0]).
+        remove_waypoint(-args[0]-1).
     } ELSE IF commtext:STARTSWITH("wpqp"){
         waypoints_print().
     } ELSE IF commtext:STARTSWITH("wpqd"){
@@ -287,6 +258,8 @@ function util_wp_parse_command {
         } else {
             print "wp mode " + args + " not supported".
         }
+    } ELSE IF commtext:STARTSWITH("wpd") { 
+        remove_waypoint(0).
     } ELSE IF commtext:STARTSWITH("wpf(") { 
         insert_waypoint(0,
             construct_incomplete_waypoint(args, cur_mode) ).
@@ -354,7 +327,9 @@ local function fill_in_waypoint_data {
         if wp:haskey("lat") and wp:haskey("lng") and
             ((not wp:haskey("elev")) or ( not wp:haskey("head"))){
                 set wp["elev"] to 0.
-                set wp["head"] to latlng(wp["lat"],wp["lng"]):heading.
+                // set wp["head"] to latlng(wp["lat"],wp["lng"]):heading.
+                set wp["head"] to haversine(wp["lat"],wp["lng"],
+                            ship:geoposition:lat, ship:geoposition:lng)[0]-180.
             }
         if not wp:haskey("roll") {
             set wp["roll"] to 0.0.
@@ -371,10 +346,16 @@ local function fill_in_waypoint_data {
 }
 
 local function waypoint_print_str {
-    PARAMETER WP.
+    parameter WP.
     if WP["mode"] = "act" {
         return WP["mode"] + " " + WP["do_action"].
     } else if WP["mode"] = "srf" {
+        if not WP:haskey("lat") {
+            print "roll only WP will be depreciated".
+            return WP["mode"] + " " + round(WP["alt"])
+                        + " " + round(WP["vel"])
+                        + " " + round(WP["roll"]).
+        }
         return WP["mode"] + " " + round(WP["alt"])
                         + " " + round(WP["vel"])
                         + " (" + round_dec(wrap_angle_until(WP["lat"]),3)
@@ -395,7 +376,11 @@ local function waypoint_do_leading_action {
             waypoint_remove(0).
             print "doing action from waypoint".
             if action_code = 0 {
-                stage.
+                if is_active_vessel() {
+                    stage.
+                } else {
+                    print "cannot stage; not active".
+                }
             } else if action_code = 1 {
                 toggle AG1.
             } else if action_code = 2 {
@@ -436,43 +421,45 @@ local function waypoint_do_leading_action {
 }
 
 local function waypoint_add {
-    PARAMETER POS.
-    PARAMETER NEW_WP.
-    IF POS < 0 { SET POS TO wp_queue:LENGTH.}
-    wp_queue:INSERT(POS,NEW_WP).
+    parameter pos.
+    parameter new_wp.
+    IF pos < 0 { SET pos TO pos+wp_queue:length+1.}
+    wp_queue:insert(pos,new_wp).
 }
 
 local function waypoint_update {
-    PARAMETER POS.
-    PARAMETER NEW_WP.
-    IF POS < 0 { SET POS TO POS+wp_queue:LENGTH.}
-    IF wp_queue:LENGTH > POS {
-        SET wp_queue[POS] TO NEW_WP.
+    parameter pos.
+    parameter new_wp.
+    IF pos < 0 { SET pos TO pos+wp_queue:length.}
+    IF wp_queue:length > pos {
+        SET wp_queue[pos] TO new_wp.
     }
 }
 
 local function waypoint_remove {
-    PARAMETER POS.
-    IF wp_queue:LENGTH = 0 {
+    parameter pos.
+    IF wp_queue:length = 0 {
         print "WPQ empty, returning".
         return.
     }
-    IF POS >= 0 and POS < wp_queue:LENGTH {
-        wp_queue:REMOVE(POS).
-    } else if POS = -1{
-        wp_queue:REMOVE(wp_queue:LENGTH-1).
+    IF pos < 0 { SET pos TO pos+wp_queue:length.}
+
+    IF pos >= 0 and pos < wp_queue:length {
+        wp_queue:REMOVE(pos).
+    } else if pos = -1{
+        wp_queue:REMOVE(wp_queue:length-1).
     } ELSE {
-        PRINT "WP at pos " + POS +" does not exist".
+        PRINT "WP at pos " + pos +" does not exist".
     }
 }
 
 local function waypoint_queue_print {
     local wp_list_string is " WP (" +
-        wp_queue:LENGTH + ")" + char(10).
+        wp_queue:length + ")" + char(10).
     local i is wp_queue:ITERATOR.
     UNTIL NOT i:NEXT {
         set wp_list_string to wp_list_string+
-            ""+ i:index +": " + waypoint_print_str(i:value) + char(10).
+            ""+ (wp_queue:length-i:index-1) +": " + waypoint_print_str(i:value) + char(10).
     }
     print wp_list_string.
     return wp_list_string.
@@ -482,8 +469,6 @@ local function waypoint_queue_purge {
     SET wp_queue TO LIST().
 }
 
-
-
 function util_wp_done {
     waypoint_do_leading_action().
     waypoint_remove(0).
@@ -491,11 +476,11 @@ function util_wp_done {
 
 function util_wp_queue_length {
     waypoint_do_leading_action().
-    return wp_queue:LENGTH.
+    return wp_queue:length.
 }
 
 function util_wp_queue_last {
-  return wp_queue[wp_queue:LENGTH-1].
+  return wp_queue[wp_queue:length-1].
 }
 
 function util_wp_queue_first {
@@ -503,8 +488,8 @@ function util_wp_queue_first {
 }
 
 function util_wp_status_string {
-    if wp_queue:LENGTH > 0 {
-        return "WP" + wp_queue:LENGTH +" "+
+    if wp_queue:length > 0 {
+        return "WP" + (wp_queue:length-1) +" "+
             (choose round_dec(min(9999,ap_nav_get_distance()/max(vel,0.0001)),0)+"s"
                 if AP_NAV_ENABLED else "").
     } else {

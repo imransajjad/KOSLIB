@@ -66,12 +66,17 @@ local function generic_common {
     return.
 }
 
-local pre_out is 0.0.
 local function precharge_integrator {
-    set vpid:setpoint to vel.
+    set vpid:setpoint to vel. //my_throttle*vel/my_throttle.
+    set vpid:KP to 0.0.
+    set vpid:KD to 0.0.
     if my_throttle > 0 {
-        set pre_out to vpid:update(time:seconds, vpid:output*vel/my_throttle).
+        vpid:update(time:seconds, vpid:output*vel/my_throttle).
+    } else {
+        set my_throttle to 0.01.
     }
+    set vpid:KP to V_PID_KP.
+    set vpid:KD to V_PID_KD.
 }
 
 local auto_brakes_used is false.
@@ -162,7 +167,11 @@ local function turbofan_common {
 
 function ap_engine_throttle_auto {
     // this function depends on AP_NAV_ENABLED
-    SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
+    if (abs(vpid:output-my_throttle) > 0.02 ) {
+        precharge_integrator().
+    } else {
+        SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
+    }
     apply_auto_brakes().
     common_func().
 }
@@ -170,7 +179,6 @@ function ap_engine_throttle_auto {
 function ap_engine_throttle_map {
     parameter input_throttle is pilot_input_u0.
     SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
-    precharge_integrator().
     common_func().
 }
 
