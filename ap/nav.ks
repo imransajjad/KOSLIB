@@ -340,7 +340,7 @@ local function srf_wp_disp {
         local q_simp is simple_q(ship:altitude,ship:airspeed).
 
         set E_SET to arcsin(sat(-K_Q*vel*(qtar/q_simp-1), sin_max_vangle)).
-        set E_SET to max(E_SET, -arcsin(max(1.0,ship:altitude/vel/5))).
+        set E_SET to max(E_SET, -arcsin(min(1.0,ship:altitude/vel/5))).
 
     }
 
@@ -515,10 +515,10 @@ function ap_nav_status_string {
         } else if (V_SET_PREV > V_SET){
             set vs_string to vs_string + "-".
         }
-        set vs_string to vs_string + WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE][4].
     }
     if AP_MODE_NAV {
-        set vs_string to vs_string+ char(10)+"["+round_dec(E_SET,2)+","+round(H_SET)+"]".
+        set vs_string to vs_string+ char(10)+ WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE][4]
+                        +"("+round_dec(E_SET,2)+","+round(H_SET)+")".
     }
     if (false) { // debug
         set vs_string to vs_string+ char(10)+ WP_FOLLOW_MODE_STRS[WP_FOLLOW_MODE].

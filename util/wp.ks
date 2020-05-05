@@ -161,25 +161,32 @@ function util_wp_get_help_str {
 
 local function generate_takeoff_seq {
     parameter takeoff_distance.
+    parameter heading.
     
-    local lat is ship:GEOPOSITION:LAT.
-    local lng is ship:GEOPOSITION:LNG.
+    local lat is ship:geoposition:lat.
+    local lng is ship:geoposition:lng.
     local start_alt is ship:altitude.
 
-    local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
     //print start_head.
 
+    local pullup_angle is 5.
+    local pullup_radius is takeoff_distance/2.
+
+    local p1 is haversine_latlng(lat,lng, heading,
+        (takeoff_distance)/ship:body:radius*RAD2DEG).
+    local pr is haversine_latlng(lat,lng, heading,
+        (takeoff_distance+pullup_radius*sin(pullup_angle))
+        /ship:body:radius*RAD2DEG).
+    local pesc is haversine_latlng(lat,lng, heading,
+        (takeoff_distance+pullup_radius*sin(pullup_angle)+ takeoff_distance*cos(pullup_angle))
+        /ship:body:radius*RAD2DEG).
+
     set takeoff_sequence_WP to LIST(
-        list(start_alt, 350,
-                lat+RAD2DEG*takeoff_distance/KERBIN:radius*cos(start_head),
-                lng+RAD2DEG*takeoff_distance/KERBIN:radius*sin(start_head)),
-        list(start_alt+25, 350,
-                lat+RAD2DEG*5/2*takeoff_distance/KERBIN:radius*cos(start_head),
-                lng+RAD2DEG*5/2*takeoff_distance/KERBIN:radius*sin(start_head)),
-        list(-2),
-        list(start_alt+50, 350,
-                lat+RAD2DEG*5*takeoff_distance/KERBIN:radius*cos(start_head),
-                lng+RAD2DEG*5*takeoff_distance/KERBIN:radius*sin(start_head))
+        list(start_alt, 350, p1[0], p1[1]),
+        list(start_alt+pullup_radius*(1-cos(pullup_angle)), 350, pr[0], pr[1],pullup_angle,heading),
+        list(start_alt+pullup_radius*(1-cos(pullup_angle))+
+            takeoff_distance*sin(pullup_angle), 350, pesc[0], pesc[1],pullup_angle,heading),
+        list(-2)
         ).
     return takeoff_sequence_WP.
 }
@@ -302,9 +309,13 @@ function util_wp_parse_command {
             insert_waypoint(-1,
                 construct_incomplete_waypoint(wp_seq_i, "srf") ).
         }
-    } else if commtext:STARTSWITH("wpto(") and args:length = 1 {
+    } else if commtext:STARTSWITH("wpto(") and (args:length = 1 or args:length = 2) {
         waypoints_purge().
-        for wp_seq_i in generate_takeoff_seq(args[0]) {
+        if (args:length = 1) {
+            local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
+            args:insert(1,start_head).
+        }
+        for wp_seq_i in generate_takeoff_seq(args[0],args[1]) {
             insert_waypoint(-1,
                 construct_incomplete_waypoint(wp_seq_i, "srf") ).
         }
