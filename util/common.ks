@@ -69,7 +69,8 @@ function wrap_angle_until {
 function wrap_angle {
     parameter theta.
     parameter max_angle is 360.
-    return remainder(theta+max_angle/2,max_angle)-max_angle/2.
+    return wrap_angle_until(theta).
+    // return remainder(theta+max_angle/2,max_angle)-max_angle/2.
 }
 
 function unit_vector {
@@ -216,10 +217,11 @@ function sign {
 function get_param {
     parameter dict.
     parameter key.
+    parameter default is 0.
     if dict:haskey(key) {
         return dict[key].
     } else {
-        return 0.
+        return default.
     }
 }
 

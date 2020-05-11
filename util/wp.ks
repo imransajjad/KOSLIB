@@ -27,14 +27,14 @@ local ROT_GNOM_VERT is (choose PARAM["ROT_GNOM_VERT"] if PARAM:haskey("ROT_GNOM_
 local ROT_GNOM_LAT is (choose PARAM["ROT_GNOM_LAT"] if PARAM:haskey("ROT_GNOM_LAT") else 0).
 local ROT_GNOM_LONG is (choose PARAM["ROT_GNOM_LONG"] if PARAM:haskey("ROT_GNOM_LONG") else 0).
 
-IF NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED IS false.}
+if NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED IS false.}
 
 local wp_queue is LIST().
 local cur_mode is "srf".
 
 // wp_queue is LIST of WAYPOINTS
 // WAYPOINT is LIST containing [lat, long, h, vel]
-// IF vel is zero, vel can be set by us
+// if vel is zero, vel can be set by us
 
 
 // TX SECTION
@@ -195,11 +195,11 @@ local function generate_landing_seq {
     parameter distance.
     parameter speed.
     parameter GSlope.
+    parameter runway_angle.
 
     local lat_stp is -0.0493672258730508.
     local lng_stp is -74.6115615766677.
     local alt_td is 70.5.
-    local runway_angle is 90.4.
 
     local stop_dist is 1000.
     local grdf is 10. // fraction of distance when to gear
@@ -247,65 +247,67 @@ function util_wp_parse_command {
         return false.
     }
 
-    IF commtext:STARTSWITH("wpo(") {
+    if commtext:STARTSWITH("wpo(") {
         overwrite_waypoint(-args[0]-1,
             construct_incomplete_waypoint(args:SUBLIST(1,args:length-1), cur_mode) ).
-    } ELSE IF commtext:STARTSWITH("wpi(") {
+    } else if commtext:STARTSWITH("wpi(") {
         insert_waypoint(-args[0]-2,
             construct_incomplete_waypoint(args:SUBLIST(1,args:length-1), cur_mode) ).
-    } ELSE IF commtext:STARTSWITH("wpr(") {
+    } else if commtext:STARTSWITH("wpr(") {
         remove_waypoint(-args[0]-1).
-    } ELSE IF commtext:STARTSWITH("wpqp"){
+    } else if commtext:STARTSWITH("wpqp"){
         waypoints_print().
-    } ELSE IF commtext:STARTSWITH("wpqd"){
+    } else if commtext:STARTSWITH("wpqd"){
         waypoints_purge().
-    } ELSE IF commtext:STARTSWITH("wpmd"){
+    } else if commtext:STARTSWITH("wpmd"){
         if (args = "act") or (args = "srf") or (args = "snv") or (args = "tar"){
             set cur_mode to args.
         } else {
             print "wp mode " + args + " not supported".
         }
-    } ELSE IF commtext:STARTSWITH("wpd") { 
+    } else if commtext:STARTSWITH("wpd") { 
         remove_waypoint(0).
-    } ELSE IF commtext:STARTSWITH("wpf(") { 
+    } else if commtext:STARTSWITH("wpf(") { 
         insert_waypoint(0,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } ELSE IF commtext:STARTSWITH("wpa(") { 
+    } else if commtext:STARTSWITH("wpa(") { 
         insert_waypoint(-1,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } ELSE IF commtext:STARTSWITH("wpu(") {
+    } else if commtext:STARTSWITH("wpu(") {
         overwrite_waypoint(0,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } ELSE IF commtext:STARTSWITH("wpn(") {
+    } else if commtext:STARTSWITH("wpn(") {
         overwrite_waypoint(1,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } ELSE IF commtext:STARTSWITH("wpw(") and args:length = 2  {
+    } else if commtext:STARTSWITH("wpw(") and args:length = 2  {
         FOR WP_TAR IN ALLWAYPOINTS() {
-            IF (WP_TAR:ISSELECTED) {
-                PRINT "Found navigation waypoint".
+            if (WP_TAR:ISSELECTED) {
+                print "Found navigation waypoint".
                 insert_waypoint(-1,
                 construct_incomplete_waypoint(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
                     WP_TAR:GEOPOSITION:LNG), cur_mode) ).
                 return true.
             }
         }
-        PRINT "Could not find navigation waypoint".
-    } ELSE IF commtext:STARTSWITH("wpt(") and args:length = 2 {
-        IF HASTARGET {
-            PRINT "Found Target.".
+        print "Could not find navigation waypoint".
+    } else if commtext:STARTSWITH("wpt(") and args:length = 2 {
+        if HASTARGET {
+            print "Found Target.".
                 insert_waypoint(-1,
                 construct_incomplete_waypoint(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
                     TARGET:GEOPOSITION:LNG), cur_mode) ).
             return true.
-        } ELSE {
-            PRINT "Could not find target".
+        } else {
+            print "Could not find target".
         }
     } else if commtext:STARTSWITH("wpk(") and args:length = 2 {
         insert_waypoint(-1,
             construct_incomplete_waypoint(list(args[0],args[1],-0.048,
                 -74.69), cur_mode) ).
-    } else if commtext:STARTSWITH("wpl(") and args:length = 3 {
-        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2]) {
+    } else if commtext:STARTSWITH("wpl(") and 
+    (args:length = 3 or args:length = 4) {
+        if args:length = 3 { args:insert(3,90.4). }
+        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2],args[3]) {
             insert_waypoint(-1,
                 construct_incomplete_waypoint(wp_seq_i, "srf") ).
         }
@@ -319,7 +321,11 @@ function util_wp_parse_command {
             insert_waypoint(-1,
                 construct_incomplete_waypoint(wp_seq_i, "srf") ).
         }
-    } ELSE {
+    } else if commtext:startswith("wptest") {
+                insert_waypoint(-1,
+            construct_incomplete_waypoint(list(3000,230,0.5,
+                -74,0,270), "srf") ).
+    } else {
         return false.
     }
     return true.
@@ -333,27 +339,37 @@ function util_wp_parse_command {
 local function fill_in_waypoint_data {
     parameter wp.
     if wp["mode"] = "act" {
+        if not wp:haskey("do_action") {
+            set wp["do_action"] to -99.
+        }
         return wp.
     } else if wp["mode"] = "srf" {
-        if wp:haskey("lat") and wp:haskey("lng") and
-            ((not wp:haskey("elev")) or ( not wp:haskey("head"))){
-                set wp["elev"] to 0.
-                // set wp["head"] to latlng(wp["lat"],wp["lng"]):heading.
-                set wp["head"] to haversine(wp["lat"],wp["lng"],
-                            ship:geoposition:lat, ship:geoposition:lng)[0]-180.
-            }
+        if not wp:haskey("lat") or not wp:haskey("lng") {
+            set wp["lat"] to -ship:geoposition:lat.
+            set wp["lng"] to wrap_angle(ship:geoposition:lng+180).
+        }
+        if (not wp:haskey("elev")) or ( not wp:haskey("head")) {
+            set wp["elev"] to 0.
+            // set wp["head"] to latlng(wp["lat"],wp["lng"]):heading.
+            set wp["head"] to haversine(wp["lat"],wp["lng"],
+                        ship:geoposition:lat, ship:geoposition:lng)[0]-180.
+        }
+        if not wp:haskey("soi_name") {
+            set wp["soi_name"] to ship:body:name.
+        }        
         if not wp:haskey("roll") {
             set wp["roll"] to 0.0.
         }
         if not wp:haskey("nomg") {
             set wp["nomg"] to max(0.05,max(ROT_GNOM_VERT,ROT_GNOM_LAT)).
         }
+        return wp.
     } else if wp["mode"] = "snv" {
 
     } else if wp["mode"] = "tar" {
 
     }
-    return wp.
+
 }
 
 local function waypoint_print_str {
@@ -361,12 +377,6 @@ local function waypoint_print_str {
     if WP["mode"] = "act" {
         return WP["mode"] + " " + WP["do_action"].
     } else if WP["mode"] = "srf" {
-        if not WP:haskey("lat") {
-            print "roll only WP will be depreciated".
-            return WP["mode"] + " " + round(WP["alt"])
-                        + " " + round(WP["vel"])
-                        + " " + round(WP["roll"]).
-        }
         return WP["mode"] + " " + round(WP["alt"])
                         + " " + round(WP["vel"])
                         + " (" + round_dec(wrap_angle_until(WP["lat"]),3)
@@ -423,8 +433,7 @@ local function waypoint_do_leading_action {
             } else if action_code = -99 {
                 print "invalid wp except".
             } else {
-                print "Could not parse action_str:".
-                print wpcoords[0].
+                print "Could not parse action:" + action_code.
             }
             waypoint_do_leading_action().
         }
@@ -434,41 +443,41 @@ local function waypoint_do_leading_action {
 local function waypoint_add {
     parameter pos.
     parameter new_wp.
-    IF pos < 0 { SET pos TO pos+wp_queue:length+1.}
+    if pos < 0 { set pos to pos+wp_queue:length+1.}
     wp_queue:insert(pos,new_wp).
 }
 
 local function waypoint_update {
     parameter pos.
     parameter new_wp.
-    IF pos < 0 { SET pos TO pos+wp_queue:length.}
-    IF wp_queue:length > pos {
-        SET wp_queue[pos] TO new_wp.
+    if pos < 0 { set pos to pos+wp_queue:length.}
+    if wp_queue:length > pos {
+        set wp_queue[pos] to new_wp.
     }
 }
 
 local function waypoint_remove {
     parameter pos.
-    IF wp_queue:length = 0 {
+    if wp_queue:length = 0 {
         print "WPQ empty, returning".
         return.
     }
-    IF pos < 0 { SET pos TO pos+wp_queue:length.}
+    if pos < 0 { set pos to pos+wp_queue:length.}
 
-    IF pos >= 0 and pos < wp_queue:length {
+    if pos >= 0 and pos < wp_queue:length {
         wp_queue:REMOVE(pos).
     } else if pos = -1{
         wp_queue:REMOVE(wp_queue:length-1).
-    } ELSE {
-        PRINT "WP at pos " + pos +" does not exist".
+    } else {
+        print "WP at pos " + pos +" does not exist".
     }
 }
 
 local function waypoint_queue_print {
     local wp_list_string is " WP (" +
         wp_queue:length + ")" + char(10).
-    local i is wp_queue:ITERATOR.
-    UNTIL NOT i:NEXT {
+    local i is wp_queue:iterator.
+    until NOT i:next {
         set wp_list_string to wp_list_string+
             ""+ (wp_queue:length-i:index-1) +": " + waypoint_print_str(i:value) + char(10).
     }
@@ -477,7 +486,7 @@ local function waypoint_queue_print {
 }
 
 local function waypoint_queue_purge {
-    SET wp_queue TO LIST().
+    set wp_queue to LIST().
 }
 
 function util_wp_done {
@@ -523,17 +532,17 @@ function util_wp_decode_rx_msg {
     }
 
     if opcode = "OWR_WP"{
-        SET WP_index TO data[0].
-        SET WP_itself TO data[1].
+        set WP_index to data[0].
+        set WP_itself to data[1].
         waypoint_update(WP_index, fill_in_waypoint_data(WP_itself)).
 
     } else if opcode = "INS_WP"{
-        SET WP_index TO data[0].
-        SET WP_itself TO data[1].
+        set WP_index to data[0].
+        set WP_itself to data[1].
         waypoint_add(WP_index, fill_in_waypoint_data(WP_itself)).
 
     } else if opcode = "REM_WP"{
-        SET WP_index TO data[0].
+        set WP_index to data[0].
         waypoint_remove(WP_index).
 
     } else if opcode = "WP_PRINT"{

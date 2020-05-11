@@ -4,14 +4,14 @@ GLOBAL AP_ENGINES_ENABLED IS true.
 
 local PARAM is readJson("1:/param.json")["AP_ENGINES"].
 
-local TOGGLE_X is (choose PARAM["TOGGLE_X"] if PARAM:haskey("TOGGLE_X") else 0).
-local TOGGLE_Y is (choose PARAM["TOGGLE_Y"] if PARAM:haskey("TOGGLE_Y") else 0).
-local TOGGLE_VEL is (choose PARAM["TOGGLE_VEL"] if PARAM:haskey("TOGGLE_VEL") else 0).
-local V_PID_KP is (choose PARAM["V_PID_KP"] if PARAM:haskey("V_PID_KP") else 0.01).
-local V_PID_KI is (choose PARAM["V_PID_KI"] if PARAM:haskey("V_PID_KI") else 0.004).
-local V_PID_KD is (choose PARAM["V_PID_KD"] if PARAM:haskey("V_PID_KD") else 0).
-local AUTO_BRAKES is (choose PARAM["AUTO_BRAKES"] if PARAM:haskey("AUTO_BRAKES") else 0).
-local MAIN_ENGINE_NAME is (choose PARAM["MAIN_ENGINE_NAME"] if PARAM:haskey("MAIN_ENGINE_NAME") else 0).
+local TOGGLE_X is get_param(PARAM,"TOGGLE_X", 0).
+local TOGGLE_Y is get_param(PARAM,"TOGGLE_Y", 0).
+local TOGGLE_VEL is get_param(PARAM,"TOGGLE_VEL", 0).
+local V_PID_KP is get_param(PARAM,"V_PID_KP", 0.01).
+local V_PID_KI is get_param(PARAM,"V_PID_KI", 0.004).
+local V_PID_KD is get_param(PARAM,"V_PID_KD", 0).
+local AUTO_BRAKES is get_param(PARAM,"AUTO_BRAKES", false).
+local MAIN_ENGINE_NAME is get_param(PARAM,"MAIN_ENGINE_NAME", "").
 
 
 local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
@@ -69,6 +69,7 @@ local function generic_common {
 local function precharge_integrator {
     set vpid:setpoint to vel. //my_throttle*vel/my_throttle.
     set vpid:KP to 0.0.
+    set vpid:KI to 10*V_PID_KI.
     set vpid:KD to 0.0.
     if my_throttle > 0 {
         vpid:update(time:seconds, vpid:output*vel/my_throttle).
@@ -76,6 +77,7 @@ local function precharge_integrator {
         set my_throttle to 0.01.
     }
     set vpid:KP to V_PID_KP.
+    set vpid:KI to V_PID_KI.
     set vpid:KD to V_PID_KD.
 }
 
