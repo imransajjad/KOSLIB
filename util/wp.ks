@@ -186,7 +186,7 @@ local function generate_landing_seq {
 
     local lat_stp is -0.0493672258730508.
     local lng_stp is -74.6115615766677.
-    local alt_td is latlng(lat_stp,lng_stp):terrainheight.
+    local alt_stp is latlng(lat_stp,lng_stp):terrainheight.
 
     local stop_dist is 1000.
     set GSlope to abs(GSlope).
@@ -205,12 +205,12 @@ local function generate_landing_seq {
     // local p1stp is haversine_latlng(lat_stp,lng_stp,0, 0).
 
     local landing_sequence is LIST(
-    list(alt_td + flare_h +distance*tan(GSlope), speed, p5[0], p5[1], -GSlope,runway_angle),
-    list(alt_td + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope), speed, p5[0], p5[1], -GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
+    list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list(-2),
-    list(alt_td + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
-    list(alt_td+2.0 , speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
-    list(alt_td, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
+    list(alt_stp+2.0 , speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
+    list(alt_stp, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
     list(-1)). // brakes
 
     return landing_sequence.
@@ -502,7 +502,7 @@ function util_wp_queue_first {
 
 function util_wp_status_string {
     if wp_queue:length > 0 {
-        return "WP" + (wp_queue:length-1) +" "+
+        return char(10)+"WP" + (wp_queue:length-1) +" "+
             (choose round_dec(min(9999,ap_nav_get_distance()/max(vel,0.0001)),0)+"s"
                 if AP_NAV_ENABLED else "").
     } else {

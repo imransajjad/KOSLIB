@@ -332,7 +332,7 @@ local function srf_wp_disp {
         local qtar is simple_q(wp["alt"],wp["vel"]).
         local q_simp is simple_q(ship:altitude,ship:airspeed).
 
-        util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).
+        // util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).
 
         set E_SET to arcsin(sat(-K_Q*(qtar-q_simp), sin_max_vangle)).
         set E_SET to max(E_SET, -arcsin(min(1.0,ship:altitude/vel/5))).
@@ -542,8 +542,11 @@ function ap_nav_status_string {
         }
 
         set dstr to dstr+"("+round_dec(E_SET,2)+","+round(H_SET)+")".
+        // if (USE_WP) {
+        //     set dstr to dstr+util_wp_status_string().
+        // }
     }
-    if (true) { // debug
+    if (false) { // debug
         set dstr to dstr+ char(10)+"["+round_dec(wrap_angle_until(E_SET - vel_pitch),2)+","+round_dec(wrap_angle_until(H_SET - vel_bear),2)+"]".
         set dstr to dstr+ char(10)+"["+round_dec(W_E_SET,5)+","+round_dec(W_H_SET,5)+"]".
 
@@ -561,8 +564,6 @@ function ap_nav_status_string {
                 char(10)+"O" + round_dec(final_radius,0) +
                 (choose char(10)+"AG" if AG else "").
     }
-    if (USE_WP) {
-        set dstr to dstr+char(10)+util_wp_status_string().
-    }
+
     return dstr.
 }
