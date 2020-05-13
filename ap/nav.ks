@@ -94,41 +94,40 @@ if (debug_vectors) { // debug
 
 function ap_nav_do_flcs_rot {
 
-    local wg is get_frame_accel_orbit()/max(1,vel)*RAD2DEG*cos(vel_pitch).
+    local wg is vcrs(vel_prograde:vector, ship:up:vector)*
+                (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
 
-    local head_error is wrap_angle_until(H_SET - vel_bear).
-    local elev_error is wrap_angle_until(E_SET - vel_pitch).
+    local wff is -W_H_SET*cur_vel_head:topvector + W_E_SET*cur_vel_head:starvector.
 
     local cur_pro is (-ship:facing)*heading(vel_bear, vel_pitch, roll).
     local target_pro is (-ship:facing)*heading(H_SET, E_SET, R_SET).
-
-    local R_wv to (-ship:facing)*
-        heading(H_SET, E_SET, R_SET).
 
     local ship_frame_error is 
         V(-wrap_angle_until(target_pro:pitch-cur_pro:pitch),
         wrap_angle_until(target_pro:yaw-cur_pro:yaw),
         wrap_angle_until(target_pro:roll-cur_pro:roll) ).
-    local ship_frame_ff is
-                // (choose 0.0 if AG3 else 1.0)*
-                (R(0,0,-roll)*V(W_E_SET,W_H_SET,0)).
-
-    local have_roll_pre is haversine(0,0,W_E_SET+elev_error-wg*cur_vel_head:topvector,
-                                    W_H_SET+head_error-wg*cur_vel_head:starvector).
-
-    // local have_roll is haversine(0,0,W_E_SET+world_frame_w:y-wg*ship:up:vector,
-    //                                 W_H_SET+world_frame_w:x).
-    local roll_w is sat(have_roll_pre[1]/5,1.0).
-
-    local roll_target is sat( 0*(ship_frame_error:z + ship_frame_ff:z) 
-                            + roll_w*wrap_angle_until(have_roll_pre[0]) , 
-                            (choose GEAR_BANK_MAX if GEAR else BANK_MAX)).
+    local ship_frame_ff is (R(0,0,-roll)*V(W_E_SET,W_H_SET,0)).
     
+
+    local w_us is -wg+wff + K_PITCH*ship_frame_error:x*ship:facing:starvector +
+                            -K_YAW*ship_frame_error:y*ship:facing:topvector.
+    
+    local have_roll_pre is haversine(0,0,w_us*ship:facing:starvector, -w_us*ship:facing:topvector).
+    local roll_w is sat(have_roll_pre[1]/2.5,1.0).
+    local roll_target is 0*(ship_frame_error:z + ship_frame_ff:z). // still need to test
+
     if ship:status = "LANDED" {
         set roll_target to 0.
+        set roll_w to 0.
     }
-    local r_rot is K_ROLL*wrap_angle_until(roll_target-roll).
+    local r_rot is K_ROLL*convex(roll_target-roll, wrap_angle(have_roll_pre[0]), roll_w).
 
+    // util_hud_push_right("nav_w", ""+ round_dec(w_us*ship:facing:starvector,3) +
+    //                             char(10)+round_dec(-w_us*ship:facing:topvector,3) +
+    //                             char(10)+round_dec(w_us*ship:facing:forevector,3) +
+    //                             char(10)+"rt:"+round_dec(have_roll_pre[0],1)).
+
+    local WGM is 1.0/kuniverse:timewarp:rate.
 
     local p_rot is 0.0.
     local y_rot is 0.0.
@@ -137,14 +136,12 @@ function ap_nav_do_flcs_rot {
         set p_rot to GCAS_GAIN_MULTIPLIER*K_PITCH*ship_frame_error:x.
         set y_rot to GCAS_GAIN_MULTIPLIER*K_YAW*ship_frame_error:y.
     } else {
-        set p_rot to sat(K_PITCH*ship_frame_error:x + ship_frame_ff:x, 2.0*W_PITCH_NOM).
-        set y_rot to sat(K_YAW*ship_frame_error:y + ship_frame_ff:y, 2.0*W_YAW_NOM).
+        set p_rot to sat(WGM*K_PITCH*ship_frame_error:x + ship_frame_ff:x, 2.0*W_PITCH_NOM).
+        set y_rot to sat(WGM*K_YAW*ship_frame_error:y + ship_frame_ff:y, 2.0*W_YAW_NOM).
     
     }
-    // util_hud_push_right("ap_nav_rtar", "rtar "+round_dec(roll_target,1)).
-    // util_hud_push_right("ap_nav_debug", "rtar "+round_dec(wg*ship:up:vector,2)).
-    // util_hud_push_right("ap_nav_pyrot", ""+round_dec(p_rot,1)+","+round_dec(y_rot,1)+","+round_dec(r_rot,1) ).
     ap_flcs_rot(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
+
 }
 
 // does maneuver nodes in spaceflight when they are encountered
@@ -260,7 +257,6 @@ local final_radius is 100.
 local farness is 1.0.
 local in_circ is 0.0.
 local alpha_x is 0.0.
-local turn_on is false.
 
 // handles a surface type waypoint
 local function srf_wp_disp {
@@ -316,26 +312,29 @@ local function srf_wp_disp {
                         round_dec(ship:geoposition:lng,1) + "," +
                         round_dec(vel_pitch,1) + "," +
                         round_dec(vel_bear,1) + ")".
-            PRINT "Reached Waypoint " + util_wp_queue_length().
+            PRINT "Reached Waypoint " + (util_wp_queue_length()-1).
             set alpha_x to 0.
             util_wp_done().
-            set turn_on to false.
+            set WP_FOLLOW_MODE["F"] to false.
             if util_wp_queue_length() = 0 {
                 set E_SET to vel_pitch.
                 set H_SET to vel_bear.
                 set V_SET to vel.
             }
+            return.
         }
     }
 
     // climb/descend to target altitude
     if WP_FOLLOW_MODE["Q"] {
 
-        local sin_max_vangle is sin(30).
+        local sin_max_vangle is 0.5. // sin(30).
         local qtar is simple_q(wp["alt"],wp["vel"]).
         local q_simp is simple_q(ship:altitude,ship:airspeed).
 
-        set E_SET to arcsin(sat(-K_Q*vel*(qtar/q_simp-1), sin_max_vangle)).
+        util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).
+
+        set E_SET to arcsin(sat(-K_Q*(qtar-q_simp), sin_max_vangle)).
         set E_SET to max(E_SET, -arcsin(min(1.0,ship:altitude/vel/5))).
 
     }
@@ -349,15 +348,22 @@ local function srf_wp_disp {
 
         set in_circ to farness/max(0.00001,2*sin(head_have[1])).
 
-        if (in_circ <= 1.01) or AG3{
-            set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
+        if (WP_FOLLOW_MODE["F"]) {
+            set alpha_x to head_have[1].
+        } else if (in_circ < 1.0) {
+            // set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
+            set alpha_x to head_have[1].
             set WP_FOLLOW_MODE["F"] to true.
         } else {
-            set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
+            // set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
 
-            // set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
-            //       / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
-            set WP_FOLLOW_MODE["F"] to false.
+            set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
+                  / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
+            // set WP_FOLLOW_MODE["F"] to false.
+            if (head_have[1] <= alpha_x){
+                set alpha_x to head_have[1].
+                set WP_FOLLOW_MODE["F"] to true.
+            }
         }
         
         if WP_FOLLOW_MODE["F"] {
@@ -394,7 +400,7 @@ local function srf_wp_disp {
 
         set E_SET to max(E_SET, -arcsin(min(1.0,ship:altitude/vel/5))).
 
-        if WP_FOLLOW_MODE["F"] {
+        if WP_FOLLOW_MODE["F"] and AG3{
             local cur_vel_head_set is heading(H_SET, E_SET).
             local w_mag is max(vel,7)/final_radius*RAD2DEG.
             set W_E_SET to centripetal_vector*cur_vel_head:topvector*w_mag.
@@ -537,7 +543,7 @@ function ap_nav_status_string {
 
         set dstr to dstr+"("+round_dec(E_SET,2)+","+round(H_SET)+")".
     }
-    if (false) { // debug
+    if (true) { // debug
         set dstr to dstr+ char(10)+"["+round_dec(wrap_angle_until(E_SET - vel_pitch),2)+","+round_dec(wrap_angle_until(H_SET - vel_bear),2)+"]".
         set dstr to dstr+ char(10)+"["+round_dec(W_E_SET,5)+","+round_dec(W_H_SET,5)+"]".
 
@@ -554,6 +560,9 @@ function ap_nav_status_string {
                 char(10)+"/c  " + round_dec(in_circ,2) +
                 char(10)+"O" + round_dec(final_radius,0) +
                 (choose char(10)+"AG" if AG else "").
+    }
+    if (USE_WP) {
+        set dstr to dstr+char(10)+util_wp_status_string().
     }
     return dstr.
 }

@@ -186,20 +186,20 @@ local function generate_landing_seq {
 
     local lat_stp is -0.0493672258730508.
     local lng_stp is -74.6115615766677.
-    local alt_td is 70.5.
+    local alt_td is latlng(lat_stp,lng_stp):terrainheight.
 
     local stop_dist is 1000.
-    local grdf is 10. // fraction of distance when to gear
-    local flare_g is 1.0.
-    local flare_radius is speed^2/flare_g/g0.
     set GSlope to abs(GSlope).
+
+    local flare_radius is 10*speed/(GSlope*DEG2RAD). // 10 second flare
+    local flare_g is speed^2/flare_radius/g0.
+
 
     local flare_long is flare_radius*sin(GSlope).
     local flare_h is flare_radius*(1-cos(GSlope)).
 
     local p5 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance)/ship:body:radius*RAD2DEG).
     local p4 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/2)/ship:body:radius*RAD2DEG).
-    local pgr is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/grdf)/ship:body:radius*RAD2DEG).
     local p2f is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long)/ship:body:radius*RAD2DEG).
     local p1td is haversine_latlng(lat_stp,lng_stp,runway_angle+180,stop_dist/ship:body:radius*RAD2DEG).
     // local p1stp is haversine_latlng(lat_stp,lng_stp,0, 0).
@@ -207,11 +207,10 @@ local function generate_landing_seq {
     local landing_sequence is LIST(
     list(alt_td + flare_h +distance*tan(GSlope), speed, p5[0], p5[1], -GSlope,runway_angle),
     list(alt_td + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
-    list(alt_td + flare_h +distance*tan(GSlope)/grdf, speed, pgr[0], pgr[1],-GSlope,runway_angle),
     list(-2),
     list(alt_td + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
-    list(alt_td, speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
-    list(alt_td-1.5, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
+    list(alt_td+2.0 , speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
+    list(alt_td, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
     list(-1)). // brakes
 
     return landing_sequence.
