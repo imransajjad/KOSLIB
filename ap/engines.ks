@@ -69,7 +69,7 @@ local function generic_common {
 local function precharge_integrator {
     set vpid:setpoint to vel. //my_throttle*vel/my_throttle.
     set vpid:KP to 0.0.
-    set vpid:KI to 10*V_PID_KI.
+    set vpid:KI to V_PID_KI.
     set vpid:KD to 0.0.
     if my_throttle > 0 {
         vpid:update(time:seconds, vpid:output*vel/my_throttle).

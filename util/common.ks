@@ -246,5 +246,5 @@ function simple_q {
     parameter height.
     parameter velocity.
 
-    return constant:e^(-height/5000)*velocity^2.
+    return 0.00000840159*constant:e^(-height/5000)*velocity^2.
 }

@@ -25,6 +25,7 @@ local hud_text_dict_right is lexicon().
 
 local hud_setting_dict is lexicon("on", false, "green", true, "ladder", true, "land", true, "nav", true, "movable", false).
 
+local hud_far is 30.0.
 local hud_color is RGB(0,1,0).
 local hud_land_slope is -2.5.
 local hud_land_head is 90.4.
@@ -40,9 +41,10 @@ local guide_tri_lr is 0.
 local guide_tri_tl is 0.
 local guide_tri_tr is 0.
 local function nav_vecdraw {
-    local guide_far is 300.
-    local guide_width is 0.4.
-    local guide_size is sin(0.5).
+    local guide_far is hud_far.
+    local guide_width is 0.05.
+    local guide_scale is 1.0.
+    local guide_size is guide_far*sin(0.5).
 
     if not nav_init_draw {
         IF not (DEFINED AP_NAV_ENABLED) or not (AP_NAV_ENABLED) {
@@ -52,14 +54,14 @@ local function nav_vecdraw {
         set nav_init_draw to true.
 
         set guide_tri_ll TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
-            "", 1.0, true, guide_width, FALSE ).
+            "", guide_scale, true, guide_width, FALSE ).
         set guide_tri_lr TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
-            "", 1.0, true, guide_width, FALSE ).
+            "", guide_scale, true, guide_width, FALSE ).
 
         set guide_tri_tl TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
-            "", 1.0, true, guide_width, FALSE ).
+            "", guide_scale, true, guide_width, FALSE ).
         set guide_tri_tr TO VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1.0,0),
-            "", 1.0, true, guide_width, FALSE ).
+            "", guide_scale, true, guide_width, FALSE ).
 
 
         set guide_tri_ll:wiping to false.
@@ -76,13 +78,11 @@ local function nav_vecdraw {
         local nav_vel_error is sat(ap_nav_get_vel()-vel,10)/10.
         local camera_offset is camera_offset_vec.
 
-        set guide_tri_ll:start to camera_offset+guide_far*(nav_heading:vector-(guide_size)*nav_heading:starvector).
-        set guide_tri_ll:vec to guide_far*(guide_size)*
-            ((1-nav_vel_error)*nav_heading:starvector - nav_heading:topvector).
+        set guide_tri_ll:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
+        set guide_tri_ll:vec to guide_size*((1-nav_vel_error)*nav_heading:starvector - nav_heading:topvector).
 
-        set guide_tri_lr:start to camera_offset+guide_far*(nav_heading:vector+(guide_size)*nav_heading:starvector).
-        set guide_tri_lr:vec to guide_far*(guide_size)*
-            (-(1-nav_vel_error)*nav_heading:starvector - nav_heading:topvector).
+        set guide_tri_lr:start to camera_offset+guide_far*nav_heading:vector+guide_size*nav_heading:starvector.
+        set guide_tri_lr:vec to guide_size*(-(1-nav_vel_error)*nav_heading:starvector - nav_heading:topvector).
 
 
         set guide_tri_ll:color to hud_color.
@@ -92,13 +92,11 @@ local function nav_vecdraw {
         set guide_tri_lr:show to true.
 
         if (nav_heading:vector*ship:facing:vector > 0.966) {
-            set guide_tri_tl:start to camera_offset+guide_far*(nav_heading:vector-(guide_size)*nav_heading:starvector).
-            set guide_tri_tl:vec to guide_far*(guide_size)*
-                (nav_heading:starvector + nav_heading:topvector).
+            set guide_tri_tl:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
+            set guide_tri_tl:vec to guide_size*(nav_heading:starvector + nav_heading:topvector).
 
-            set guide_tri_tr:start to camera_offset+guide_far*(nav_heading:vector+(guide_size)*nav_heading:starvector).
-            set guide_tri_tr:vec to guide_far*(guide_size)*
-                (-nav_heading:starvector + nav_heading:topvector).
+            set guide_tri_tr:start to camera_offset+guide_far*nav_heading:vector+guide_size*nav_heading:starvector.
+            set guide_tri_tr:vec to guide_size*(-nav_heading:starvector + nav_heading:topvector).
 
             set guide_tri_tl:color to hud_color.
             set guide_tri_tr:color to hud_color.
@@ -201,18 +199,21 @@ local function ladder_vec_draw {
 local land_init_draw is false.
 local land_vert is 0.
 local land_hori is 0.
+local land_invis is 0.
 local function land_vecdraw {
-    local far is 300.
-    local width is 0.25.
-    local scale is 1.0.
+    local far is hud_far.
+    local width is 0.025.
+    local long is far/10.
 
     if not land_init_draw {
 
         set land_init_draw to true.
         set land_vert to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-            "", scale, true, width, FALSE ).
+            "", 1.0, true, width, FALSE ).
         set land_hori to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-            "", scale, true, width, FALSE ).
+            "", 1.0, true, width, FALSE ).
+        set land_invis to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+            "", 1.0, true, 0.25, FALSE ).
         set land_vert:wiping to false.
         set land_hori:wiping to false.
     }
@@ -221,25 +222,31 @@ local function land_vecdraw {
         local camera_offset is camera_offset_vec.
         local ghead to heading(hud_land_head,hud_land_slope).
 
-        set land_vert:start to camera_offset+far*(ghead:vector-0.1*ghead:topvector).
-        set land_hori:start to camera_offset+far*(ghead:vector-0.1*ghead:starvector).
+        set land_vert:start to camera_offset+far*ghead:vector-long*ghead:topvector.
+        set land_hori:start to camera_offset+far*ghead:vector-long*ghead:starvector.
+        set land_invis:start to camera_offset+far*ghead:vector
+                            +0.5*long*ghead:starvector+0.1*long*ghead:topvector.
 
-        set land_vert:vec to far*0.2*ghead:topvector.
-        set land_hori:vec to far*0.2*ghead:starvector.
+        set land_vert:vec to 2*long*ghead:topvector.
+        set land_hori:vec to 2*long*ghead:starvector.
+        set land_invis:vec to V(0,0,0).
 
         set land_vert:color to hud_color.
         set land_hori:color to hud_color.
+        set land_invis:color to hud_color.
 
         local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
 
-        set land_hori:label to (choose "AGL "+round_dec(ground_alt,1)
+        set land_invis:label to (choose "AGL "+round_dec(ground_alt,1)
                     if (ground_alt < FLARE_ALT ) else "").
 
         set land_vert:show to true.
         set land_hori:show to true.
+        set land_invis:show to true.
     } else {
         set land_vert:show to false.
-        set land_hori:show to false.        
+        set land_hori:show to false.
+        set land_invis:show to false.
     }
 }
 
