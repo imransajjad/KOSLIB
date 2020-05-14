@@ -220,11 +220,10 @@ local function generate_landing_seq {
 // Otherwise it returns false.
 function util_wp_parse_command {
     parameter commtext.
-    local args is list().
+    parameter args is -1.
 
     // don't even try if it's not a wp command
     if commtext:startswith("wp") {
-        set args to util_shbus_tx_raw_input_to_args(commtext).
         if not (args = -1) and args:length = 0 {
             print "wp args expected but empty".
             return true.
@@ -539,13 +538,13 @@ function util_wp_decode_rx_msg {
         waypoint_remove(WP_index).
 
     } else if opcode = "WP_PRINT"{
-        util_shbus_rx_send_back_ack(waypoint_queue_print()).
+        util_shbus_tx_msg("ACK", list(waypoint_queue_print())).
 
     } else if opcode = "WP_PURGE"{
         waypoint_queue_purge().
-        util_shbus_rx_send_back_ack("waypoint queue purged").
+        util_shbus_tx_msg("ACK", list("waypoint queue purged")).
     } else {
-        util_shbus_rx_send_back_ack("could not decode wp rx msg").
+        util_shbus_tx_msg("ACK", list("could not decode wp rx msg")).
         print "could not decode wp rx msg".
         return false.
     }

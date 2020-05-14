@@ -201,10 +201,10 @@ function util_fldr_get_help_str {
 // Otherwise it returns false.
 function util_fldr_parse_command {
     parameter commtext.
+    parameter args is -1.
 
     // don't even try if it's not a log command
     if commtext:contains("log") {
-        set args to util_shbus_tx_raw_input_to_args(commtext).
         if not (args = -1) and args:length = 0 {
             print "fldr args expected but empty".
             return true.
@@ -343,9 +343,9 @@ function util_fldr_decode_rx_msg {
     } else if opcode = "FLDR_RUN_TEST" {
         run_test_control().
     } else if opcode = "FLDR_PRINT_TEST" {
-        util_shbus_rx_send_back_ack(print_sequences()). 
+        util_shbus_tx_msg("ACK", list(print_sequences())). 
     } else {
-        util_shbus_rx_send_back_ack("could not decode fldr rx msg").
+        util_shbus_tx_msg("ACK", list("could not decode fldr rx msg")).
         print "could not decode fldr rx msg".
         return false.
     }
