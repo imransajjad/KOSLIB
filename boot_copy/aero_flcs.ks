@@ -42,9 +42,10 @@ LOCK roll TO (180-DELTA_FACE_UP:roll).
 LOCK yaw TO (360-DELTA_FACE_UP:yaw).
 
 LOCK vel TO (choose SHIP:AIRSPEED if ship:altitude < 36000 else SHIP:VELOCITY:ORBIT:mag).
+LOCK vel_prograde TO (choose ship:srfprograde if ship:altitude < 36000 else ship:prograde).
 
 LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
-    (choose SHIP:SRFPROGRADE if ship:altitude < 36000 else SHIP:PROGRADE).
+    (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
 LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
 
