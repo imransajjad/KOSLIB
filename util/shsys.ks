@@ -132,13 +132,12 @@ local function get_another_ship {
 }
 
 function util_shsys_decode_rx_msg {
-    parameter received.
+    parameter sender.
+    parameter opcode.
+    parameter data.
 
-    set opcode to received:content[0].
     if not opcode:startswith("SYS") {
         return.
-    } else if received:content:length > 1 {
-        set data to received:content[1].
     }
 
     IF opcode:startswith("SYS_CB_OPEN") {
@@ -150,7 +149,7 @@ function util_shsys_decode_rx_msg {
         wait 0.1.
         get_another_ship(ship:name+" Probe").
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode shsys rx msg")).
+        util_shbus_tx_msg("ACK", list("could not decode shsys rx msg"), list(sender)).
         print "could not decode shsys rx msg".
         return false.
     }

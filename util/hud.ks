@@ -466,14 +466,14 @@ function util_hud_parse_command {
 
 // shbus_rx compatible receive message
 function util_hud_decode_rx_msg {
-    parameter received.
+    parameter sender.
+    parameter opcode.
+    parameter data.
 
-    set opcode to received:content[0].
     if not opcode:startswith("HUD") {
         return.
-    } else if received:content:length > 1 {
-        set data to received:content[1].
     }
+    
     if opcode = "HUD_PUSHL" {
         util_hud_push_left(data[0],data[1]).
     } else if opcode = "HUD_PUSHR" {
@@ -488,14 +488,14 @@ function util_hud_decode_rx_msg {
             set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
             set hud_color to RGB( 0, (choose 1 if hud_setting_dict["green"] else 0), 0 ).
         } else {
-            util_shbus_tx_msg("ACK", list("util hud setting not found")).
+            util_shbus_tx_msg("ACK", list("util hud setting not found"), list(sender)).
 
         }
     } else if opcode = "HUD_LAND_SET" {
         set hud_land_head to data[1].
         set hud_land_slope to -abs(data[0]).
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode hud rx msg")).
+        util_shbus_tx_msg("ACK", list("could not decode hud rx msg"), list(sender)).
         print "could not decode hud rx msg".
         return false.
     }

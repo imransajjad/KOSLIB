@@ -512,39 +512,36 @@ function util_wp_status_string {
 // Returns true if message was decoded successfully
 // Otherwise false
 function util_wp_decode_rx_msg {
-    parameter received.
+    parameter sender.
+    parameter opcode.
+    parameter data.
 
-    if not received:content[0]:contains("WP") {
+    if not opcode:contains("WP") {
         return false.
     }
 
-    set opcode to received:content[0].
-    if received:content:length > 0 {
-        set data to received:content[1].
-    }
-
-    if opcode = "OWR_WP"{
+    if opcode = "OWR_WP" and data:length = 2 {
         set WP_index to data[0].
         set WP_itself to data[1].
         waypoint_update(WP_index, WP_itself).
 
-    } else if opcode = "INS_WP"{
+    } else if opcode = "INS_WP" and data:length = 2 {
         set WP_index to data[0].
         set WP_itself to data[1].
         waypoint_add(WP_index, WP_itself).
 
-    } else if opcode = "REM_WP"{
+    } else if opcode = "REM_WP" and data:length = 1 {
         set WP_index to data[0].
         waypoint_remove(WP_index).
 
     } else if opcode = "WP_PRINT"{
-        util_shbus_tx_msg("ACK", list(waypoint_queue_print())).
+        util_shbus_tx_msg("ACK", list(waypoint_queue_print()), list(sender)).
 
     } else if opcode = "WP_PURGE"{
         waypoint_queue_purge().
-        util_shbus_tx_msg("ACK", list("waypoint queue purged")).
+        util_shbus_tx_msg("ACK", list("waypoint queue purged"), list(sender)).
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode wp rx msg")).
+        util_shbus_tx_msg("ACK", list("could not decode wp rx msg"), list(sender)).
         print "could not decode wp rx msg".
         return false.
     }

@@ -175,6 +175,10 @@ local function util_term_parse_command {
                 cpu:activate().
             }
         }
+        if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+            wait 0.1.
+            util_shbus_reconnect().
+        }
     } else {
         return false.
     }
@@ -235,9 +239,11 @@ local function parse_command {
             return false.
         }
     }
-    wait(0.1).
-    wait(0.1).
-    util_shbus_rx_msg().
+    wait 0.1.
+    wait 0.1.
+    if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+        until not util_shbus_rx_msg() {}
+    }
     return true.
 }
 
