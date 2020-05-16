@@ -365,6 +365,7 @@ local function run_test_control {
 // Otherwise false
 function util_fldr_decode_rx_msg {
     parameter sender.
+    parameter recipient.
     parameter opcode.
     parameter data.
 

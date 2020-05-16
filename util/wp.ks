@@ -205,11 +205,11 @@ local function generate_landing_seq {
     // local p1stp is haversine_latlng(lat_stp,lng_stp,0, 0).
 
     local landing_sequence is LIST(
-    list(alt_stp + flare_h +distance*tan(GSlope), speed, p5[0], p5[1], -GSlope,runway_angle),
-    list(alt_stp + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope), 1.43*speed, p5[0], p5[1], -GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope)/2, 1.17*speed, p4[0], p4[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list(-2),
-    list(alt_stp+2.0 , speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
+    list(alt_stp+2.0 , 0.857*speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
     list(alt_stp, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
     list(-1)). // brakes
 
@@ -509,6 +509,7 @@ function util_wp_status_string {
 // Otherwise false
 function util_wp_decode_rx_msg {
     parameter sender.
+    parameter recipient.
     parameter opcode.
     parameter data.
 

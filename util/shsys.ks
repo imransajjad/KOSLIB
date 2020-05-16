@@ -133,6 +133,7 @@ local function get_another_ship {
 
 function util_shsys_decode_rx_msg {
     parameter sender.
+    parameter recipient.
     parameter opcode.
     parameter data.
 

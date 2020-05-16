@@ -467,6 +467,7 @@ function util_hud_parse_command {
 // shbus_rx compatible receive message
 function util_hud_decode_rx_msg {
     parameter sender.
+    parameter recipient.
     parameter opcode.
     parameter data.
 
