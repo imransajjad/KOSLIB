@@ -362,11 +362,11 @@ function util_fldr_decode_rx_msg {
     } else if opcode = "FLDR_RUN_TEST" {
         run_test_control().
     } else if opcode = "FLDR_PRINT_TEST" {
-        util_shbus_tx_msg("ACK", list(print_sequences()), list(sender)).
+        util_shbus_ack(print_sequences(), sender).
     } else if opcode = "FLDR_EVENT" {
         set fldr_evt_string to data[0].
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode fldr rx msg"), list(sender)).
+        util_shbus_ack("could not decode fldr rx msg", sender).
         print "could not decode fldr rx msg".
         return false.
     }

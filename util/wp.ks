@@ -535,13 +535,13 @@ function util_wp_decode_rx_msg {
         waypoint_remove(WP_index).
 
     } else if opcode = "WP_PRINT"{
-        util_shbus_tx_msg("ACK", list(waypoint_queue_print()), list(sender)).
+        util_shbus_ack(waypoint_queue_print(), sender).
 
     } else if opcode = "WP_PURGE"{
         waypoint_queue_purge().
-        util_shbus_tx_msg("ACK", list("waypoint queue purged"), list(sender)).
+        util_shbus_ack("waypoint queue purged", sender).
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode wp rx msg"), list(sender)).
+        util_shbus_ack("could not decode wp rx msg", sender).
         print "could not decode wp rx msg".
         return false.
     }

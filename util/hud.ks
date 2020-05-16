@@ -473,7 +473,7 @@ function util_hud_decode_rx_msg {
     if not opcode:startswith("HUD") {
         return.
     }
-    
+
     if opcode = "HUD_PUSHL" {
         util_hud_push_left(data[0],data[1]).
     } else if opcode = "HUD_PUSHR" {
@@ -488,14 +488,14 @@ function util_hud_decode_rx_msg {
             set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
             set hud_color to RGB( 0, (choose 1 if hud_setting_dict["green"] else 0), 0 ).
         } else {
-            util_shbus_tx_msg("ACK", list("util hud setting not found"), list(sender)).
+            util_shbus_ack("util hud setting not found", sender).
 
         }
     } else if opcode = "HUD_LAND_SET" {
         set hud_land_head to data[1].
         set hud_land_slope to -abs(data[0]).
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode hud rx msg"), list(sender)).
+        util_shbus_ack("could not decode hud rx msg", sender).
         print "could not decode hud rx msg".
         return false.
     }

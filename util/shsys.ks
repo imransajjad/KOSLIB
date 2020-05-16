@@ -149,7 +149,7 @@ function util_shsys_decode_rx_msg {
         wait 0.1.
         get_another_ship(ship:name+" Probe").
     } else {
-        util_shbus_tx_msg("ACK", list("could not decode shsys rx msg"), list(sender)).
+        util_shbus_ack("could not decode shsys rx msg", sender).
         print "could not decode shsys rx msg".
         return false.
     }
