@@ -84,10 +84,13 @@ local function do_debug_print {
     set debug_str to "".
 }
 
+local my_fullname is ship:name+"+"+core:tag.
+local flcs_tag is "flcs".
+
 local function hudtext {
     parameter ttext.
     if (FLCS_PROC = 0) or hudtext_sent { return.}
-    if not FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_PUSHR",list(core:tag, ttext))) {
+    if not FLCS_PROC:CONNECTION:SENDMESSAGE(list(my_fullname,flcs_tag,"HUD_PUSHR",list(core:tag, ttext))) {
         print "could not send message HUD_PUSHR".
     }
     set hudtext_sent to true.
@@ -95,7 +98,7 @@ local function hudtext {
 
 local function hudtext_remove {
     if (FLCS_PROC = 0) or not hudtext_sent { return.}
-    if not FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_POPR",list(core:tag))) {
+    if not FLCS_PROC:CONNECTION:SENDMESSAGE(list(my_fullname,flcs_tag,"HUD_POPR",list(core:tag))) {
         print "could not send message HUD_POPR".
     }
     set hudtext_sent to false.
