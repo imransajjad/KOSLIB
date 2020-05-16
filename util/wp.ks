@@ -231,14 +231,15 @@ function util_wp_parse_command {
     } else {
         return false.
     }
+    local brackets is commtext:contains("(") and commtext:contains(")").
 
-    if commtext:startswith("wpo(") {
+    if commtext:startswith("wpo") {
         overwrite_waypoint(-args[0]-1,
             construct_incomplete_waypoint(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext:startswith("wpi(") {
+    } else if commtext:startswith("wpi") {
         insert_waypoint(-args[0]-2,
             construct_incomplete_waypoint(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext:startswith("wpr(") {
+    } else if commtext:startswith("wpr") {
         remove_waypoint(-args[0]-1).
     } else if commtext = "wpqp" {
         waypoints_print().
@@ -252,31 +253,33 @@ function util_wp_parse_command {
         }
     } else if commtext = "wpd" { 
         remove_waypoint(0).
-    } else if commtext:startswith("wpf(") { 
+    } else if commtext:startswith("wpf") { 
         insert_waypoint(0,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } else if commtext:startswith("wpa(") { 
+    } else if commtext:startswith("wpa") { 
         insert_waypoint(-1,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } else if commtext:startswith("wpu(") {
+    } else if commtext:startswith("wpu") {
         overwrite_waypoint(0,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } else if commtext:startswith("wpn(") {
+    } else if commtext:startswith("wpn") {
         overwrite_waypoint(1,
             construct_incomplete_waypoint(args, cur_mode) ).
-    } else if commtext:startswith("wpw(") and args:length = 2  {
-        FOR WP_TAR IN ALLWAYPOINTS() {
-            if (WP_TAR:ISSELECTED) {
-                print "Found navigation waypoint".
-                insert_waypoint(-1,
-                construct_incomplete_waypoint(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
-                    WP_TAR:GEOPOSITION:LNG), cur_mode) ).
-                return true.
+    } else if commtext:startswith("wpw") and args:length = 2  {
+        if is_active_vessel() {
+            FOR WP_TAR IN ALLWAYPOINTS() {
+                if (WP_TAR:ISSELECTED) {
+                    print "Found navigation waypoint".
+                    insert_waypoint(-1,
+                    construct_incomplete_waypoint(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
+                        WP_TAR:GEOPOSITION:LNG), cur_mode) ).
+                    return true.
+                }
             }
         }
         print "Could not find navigation waypoint".
     } else if commtext:startswith("wpt(") and args:length = 2 {
-        if HASTARGET {
+        if is_active_vessel() and HASTARGET {
             print "Found Target.".
                 insert_waypoint(-1,
                 construct_incomplete_waypoint(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
@@ -298,14 +301,7 @@ function util_wp_parse_command {
         }
     } else if commtext:startswith("wpto(") and (args:length = 1 or args:length = 2) {
         waypoints_purge().
-        if (args:length = 1) {
-            local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
-            args:insert(1,start_head).
-        }
-        for wp_seq_i in generate_takeoff_seq(args[0],args[1]) {
-            insert_waypoint(-1,
-                construct_incomplete_waypoint(wp_seq_i, "srf") ).
-        }
+        util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
     } else if commtext:startswith("wptest") {
                 insert_waypoint(-1,
             construct_incomplete_waypoint(list(3000,230,0.5,
@@ -540,6 +536,18 @@ function util_wp_decode_rx_msg {
     } else if opcode = "WP_PURGE"{
         waypoint_queue_purge().
         util_shbus_ack("waypoint queue purged", sender).
+    } else if opcode = "WP_TAKEOFF"{
+        // have to generate takoff sequence on receiving end
+        if (data:length = 1) {
+            local start_head is (360- (R(90,0,0)*(-SHIP:UP)*(SHIP:FACING)):yaw).
+            data:insert(1,start_head).
+        }
+        for wp_seq_i in generate_takeoff_seq(data[0],data[1]) {
+            waypoint_add(-1,
+                fill_in_waypoint_data(
+                    construct_incomplete_waypoint(wp_seq_i, "srf"))).
+        }
+
     } else {
         util_shbus_ack("could not decode wp rx msg", sender).
         print "could not decode wp rx msg".

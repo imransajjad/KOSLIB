@@ -19,6 +19,20 @@ local logdesc is "".
 
 local fldr_evt_string is "".
 
+list sensors in Slist.
+
+local ACC_enabled is false.
+local GRAV_enabled is false.
+
+for i in Slist {
+    if i:name = "sensorGravimeter"{
+        set GRAV_enabled to true.
+    }
+    if i:name = "sensorAccelerometer"{
+        set ACC_enabled to true.
+    }
+}
+
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
         if PARAM:haskey("AP_ENGINES") and
@@ -124,9 +138,17 @@ local function start_logging {
 
     local lock VEL_FROM_FACE to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE).
 
-    lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
-    lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
-    lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
+    if (GRAV_enabled and ACC_enabled) {
+        print "Logging with ACC".
+        lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
+        lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
+        lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
+    } else {
+        print "No ACC data".
+        lock Aup to 0.
+        lock Afore to 0.
+        lock Alat to 0.
+    }
 
     local lock lat to ship:GEOPOSITION:LAT.
     local lock lng to ship:GEOPOSITION:LNG.

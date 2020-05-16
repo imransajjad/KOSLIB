@@ -247,7 +247,7 @@ local function parse_command {
     return true.
 }
 
-local COMM_STRING is core:tag:tolower()+"@"+string_acro(ship:name)+":~$".
+local lock COMM_STRING to core:tag:tolower()+"@"+string_acro(ship:name)+":~$".
 local INPUT_STRING is "".
 local comm_history is LIST().
 local comm_history_MAXEL is 10.

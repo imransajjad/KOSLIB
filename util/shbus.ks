@@ -67,7 +67,7 @@ function util_shbus_parse_command {
             local new_host_name is -1.
             local new_host is 0.
             if args:startswith("target"){
-                if HASTARGET {
+                if is_active_vessel() and HASTARGET {
                     if (ship:name = TARGET:name) { print "warning adding self".}
                     set new_host to TARGET.
                     set new_host_name to TARGET:name.
@@ -84,7 +84,7 @@ function util_shbus_parse_command {
                     set new_host_name to args.
                 }
             }
-            if not (new_host_name = -1) {
+            if not (new_host_name = -1) and not tx_hosts:haskey(new_host_name){
                 tx_hosts:add(new_host_name, new_host).
                 util_shbus_tx_msg("ASKHOST", list(), list(new_host_name)).
             }
@@ -121,7 +121,7 @@ function util_shbus_parse_command {
             print "unask expected string arg".
         } else {
             if brackets { set args to tx_hosts:keys[args[0]].}
-            if (tx_hosts:haskey(args)) {
+            if (tx_hosts:haskey(args)) and not (args = exclude_host_key) {
                 util_shbus_tx_msg("UNASKHOST", list(), list(args)).
                 tx_hosts:remove(args).
             } else {
@@ -208,6 +208,17 @@ local function get_single_name {
     }
 }
 
+local function get_hosted_cpus_keys_list {
+    local hosted_cpu_list is list().
+    list processors in ALL_PROCESSORS.
+    for p in ALL_PROCESSORS {
+        if tx_hosts:keys:contains(p:tag) {
+            hosted_cpu_list:add(p:tag).
+        }
+    }
+    return hosted_cpu_list.
+}
+
 // RX SECTION
 
 // send back ack ack ack ack ack ack ack
@@ -240,7 +251,7 @@ local function util_shbus_decode_rx_msg {
         } else if data[0]:startswith(ship:name) {
             // ACK wasn't for me, try forwarding it to one of my cpus
             // it is expected that ship is matched but I'm just making sure
-            util_shbus_tx_msg("ACK", data, list(get_single_name(data[0]))).
+            // util_shbus_tx_msg("ACK", data, list(get_single_name(data[0]))).
         } else {
             print "Received an ACK that was not for me".
         }
@@ -280,6 +291,13 @@ function util_shbus_rx_msg {
         local sender is received_msg:content[0]. // string
         local opcode is received_msg:content[1]. // string
         local data is received_msg:content[2]. // list of args
+
+        // received message but was not meant for me (sender is not in my hosts)
+        if not tx_hosts:keys:contains(get_single_name(sender)) {
+            // try also sending it to same ship cpus that are in my hosts
+            util_shbus_tx_msg(opcode, data, get_hosted_cpus_keys_list()).
+            print "duplicating message".
+        }
 
         if util_shbus_decode_rx_msg(sender, opcode, data) {
             print "shbus decoded".
