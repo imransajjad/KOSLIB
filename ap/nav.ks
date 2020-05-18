@@ -24,7 +24,7 @@ local GCAS_ENABLED is get_param(PARAM,"GCAS_ENABLED").
 local GCAS_MARGIN is get_param(PARAM,"GCAS_MARGIN").
 local GCAS_GAIN_MULTIPLIER is get_param(PARAM,"GCAS_GAIN_MULTIPLIER").
 
-local PARAM is readJson("1:/param.json")["AP_FLCS_ROT"].
+local PARAM is readJson("1:/param.json")["AP_AERO_ROT"].
 local MIN_SRF_RAD is get_param(PARAM,"CORNER_VELOCITY")^2/(g0*get_param(PARAM,"GLIM_VERT")).
 
 
@@ -140,7 +140,7 @@ function ap_nav_do_flcs_rot {
         set y_rot to sat(WGM*K_YAW*ship_frame_error:y + ship_frame_ff:y, 2.0*W_YAW_NOM).
     
     }
-    ap_flcs_rot(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
+    ap_aero_rot_do(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
 
 }
 
@@ -174,7 +174,7 @@ function ap_nav_gcas {
     local react_time is 1.0.
 
     if not GEAR and not SAS {
-        local rates is ap_flcs_rot_maxrates().
+        local rates is ap_aero_rot_maxrates().
         set rates[0] to max(rates[0]/1.0,1.0).
         set rates[1] to max(rates[1],1.0).
         set rates[2] to max(rates[2]/6.0,1.0).
@@ -464,15 +464,15 @@ function ap_nav_disp {
         set WP_FOLLOW_MODE["Q"] to false.
         set W_E_SET to 0.0.
         set W_H_SET to 0.0.
-        if AP_FLCS_CHECK() {
+        if AP_MODE_PILOT {
             set E_SET to vel_pitch.
             set H_SET to vel_bear.
             set V_SET to vel.
-        } else if AP_VEL_CHECK() {
+        } else if AP_MODE_VEL {
             set E_SET to vel_pitch.
             set H_SET to vel_bear.
             set VSET_MAN to TRUE.
-        } else if AP_NAV_CHECK() {
+        } else if AP_MODE_NAV {
             set increment to 2.0*deadzone(pilot_input_u1,0.25).
             if increment <> 0 {
                 set E_SET To sat(E_SET + increment, 90).

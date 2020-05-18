@@ -1,7 +1,7 @@
 
 GLOBAL UTIL_HUD_ENABLED IS true.
 
-IF NOT (DEFINED AP_FLCS_ROT_ENABLED) { GLOBAL AP_FLCS_ROT_ENABLED IS false.}
+IF NOT (DEFINED AP_AERO_ROT_ENABLED) { GLOBAL AP_AERO_ROT_ENABLED IS false.}
 IF NOT (DEFINED AP_MODE_ENABLED) { GLOBAL AP_MODE_ENABLED IS false.}
 IF NOT (DEFINED UTIL_WP_ENABLED) { GLOBAL UTIL_WP_ENABLED IS false.}
 IF NOT (DEFINED UTIL_SHSYS_ENABLED) { GLOBAL UTIL_SHSYS_ENABLED IS false.}
@@ -309,7 +309,7 @@ local function lr_text_info {
             ( choose ap_mode_get_str()+char(10) if AP_MODE_ENABLED else "") +
             vel_type+"> " + round(vel_displayed) +
             ( choose ap_nav_status_string()+char(10) if AP_NAV_ENABLED else char(10) ) +
-            ( choose ap_flcs_rot_status_string()+char(10) if AP_FLCS_ROT_ENABLED else "") +
+            ( choose ap_aero_rot_status_string()+char(10) if AP_AERO_ROT_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +
