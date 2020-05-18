@@ -61,11 +61,16 @@ local function print_target_data {
         print "         " at (view_width,4).
         print "         " at (view_width,5).
     } else {
+        local target_ship is TARGET.
+        if not TARGET:hassuffix("velocity") {
+            set target_ship to TARGET:ship.
+        }
         local dist_str is "".
-        local vel_str is round_dec((target:velocity:surface-ship:velocity:surface):mag,0).
+        
+        local vel_str is round_dec((target_ship:velocity:orbit-ship:velocity:orbit):mag,0).
 
-        if TARGET:distance < 1200 { set dist_str to ""+round_dec(TARGET:distance,1).}
-        else { set dist_str to ""+round_dec(TARGET:distance/1000,1) + "k".}
+        if target_ship:distance < 1200 { set dist_str to ""+round_dec(target_ship:distance,1).}
+        else { set dist_str to ""+round_dec(target_ship:distance/1000,1) + "k".}
 
         print dist_str at (view_width,3).
         print vel_str at (view_width,4).
@@ -223,7 +228,11 @@ function target_radar_draw_picture {
         }
     }
     if HASTARGET {
-        local screen_pos is get_screen_position(TARGET:distance, TARGET:bearing, 2^min_distance_log, 2^max_distance_log).
+        local target_ship is TARGET.
+        if not TARGET:hassuffix("velocity") {
+            set target_ship to TARGET:ship.
+        }
+        local screen_pos is get_screen_position(target_ship:distance, target_ship:bearing, 2^min_distance_log, 2^max_distance_log).
         print "x" at(screen_pos[0],screen_pos[1]).
     }
     // print min max distance

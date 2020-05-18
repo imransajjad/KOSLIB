@@ -1,21 +1,23 @@
 {
     "entries": [
+        "ship_name", "Fighter Stealth 3 Test",
+        "ship_name_acro", "fs3t",
         "AP_FLCS_ROT",
         {
             "entries": [
                 "GLIM_VERT", 12,
-                "GLIM_LAT",  9,
+                "GLIM_LAT",  4,
                 "GLIM_LONG", 5,
                 "CORNER_VELOCITY", 145,
                 "RATE_SCHEDULE_ENABLED", true,
                 "START_MASS", 8.3,
                 "GAIN_SCHEDULE_ENABLED", true,
                 "PITCH_SPECIFIC_INERTIA", 28,
-                "MAX_ROLL", 10.99557,
+                "MAX_ROLL", 720,
                 "PR_KP",1.4,
                 "PR_KI",2.4,
                 "PR_KD",0.1,
-                "YR_KP",1.5,
+                "YR_KP",2.5,
                 "YR_KI",0.0,
                 "YR_KD",0.0,
                 "RR_KP",0.05,
@@ -33,6 +35,7 @@
                 "V_PID_KP", 0.075,
                 "V_PID_KI", 0.01,
                 "V_PID_KD", 0.0,
+                "AUTO_BRAKES", true,
                 "MAIN_ENGINE_NAME", "turboJet"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
@@ -44,13 +47,13 @@
                 "ROT_GNOM_LAT", 0.1,
                 "ROT_GNOM_LONG", 1,
                 
-                "K_PITCH", 0.02,
-                "K_YAW", 0.008,
-                "K_ROLL", 0.05,
-                "K_HEADING", 5.0,
-                "ROLL_W_MIN", 5.0,
-                "ROLL_W_MAX", 20.0,
-                "BANK_MAX", 60,
+                "K_PITCH", 0.5,
+                "K_YAW", 0.5,
+                "K_ROLL", 2.0,
+                "K_Q", 2.5,
+                "GEAR_BANK_MAX", 5,
+                "BANK_MAX", 180,
+                "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 850,
                 "GEAR_HEIGHT", 1.3,
                 
@@ -72,7 +75,7 @@
         {
             "entries": [
                 "ON_START", true,
-                "CAMERA_HEIGHT", 0.83,
+                "CAMERA_HEIGHT", 0.803,
                 "CAMERA_RIGHT", 0.0,
                 
                 "GSLOPE", 2.5,
@@ -93,6 +96,12 @@
         {
             "entries": [
                 "FLCS_PROC_TAG", "flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_WP",
+        {
+            "entries": [
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

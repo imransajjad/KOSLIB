@@ -92,7 +92,22 @@ if (debug_vectors) { // debug
                 "", vec_scale, true, vec_width, true ).
 }
 
+// this function takes the desired NAV direction and finds
+// an angular velocity to supply to the flcs. 
+//  mostly it's just omega = K(NAV_DIR - prograde) + omega_ff 
 function ap_nav_do_flcs_rot {
+    
+    // a roll command is found as follows:
+    // pitch errors and yaw errors are found in the ship frame
+    // the omega required to overcome gravity pitching down plus 
+    // the feed forward rates are also expressed in the ship frame.
+    // we now have a omega that we have to "apply", but without any roll
+    // 
+    // this omega is fed to the haversine and we get a bearing and magnitude
+    // like information about the pitch and yaw components of omega. Then
+    // omega_roll = -K*have_roll_pre[0]
+    // uses roll to minimze the bearing in the ship frame so that most omega is
+    // applied by pitch and not by yaw
 
     local wg is vcrs(vel_prograde:vector, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
@@ -108,7 +123,7 @@ function ap_nav_do_flcs_rot {
         wrap_angle_until(target_pro:roll-cur_pro:roll) ).
     local ship_frame_ff is (R(0,0,-roll)*V(W_E_SET,W_H_SET,0)).
     
-
+    // omega applied by us
     local w_us is -wg+wff + K_PITCH*ship_frame_error:x*ship:facing:starvector +
                             -K_YAW*ship_frame_error:y*ship:facing:topvector.
     
@@ -277,7 +292,7 @@ local function srf_wp_disp {
     set final_radius to max(MIN_SRF_RAD, wp["vel"]^2/(wp["nomg"]*g0)).
     set farness to wp_vec:mag/final_radius.
 
-    if wp_vec:mag > 7*final_radius and wp_vec:mag > 5000 {
+    if wp_vec:mag > 7*final_radius or wp_vec:mag > 5000 {
         set H_SET to latlng(wp["lat"],wp["lng"]):heading.
         set WP_FOLLOW_MODE["F"] to false.
         set WP_FOLLOW_MODE["A"] to false.

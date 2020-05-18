@@ -8,8 +8,17 @@ function has_connection_to_base {
     }
 }
 
+function spin_if_not_us {
+    until (SHIP_NAME_ACRO_IN_PARAMS = string_acro(ship:name) ) {
+        wait 1.0.
+    }
+}
+
 WAIT UNTIL SHIP:LOADED.
-IF has_connection_to_base() {
+
+global DEV_FLAG is true.
+
+if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/common.ks","util_common").
     run once "util_common".
     COPYPATH("0:/param/"+string_acro(ship:name)+".json","param.json").
@@ -28,6 +37,9 @@ IF has_connection_to_base() {
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
 }
+global SHIP_NAME_ACRO_IN_PARAMS is
+        readJson("1:/param.json")["ship_name_acro"].
+spin_if_not_us().
 
 // Global plane data
 
@@ -70,6 +82,7 @@ flush_core_messages().
 
 // main loop
 UNTIL false {
+    spin_if_not_us().
     util_shbus_rx_check_for_messages().
     util_shsys_check().
 

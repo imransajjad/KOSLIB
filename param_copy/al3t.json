@@ -1,5 +1,7 @@
 {
     "entries": [
+        "ship_name","Air Liner 3 Test",
+        "ship_name_acro","al3t",
         "AP_FLCS_ROT",
         {
             "entries": [
@@ -8,11 +10,11 @@
                 "GLIM_LONG", 5,
                 "CORNER_VELOCITY", 60,
                 "START_MASS", 85.9,
-                "MAX_ROLL", 4.712,
+                "MAX_ROLL", 270,
                 "PR_KP",2.5,
                 "PR_KI",3.1,
                 "PR_KD",0.01,
-                "YR_KP",1.0,
+                "YR_KP",15.0,
                 "YR_KI",0.0,
                 "YR_KD",0.0,
                 "RR_KP",0.15,
@@ -24,9 +26,9 @@
         "AP_ENGINES",
         {
             "entries": [
-                "V_PID_KP", 0.020,
-                "V_PID_KI", 0.015,
-                "V_PID_KD", 0.01,
+                "V_PID_KP", 0.1,
+                "V_PID_KI", 0.005,
+                "V_PID_KD", 0.00,
                 "MAIN_ENGINE_NAME", "turboFanSize2"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
@@ -38,13 +40,13 @@
                 "ROT_GNOM_LAT", 0.2,
                 "ROT_GNOM_LONG", 1,
                 
-                "K_PITCH", 0.025,
-                "K_YAW", 0.005,
-                "K_ROLL", 0.10,
-                "K_HEADING", 2.0,
-                "ROLL_W_MIN", 90.0,
-                "ROLL_W_MAX", 180.0,
+                "K_PITCH", 0.25,
+                "K_YAW", 0.25,
+                "K_ROLL", 1.0,
+                "K_Q", 1.0,
+                "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 30,
+                "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 350,
                 "GEAR_HEIGHT", 4.8,
                 
@@ -88,6 +90,12 @@
         {
             "entries": [
                 "FLCS_PROC_TAG", "flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_WP",
+        {
+            "entries": [
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }
