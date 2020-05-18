@@ -2,7 +2,7 @@
     "entries": [
         "ship_name", "Fighter Stealth 3 Test",
         "ship_name_acro", "fs3t",
-        "AP_FLCS_ROT",
+        "AP_AERO_ROT",
         {
             "entries": [
                 "GLIM_VERT", 12,
@@ -13,7 +13,7 @@
                 "START_MASS", 8.3,
                 "GAIN_SCHEDULE_ENABLED", true,
                 "PITCH_SPECIFIC_INERTIA", 28,
-                "MAX_ROLL", 720,
+                "MAX_ROLL", 630,
                 "PR_KP",1.4,
                 "PR_KI",2.4,
                 "PR_KD",0.1,

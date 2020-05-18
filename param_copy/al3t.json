@@ -2,7 +2,7 @@
     "entries": [
         "ship_name","Air Liner 3 Test",
         "ship_name_acro","al3t",
-        "AP_FLCS_ROT",
+        "AP_AERO_ROT",
         {
             "entries": [
                 "GLIM_VERT", 3.5,

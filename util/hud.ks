@@ -3,7 +3,7 @@ GLOBAL UTIL_HUD_ENABLED IS true.
 
 local PARAM is readJson("1:/param.json").
 
-local USE_AP_FLCS_ROT is PARAM:haskey("AP_FLCS_ROT").
+local USE_AP_AERO_ROT is PARAM:haskey("AP_AERO_ROT").
 local USE_AP_NAV is PARAM:haskey("AP_NAV").
 local USE_AP_MODE is PARAM:haskey("AP_MODE").
 local USE_UTIL_WP is PARAM:haskey("UTIL_WP").
@@ -328,7 +328,7 @@ local function lr_text_info {
             ( choose ap_mode_get_str()+char(10) if USE_AP_MODE else "") +
             vel_type+"> " + round(vel_displayed) +
             ( choose ap_nav_status_string()+char(10) if USE_AP_NAV else "" ) +
-            ( choose ap_flcs_rot_status_string()+char(10) if USE_AP_FLCS_ROT else "") +
+            ( choose ap_AERO_rot_status_string()+char(10) if USE_AP_AERO_ROT else "") +
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +
