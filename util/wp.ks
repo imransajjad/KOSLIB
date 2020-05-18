@@ -502,7 +502,7 @@ function util_wp_queue_first {
 
 function util_wp_status_string {
     if wp_queue:length > 0 {
-        return char(10)+"WP" + (wp_queue:length-1) +" "+
+        return "WP" + (wp_queue:length-1) +" "+
             (choose round_dec(min(9999,ap_nav_get_distance()/max(vel,0.0001)),0)+"s"
                 if AP_NAV_ENABLED else "").
     } else {

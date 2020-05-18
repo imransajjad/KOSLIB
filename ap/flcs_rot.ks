@@ -4,36 +4,36 @@ GLOBAL AP_FLCS_ROT_ENABLED IS true.
 local PARAM is readJson("param.json")["AP_FLCS_ROT"].
 
 // glimits
-local GLIM_VERT is (choose PARAM["GLIM_VERT"] if PARAM:haskey("GLIM_VERT") else 0).
-local GLIM_LAT is (choose PARAM["GLIM_LAT"] if PARAM:haskey("GLIM_LAT") else 0).
-local GLIM_LONG is (choose PARAM["GLIM_LONG"] if PARAM:haskey("GLIM_LONG") else 0).
+local GLIM_VERT is get_param(PARAM, "GLIM_VERT", 5).
+local GLIM_LAT is get_param(PARAM, "GLIM_LAT", 0.5).
+local GLIM_LONG is get_param(PARAM, "GLIM_LONG", 3).
 
-local CORNER_VELOCITY is (choose PARAM["CORNER_VELOCITY"] if PARAM:haskey("CORNER_VELOCITY") else 0).
+local CORNER_VELOCITY is get_param(PARAM, "CORNER_VELOCITY", 200).
 
 
-local RATE_SCHEDULE_ENABLED is (choose PARAM["RATE_SCHEDULE_ENABLED"] if PARAM:haskey("RATE_SCHEDULE_ENABLED") else false).
-local START_MASS is (choose PARAM["START_MASS"] if PARAM:haskey("START_MASS") else 0).
+local RATE_SCHEDULE_ENABLED is get_param(PARAM, "RATE_SCHEDULE_ENABLED", false).
+local START_MASS is get_param(PARAM, "START_MASS", 10).
 
-local GAIN_SCHEDULE_ENABLED is (choose PARAM["GAIN_SCHEDULE_ENABLED"] if PARAM:haskey("GAIN_SCHEDULE_ENABLED") else 0).
-local PITCH_SPECIFIC_INERTIA is (choose PARAM["PITCH_SPECIFIC_INERTIA"] if PARAM:haskey("PITCH_SPECIFIC_INERTIA") else 0).
+local GAIN_SCHEDULE_ENABLED is get_param(PARAM, "GAIN_SCHEDULE_ENABLED", false).
+local PITCH_SPECIFIC_INERTIA is get_param(PARAM, "PITCH_SPECIFIC_INERTIA", 20).
 
 // rate limits
-local MAX_ROLL is (choose PARAM["MAX_ROLL"] if PARAM:haskey("MAX_ROLL") else 0).
+local MAX_ROLL is DEG2RAD*get_param(PARAM, "MAX_ROLL", 180).
 
 // pitch rate PID gains
-local PR_KP is (choose PARAM["PR_KP"] if PARAM:haskey("PR_KP") else 0).
-local PR_KI is (choose PARAM["PR_KI"] if PARAM:haskey("PR_KI") else 0).
-local PR_KD is (choose PARAM["PR_KD"] if PARAM:haskey("PR_KD") else 0).
+local PR_KP is get_param(PARAM, "PR_KP", 0).
+local PR_KI is get_param(PARAM, "PR_KI", 0).
+local PR_KD is get_param(PARAM, "PR_KD", 0).
 
 // yaw rate PID gains
-local YR_KP is (choose PARAM["YR_KP"] if PARAM:haskey("YR_KP") else 0).
-local YR_KI is (choose PARAM["YR_KI"] if PARAM:haskey("YR_KI") else 0).
-local YR_KD is (choose PARAM["YR_KD"] if PARAM:haskey("YR_KD") else 0).
+local YR_KP is get_param(PARAM, "YR_KP", 0).
+local YR_KI is get_param(PARAM, "YR_KI", 0).
+local YR_KD is get_param(PARAM, "YR_KD", 0).
 
 // roll rate PID gains
-local RR_KP is (choose PARAM["RR_KP"] if PARAM:haskey("RR_KP") else 0).
-local RR_KI is (choose PARAM["RR_KI"] if PARAM:haskey("RR_KI") else 0).
-local RR_KD is (choose PARAM["RR_KD"] if PARAM:haskey("RR_KD") else 0).
+local RR_KP is get_param(PARAM, "RR_KP", 0).
+local RR_KI is get_param(PARAM, "RR_KI", 0).
+local RR_KD is get_param(PARAM, "RR_KD", 0).
 
 // USES AG6
 
@@ -165,10 +165,10 @@ local function gain_schedule {
 
     if prev_AG <> AG {
         set prev_AG to AG.
-        print "LF2G: " + round_dec(LF2G,2).
+        print "LF2G " + (choose "low" if prev_AG else "high").
     }
     if prev_AG {
-        set LF2G to LF2G/3.
+        set LF2G to 0.33*LF2G.
     }
     set LF2G to LF2G/(PITCH_SPECIFIC_INERTIA*loadfactor*airflow_c_u)/kuniverse:timewarp:rate.
 
