@@ -18,7 +18,8 @@ IF has_connection_to_base() {
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
-    COPYPATH("0:/koslib/util/shbus_tx.ks","util_shbus_tx").
+    COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
+    COPYPATH("0:/koslib/util/term.ks","util_term").
     print "loaded resources from base".
 }
 
@@ -29,13 +30,15 @@ run once "util_common".
 run once "util_fldr".
 run once "util_wp".
 run once "util_hud".
-run once "util_shbus_tx".
+run once "util_shbus".
+run once "util_term".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
 flush_core_messages().
-util_shbus_tx_do_command("sethost").
+util_term_do_command("unask flcs").
+util_term_do_command("askhost flcs").
 
 UNTIL FALSE {
-    util_shbus_tx_get_input().
+    util_term_get_input().
 }

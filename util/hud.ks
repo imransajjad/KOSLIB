@@ -451,10 +451,9 @@ function util_hud_get_help_str {
 
 function util_hud_parse_command {
     parameter commtext.
-    local args is list().
+    parameter args is -1.
 
     if commtext:startswith("hud") {
-        set args to util_shbus_tx_raw_input_to_args(commtext).
         if not (args = -1) and args:length = 0 {
             print "hud args expected but empty".
             return true.
@@ -486,14 +485,15 @@ function util_hud_parse_command {
 
 // shbus_rx compatible receive message
 function util_hud_decode_rx_msg {
-    parameter received.
+    parameter sender.
+    parameter recipient.
+    parameter opcode.
+    parameter data.
 
-    set opcode to received:content[0].
     if not opcode:startswith("HUD") {
         return.
-    } else if received:content:length > 1 {
-        set data to received:content[1].
     }
+
     if opcode = "HUD_PUSHL" {
         util_hud_push_left(data[0],data[1]).
     } else if opcode = "HUD_PUSHR" {
@@ -510,14 +510,15 @@ function util_hud_decode_rx_msg {
                                 , (choose 1 if hud_setting_dict["green"] else 0)
                                 , (choose 1 if hud_setting_dict["blue"] else 0) ).
         } else {
-            util_shbus_rx_send_back_ack("util hud setting not found").
+            util_shbus_ack("util hud setting not found", sender).
+
         }
     } else if opcode = "HUD_ALIGN_SET" {
         set hud_land_elev to data[0].
         set hud_land_head to data[1].
         set hud_land_roll to data[2].
     } else {
-        util_shbus_rx_send_back_ack("could not decode hud rx msg").
+        util_shbus_ack("could not decode hud rx msg", sender).
         print "could not decode hud rx msg".
         return false.
     }

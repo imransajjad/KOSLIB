@@ -57,26 +57,28 @@ local function get_parts_used {
     }
 }
 
+local my_fullname is ship:name+"+"+core:tag.
+local flcs_tag is "flcs".
 
 local function cargo_bay_open {
-    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("SYS_CB_OPEN",list(core:tag))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list(my_fullname,flcs_tag,"SYS_CB_OPEN",list(core:tag))) {
         print "could not CB_OPEN send message".
     }
 }
 local function cargo_bay_safe_close {
-    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("SYS_PL_AWAY",list(core:tag))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list(my_fullname,flcs_tag,"SYS_PL_AWAY",list(core:tag))) {
         print "could not PL_AWAY send message".
     }
 }
 
 local function send_q_unsafe {
-    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_PUSHL",list(core:tag, "nQS"))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list(my_fullname,flcs_tag,"HUD_PUSHL",list(core:tag, "nQS"))) {
         print "could not HUD_PUSHL send message".
     }
 }
 
 local function send_rem_q_unsafe {
-    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list("HUD_POPL",list(core:tag))) {
+    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(list(my_fullname,flcs_tag,"HUD_POPL",list(core:tag))) {
         print "could not HUD_POPL send message".
     }
 }

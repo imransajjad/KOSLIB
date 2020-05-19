@@ -1,11 +1,22 @@
 
-GLOBAL UTIL_SHBUS_TX_ENABLED IS true.
+// This Utility takes text input from the terminal and does commmands
+// There are some native commands and other utilities can also provide
+// additional commands.
+
+// The terminal tries to parse a command. Native commands are tried first
+// Then every command registered with the terminal utility is tried. If input
+// string does not match any loaded command type, an error message is displayed.
+
+// a utility providing additional commands shall have a function like this
+//  util_dev_parse_command( commtext, list_of_args ) -> true if command valid
+//    commtext = "dev_go_to_orbit(75000,0.0)", list_of_args = list(75000,0.0)
+//    commtext = "dev_name_orbit LKO", list_of_args = "LKO"
+//   commtext is the full command, list_of_args is a list of numbers or a string
+
+GLOBAL UTIL_TERM_ENABLED IS true.
 
 // TX SECTION
 
-local PARAM is readJson("1:/param.json")["UTIL_SHBUS"].
-
-local FLCS_PROC is (choose PROCESSOR(PARAM["FLCS_PROC_TAG"]) if PARAM:haskey("FLCS_PROC_TAG") else 0).
 
 local PARAM is readJson("1:/param.json").
 
@@ -14,8 +25,8 @@ local lock W to terminal:width.
 
 local HELP_LIST is LIST(
 " ",
+core:tag + " terminal",
 ship:name,
-"SHBUS_TX running on "+core:tag,
 "command syntax:",
 "...",
 "help        help page 0",
@@ -24,17 +35,22 @@ ship:name,
 "comm(1,2)   run with args",
 "comm str    arg is str",
 "com1;com2   chain commands",
-"sethost     flcs sends acks to host",
-"unsethost   set/unset self as host",
-"hello       hello to flcs",
-"rst         reboot flcs",
+"rst         reboot all cpus",
 "neu         neutralize controls",
-"inv         invalid message").
+"K       single char is same key"
+).
 
 local HELP_LIST_UPDATED is false.
 local function update_help_list {
     if HELP_LIST_UPDATED {
         return.
+    }
+    if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+        local newlist is util_shbus_get_help_str().
+        for i in range(0,newlist:length) {
+            HELP_LIST:add(newlist[i]).
+        }
+        set HELP_LIST_UPDATED to true.
     }
     if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
         local newlist is util_wp_get_help_str().
@@ -132,83 +148,45 @@ local function do_action_group_or_key {
     return true.
 }
 
-local function parse_command {
-    parameter commtextfull.
-    if commtextfull = "" {
-        return true.
-    }
+// util_term_parse_command function is named like a global function
+// it should serve as a template for other utilities' parse_command functions
+local function util_term_parse_command {
+    parameter commtext.
+    parameter args is list().
 
-    for comm in commtextfull:split(";") {
-
-        local commtext is comm:trim().
-        if commtext:STARTSWITH("hello") {
-            util_shbus_tx_msg("hello from FLCOM").
-        } else if commtext:STARTSWITH("sethost") {
-            util_shbus_tx_msg("SETHOST", core:tag ).
-        } else if commtext:STARTSWITH("unsethost") {
-            util_shbus_tx_msg("SETHOST", "" ).
-        } else if  commtext:STARTSWITH("help") {
-            if commtext:contains(" ") {
-                print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
-            } else if commtext:length > 5 {
-                print_help_page(util_shbus_tx_raw_input_to_args(commtext)[0]).
-            } else {
-                print_help_page(0).
-            }
-        } else if commtext:STARTSWITH("rst"){
-            list PROCESSORS in cpus.
-            for cpu in cpus {
-                if not (cpu:tag = core:tag) {
-                    cpu:deactivate().
-                    wait 0.1.
-                    cpu:activate().
-                }
-            }
-        } else if commtext:length = 1 and do_action_group_or_key(commtext){
-            print("key "+commtext).
-        } else if commtext:STARTSWITH("neu"){
-            set ship:control:neutralize to true.
-        } else if commtext:STARTSWITH("inv"){
-            util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
-        } else if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext) {
-            print("fldr parsed").
-        } else if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED and util_wp_parse_command(commtext) {
-            print("wp parsed").
-        } else if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED and util_hud_parse_command(commtext) {
-            print("hud parsed").
-        //} else if util_dev_parse_command(commtext) {
-        //  print "dev parsed".
+    if commtext:STARTSWITH("help") {
+        if commtext:contains(" ") {
+            print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
+        } else if commtext:length > 5 {
+            print_help_page(args[0]).
         } else {
-            print("Could not parse command("+ commtext:length + "):" + commtext).
-            return false.
+            print_help_page(0).
         }
-        util_shbus_tx_get_acks().
+    } else if commtext:length = 1 and do_action_group_or_key(commtext){
+        print("key "+commtext).
+    } else if commtext:STARTSWITH("neu"){
+        set ship:control:neutralize to true.
+    } else if commtext:STARTSWITH("rst"){
+        list PROCESSORS in cpus.
+        for cpu in cpus {
+            if not (cpu:tag = core:tag) {
+                cpu:deactivate().
+                wait 0.1.
+                cpu:activate().
+            }
+        }
+        if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+            wait 0.1.
+            util_shbus_reconnect().
+        }
+    } else {
+        return false.
     }
-    flush_core_messages().
     return true.
 }
 
-function util_shbus_tx_get_acks {
-    PARAMETER ECHO is true.
-    // -1 indicates error condition ( no ack available)
-    wait 0.04.
-    wait 0.04.
-    if not CORE:MESSAGES:EMPTY {
-        local ack_msg is CORE:MESSAGES:POP:CONTENT.
-        if ECHO { print ack_msg.}
-        return ack_msg.
-    }
-    return -1.
-}
-
-function util_shbus_tx_msg {
-    PARAMETER opcode_in, data_in is LIST(0).
-    IF not (FLCS_PROC = 0) and NOT FLCS_PROC:CONNECTION:SENDMESSAGE(LIST(opcode_in,data_in)) {
-        print("could not send message "+ arg_in).
-    }
-}
-
-function util_shbus_tx_raw_input_to_args {
+// get list of numbers or strings or -1 from commtext
+local function raw_input_to_args {
     // will return a list of numbers, a string or -1 (no args in command)
     parameter commtext.
     if commtext:contains("(") AND commtext:contains(")") {
@@ -224,14 +202,52 @@ function util_shbus_tx_raw_input_to_args {
         }
         return numlist.
     }
-    if commtext:split(" "):length = 2 {
-        return commtext:split(" ")[1].
+    if commtext:split(" "):length > 1 {
+        local n is commtext:find(" ")+1.
+        return commtext:substring(n,commtext:length-n).
 
     }
     return -1.
 }
 
-local COMM_STRING is core:tag:tolower()+"@"+string_acro(ship:name)+":~$".
+
+local function parse_command {
+    parameter commtextfull.
+    if commtextfull = "" {
+        return true.
+    }
+
+    for comm in commtextfull:split(";") {
+
+        local commtext is comm:trim().
+        local args is raw_input_to_args(commtext).
+
+        if util_term_parse_command(commtext,args) {
+           print("terminal parsed").
+        } else if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED and util_shbus_parse_command(commtext,args) {
+           print("shbus parsed").
+        } else if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext,args) {
+            print("fldr parsed").
+        } else if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED and util_wp_parse_command(commtext,args) {
+            print("wp parsed").
+        } else if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED and util_hud_parse_command(commtext,args) {
+            print("hud parsed").
+        //} else if util_dev_parse_command(commtext,args) {
+        //  print "dev parsed".
+        } else {
+            print("Could not parse command("+ commtext:length + "):" + commtext).
+            return false.
+        }
+    }
+    wait 0.1.
+    wait 0.1.
+    if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+        until not util_shbus_rx_msg() {}
+    }
+    return true.
+}
+
+local lock COMM_STRING to core:tag:tolower()+"@"+string_acro(ship:name)+":~$".
 local INPUT_STRING is "".
 local comm_history is LIST().
 local comm_history_MAXEL is 10.
@@ -272,7 +288,7 @@ local function print_lowest_line_again {
 wait 1.0.
 CLEARSCREEN.
 
-function util_shbus_tx_get_input {
+function util_term_get_input {
     print_overflowed_line().
 
 
@@ -325,7 +341,7 @@ function util_shbus_tx_get_input {
 }
 
 
-function util_shbus_tx_do_command {
+function util_term_do_command {
     parameter comm_string_input is "".
 
     if comm_string_input = "" {

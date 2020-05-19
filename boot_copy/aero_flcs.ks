@@ -17,7 +17,7 @@ IF has_connection_to_base() {
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
     COPYPATH("0:/koslib/util/shsys.ks","util_shsys").
-    COPYPATH("0:/koslib/util/shbus_rx.ks","util_shbus_rx").
+    COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
 
     COPYPATH("0:/koslib/resource/blank.png","blank_tex").
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
@@ -57,7 +57,7 @@ run once "util_common".
 run once "util_wp".
 run once "util_fldr".
 run once "util_shsys".
-run once "util_shbus_rx".
+run once "util_shbus".
 
 run once "util_hud".
 
@@ -76,7 +76,7 @@ flush_core_messages().
 
 // main loop
 UNTIL false {
-    util_shbus_rx_check_for_messages().
+    util_shbus_rx_msg().
     util_shsys_check().
 
     ap_mode_update().

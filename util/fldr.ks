@@ -17,6 +17,21 @@ local logtag to "".
 local filename is "".
 local logdesc is "".
 
+local fldr_evt_string is "".
+
+list sensors in Slist.
+
+local ACC_enabled is false.
+local GRAV_enabled is false.
+
+for i in Slist {
+    if i:name = "sensorGravimeter"{
+        set GRAV_enabled to true.
+    }
+    if i:name = "sensorAccelerometer"{
+        set ACC_enabled to true.
+    }
+}
 
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
@@ -123,9 +138,17 @@ local function start_logging {
 
     local lock VEL_FROM_FACE to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE).
 
-    lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
-    lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
-    lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
+    if (GRAV_enabled and ACC_enabled) {
+        print "Logging with ACC".
+        lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
+        lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
+        lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
+    } else {
+        print "No ACC data".
+        lock Aup to 0.
+        lock Afore to 0.
+        lock Alat to 0.
+    }
 
     local lock lat to ship:GEOPOSITION:LAT.
     local lock lng to ship:GEOPOSITION:LNG.
@@ -141,6 +164,7 @@ local function start_logging {
 
     set logdesc to logdesc:replace(" ", "_").
     set logdesc to logdesc:replace(",", "").
+    set fldr_evt_string to "".
     print "log writing to "+ filename.
 
     log logdesc to filename.
@@ -161,6 +185,16 @@ local function start_logging {
         wait Ts.
         if check_for_stop_logging() {
             break.
+        }
+        // also check for messages while logging.
+        if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+            util_shbus_rx_msg().
+            // and record events sent by messages
+            if not (fldr_evt_string = "")
+            {
+                log "event, " + fldr_evt_string to filename.
+                set fldr_evt_string to "".
+            }
         }
     }
 
@@ -201,10 +235,10 @@ function util_fldr_get_help_str {
 // Otherwise it returns false.
 function util_fldr_parse_command {
     parameter commtext.
+    parameter args is -1.
 
     // don't even try if it's not a log command
     if commtext:contains("log") {
-        set args to util_shbus_tx_raw_input_to_args(commtext).
         if not (args = -1) and args:length = 0 {
             print "fldr args expected but empty".
             return true.
@@ -263,6 +297,14 @@ function util_fldr_parse_command {
     return true.
 }
 
+function util_fldr_send_event {
+    parameter str_in.
+    set str_in to str_in:replace(char(10), "\n").
+    if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+        util_shbus_tx_msg("FLDR_EVENT", list(str_in)).
+    }
+}
+
 // TX SECTION END
 
 // RX SECTION
@@ -287,7 +329,7 @@ function print_sequences {
 }
 
 // Run a test sequence
-FUNCTION run_test_control {
+local function run_test_control {
     local u0_trim is ship:control:mainthrottle.
     local u1_trim is ship:control:pitch.
     local u2_trim is ship:control:yaw.
@@ -322,13 +364,13 @@ FUNCTION run_test_control {
 // Returns true if message was decoded successfully
 // Otherwise false
 function util_fldr_decode_rx_msg {
-    parameter received.
+    parameter sender.
+    parameter recipient.
+    parameter opcode.
+    parameter data.
 
-    set opcode to received:content[0].
     if not opcode:startswith("FLDR") {
         return.
-    } else if received:content:length > 1 {
-        set data to received:content[1].
     }
 
     if opcode:startswith("FLDR_SET_SEQ_U") {
@@ -343,9 +385,11 @@ function util_fldr_decode_rx_msg {
     } else if opcode = "FLDR_RUN_TEST" {
         run_test_control().
     } else if opcode = "FLDR_PRINT_TEST" {
-        util_shbus_rx_send_back_ack(print_sequences()). 
+        util_shbus_ack(print_sequences(), sender).
+    } else if opcode = "FLDR_EVENT" {
+        set fldr_evt_string to data[0].
     } else {
-        util_shbus_rx_send_back_ack("could not decode fldr rx msg").
+        util_shbus_ack("could not decode fldr rx msg", sender).
         print "could not decode fldr rx msg".
         return false.
     }
@@ -354,7 +398,7 @@ function util_fldr_decode_rx_msg {
 
 // RX SECTION END
 
-// log on action group
+// log on action group use without shbus
 function util_fldr_log_on_ag {
     if AG <> PREV_AG {
         set PREV_AG to AG.
