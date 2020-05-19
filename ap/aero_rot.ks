@@ -222,7 +222,7 @@ function ap_aero_rot_do {
 
     IF not SAS and ship:q > MIN_AERO_Q {
 
-        if (defined GAIN_SCHEDULE_ENABLED) and GAIN_SCHEDULE_ENABLED {
+        if GAIN_SCHEDULE_ENABLED {
             gain_schedule().
         }
         display_land_stats().

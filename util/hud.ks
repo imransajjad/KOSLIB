@@ -47,7 +47,7 @@ local function nav_vecdraw {
     local guide_size is guide_far*sin(0.5).
 
     if not nav_init_draw {
-        IF not (DEFINED AP_NAV_ENABLED) or not (AP_NAV_ENABLED) {
+        IF not USE_AP_NAV {
             return.
         }
 
@@ -71,8 +71,7 @@ local function nav_vecdraw {
 
     }
     if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel() and not MAPVIEW and 
-       (( DEFINED UTIL_WP_ENABLED and util_wp_queue_length() > 0 ) or
-        ( DEFINED AP_MODE_ENABLED and DEFINED AP_NAV_ENABLED and AP_MODE_NAV)){
+       (( USE_UTIL_WP and util_wp_queue_length() > 0 ) or (AP_MODE_NAV)){
 
         local nav_heading is ap_nav_get_direction().
         local nav_vel_error is sat(ap_nav_get_vel()-vel,10)/10.

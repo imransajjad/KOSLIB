@@ -20,14 +20,15 @@
 
 GLOBAL UTIL_WP_ENABLED IS true.
 
-local PARAM is readJson("1:/param.json")["AP_NAV"].
+local PARAM is readJson("1:/param.json").
 
-// glimits
-local ROT_GNOM_VERT is (choose PARAM["ROT_GNOM_VERT"] if PARAM:haskey("ROT_GNOM_VERT") else 0).
-local ROT_GNOM_LAT is (choose PARAM["ROT_GNOM_LAT"] if PARAM:haskey("ROT_GNOM_LAT") else 0).
-local ROT_GNOM_LONG is (choose PARAM["ROT_GNOM_LONG"] if PARAM:haskey("ROT_GNOM_LONG") else 0).
+local USE_AP_NAV is PARAM:haskey("AP_NAV").
 
-if NOT (DEFINED AP_NAV_ENABLED) { GLOBAL AP_NAV_ENABLED IS false.}
+local NOM_NAV_G is 1.0.
+
+if USE_AP_NAV {
+    set NOM_NAV_G to get_param(PARAM["AP_NAV"], "ROT_GNOM_VERT", NOM_NAV_G).
+}
 
 local wp_queue is LIST().
 local cur_mode is "srf".
@@ -351,7 +352,7 @@ local function fill_in_waypoint_data {
             set wp["roll"] to 0.0.
         }
         if not wp:haskey("nomg") {
-            set wp["nomg"] to max(0.05,max(ROT_GNOM_VERT,ROT_GNOM_LAT)).
+            set wp["nomg"] to max(0.05,NOM_NAV_G).
         }
         return wp.
     } else if wp["mode"] = "snv" {
@@ -501,10 +502,10 @@ function util_wp_queue_first {
 }
 
 function util_wp_status_string {
+    local time_to_wp is (choose ap_nav_get_time_to_wp() if USE_AP_NAV else 0).
     if wp_queue:length > 0 {
-        return "WP" + (wp_queue:length-1) +" "+
-            (choose round_dec(min(9999,ap_nav_get_distance()/max(vel,0.0001)),0)+"s"
-                if AP_NAV_ENABLED else "").
+        return "WP" + (wp_queue:length-1) +
+            (choose char(10)+time_to_wp+"s" if time_to_wp>0 else "").
     } else {
         return "".
     }

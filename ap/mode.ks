@@ -70,7 +70,7 @@ function ap_mode_set {
     parameter mode_str.
     if mode_str = "SAS" {
         SAS on.
-    } else if AP_MODE_PILOT_ENABLED and mode_str = "PILOT"{
+    } else if AP_MODE_PILOT_ENABLED and (mode_str = "PILOT" or mode_str = "") {
         until AP_MODE_PILOT {
             go_to_next_mode().
         }
