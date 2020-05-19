@@ -1,5 +1,5 @@
 
-GLOBAL AP_NAV_ENABLED IS TRUE.
+GLOBAL AP_NAV_SRF_ENABLED IS TRUE.
 local PARAM is readJson("1:/param.json")["AP_NAV"].
 
 // glimits
@@ -259,7 +259,7 @@ function ap_nav_srf_wp_guide {
     set final_radius to max(MIN_SRF_RAD, wp["vel"]^2/(wp["nomg"]*g0)).
     set farness to wp_vec:mag/final_radius.
 
-    if wp_vec:mag > 7*final_radius or AP_NAV_TIME_TO_WP > 60 {
+    if ( final_radius > 10000) or (wp_vec:mag > 9*final_radius) {
         set AP_NAV_H_SET to latlng(wp["lat"],wp["lng"]):heading.
         set WP_FOLLOW_MODE["F"] to false.
         set WP_FOLLOW_MODE["A"] to false.

@@ -142,6 +142,7 @@ function util_shbus_tx_msg {
     parameter opcode.
     parameter data is LIST().
     parameter recipients is tx_hosts:keys. // is always a list of keys
+    parameter sender is my_fullname.
 
     if not (single_host_key = "") {
         set recipients to list(single_host_key).
@@ -149,8 +150,8 @@ function util_shbus_tx_msg {
    
     for key in recipients {
         if tx_hosts:haskey(key) and not (key = exclude_host_key){
-            if not tx_hosts[key]:connection:sendmessage(list(my_fullname,key,opcode,data)) {
-                print my_fullname +" could not send message:" +
+            if not tx_hosts[key]:connection:sendmessage(list(sender,key,opcode,data)) {
+                print sender +" could not send message:" +
                     char(10) +"   "+ opcode + " " + data +
                     char(10) +"to "+ key.
             }
@@ -308,8 +309,9 @@ function util_shbus_rx_msg {
             }
         } else if (get_ship_name(recipient) = ship:name) {
             // received message is for some other core on this ship
-            util_shbus_tx_msg(opcode, data, list(recipient)).
+            util_shbus_tx_msg(opcode, data, list(recipient), sender).
             // only sent if recipient in tx_hosts.
+            print "routing msg".
         } else {
             print "msg not for my ship".
         }

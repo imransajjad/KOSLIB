@@ -36,6 +36,7 @@ ship:name,
 "comm str    arg is str",
 "com1;com2   chain commands",
 "rst         reboot all cpus",
+"run [file]  of commands from base",
 "neu         neutralize controls",
 "K       single char is same key"
 ).
@@ -98,7 +99,7 @@ local function print_help_by_tag {
     update_help_list().
     local hi is HELP_LIST:iterator.
     until not hi:next {
-        if (hi:value:STARTSWITH(tag) ){
+        if (hi:value:startswith(tag) ){
             print_help_page_by_index(hi:index).
             return.
         }
@@ -154,7 +155,7 @@ local function util_term_parse_command {
     parameter commtext.
     parameter args is list().
 
-    if commtext:STARTSWITH("help") {
+    if commtext:startswith("help") {
         if commtext:contains(" ") {
             print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
         } else if commtext:length > 5 {
@@ -164,9 +165,9 @@ local function util_term_parse_command {
         }
     } else if commtext:length = 1 and do_action_group_or_key(commtext){
         print("key "+commtext).
-    } else if commtext:STARTSWITH("neu"){
+    } else if commtext:startswith("neu"){
         set ship:control:neutralize to true.
-    } else if commtext:STARTSWITH("rst"){
+    } else if commtext:startswith("rst"){
         list PROCESSORS in cpus.
         for cpu in cpus {
             if not (cpu:tag = core:tag) {
@@ -178,6 +179,17 @@ local function util_term_parse_command {
         if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
             wait 0.1.
             util_shbus_reconnect().
+        }
+    } else if commtext:startswith("run") {
+        if has_connection_to_base() and exists("0:/term_scripts/"+args) {
+            local filecontent is open("0:/term_scripts/"+args):readall.
+            local i is filecontent:iterator.
+            until not i:next {
+                print i:value:split("#")[0].
+                util_term_do_command(i:value:split("#")[0]).
+            }
+        } else {
+            print "0:/term_scripts/"+args+"does not exist".
         }
     } else {
         return false.

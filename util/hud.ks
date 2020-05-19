@@ -195,36 +195,36 @@ local function ladder_vec_draw {
 
 
 // draw a alignment guidance marker
-local land_init_draw is false.
-local land_vert is 0.
-local land_hori is 0.
-local land_invis is 0.
+local align_init_draw is false.
+local align_vert is 0.
+local align_hori is 0.
+local align_invis is 0.
 
-local hud_land_elev is -2.5.
-local hud_land_head is 90.4.
-local hud_land_roll is 0.
+local align_elev is -2.5.
+local align_head is 90.4.
+local align_roll is 0.
 
-local function land_vecdraw {
+local function align_marker_draw {
     local far is hud_far.
     local width is 0.025.
     local long is far/10.
 
-    if not land_init_draw {
+    if not align_init_draw {
 
-        set land_init_draw to true.
-        set land_vert to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+        set align_init_draw to true.
+        set align_vert to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
             "", 1.0, true, width, FALSE ).
-        set land_hori to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+        set align_hori to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
             "", 1.0, true, width, FALSE ).
-        set land_invis to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
+        set align_invis to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
             "", 1.0, true, 0.25, FALSE ).
-        set land_vert:wiping to false.
-        set land_hori:wiping to false.
+        set align_vert:wiping to false.
+        set align_hori:wiping to false.
     }
 
     if is_active_vessel() and hud_setting_dict["on"] and hud_setting_dict["align"] and not MAPVIEW {
         local camera_offset is camera_offset_vec.
-        local ghead is heading(hud_land_head,hud_land_elev,-hud_land_roll).
+        local ghead is heading(align_head,align_elev,-align_roll).
         
         if HASTARGET {
             local target_ship is TARGET.
@@ -234,31 +234,31 @@ local function land_vecdraw {
             }
         }
 
-        set land_vert:start to camera_offset+far*ghead:vector-long*ghead:topvector.
-        set land_hori:start to camera_offset+far*ghead:vector-long*ghead:starvector.
-        set land_invis:start to camera_offset+far*ghead:vector
+        set align_vert:start to camera_offset+far*ghead:vector-long*ghead:topvector.
+        set align_hori:start to camera_offset+far*ghead:vector-long*ghead:starvector.
+        set align_invis:start to camera_offset+far*ghead:vector
                             +0.5*long*ghead:starvector+0.1*long*ghead:topvector.
 
-        set land_vert:vec to 2*long*ghead:topvector.
-        set land_hori:vec to 2*long*ghead:starvector.
-        set land_invis:vec to V(0,0,0).
+        set align_vert:vec to 2*long*ghead:topvector.
+        set align_hori:vec to 2*long*ghead:starvector.
+        set align_invis:vec to V(0,0,0).
 
-        set land_vert:color to hud_color.
-        set land_hori:color to hud_color.
-        set land_invis:color to hud_color.
+        set align_vert:color to hud_color.
+        set align_hori:color to hud_color.
+        set align_invis:color to hud_color.
 
         local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
 
-        set land_invis:label to (choose "AGL "+round_dec(ground_alt,1)
+        set align_invis:label to (choose "AGL "+round_dec(ground_alt,1)
                     if (ground_alt < FLARE_ALT ) else "").
 
-        set land_vert:show to true.
-        set land_hori:show to true.
-        set land_invis:show to true.
+        set align_vert:show to true.
+        set align_hori:show to true.
+        set align_invis:show to true.
     } else {
-        set land_vert:show to false.
-        set land_hori:show to false.
-        set land_invis:show to false.
+        set align_vert:show to false.
+        set align_hori:show to false.
+        set align_invis:show to false.
     }
 }
 
@@ -385,7 +385,7 @@ function util_hud_info {
         set hud_i to 0.
         lr_text_info().
     }
-    land_vecdraw().
+    align_marker_draw().
     ladder_vec_draw().
     nav_vecdraw().
     //control_part_vec_draw(). // for calibration
@@ -514,9 +514,9 @@ function util_hud_decode_rx_msg {
 
         }
     } else if opcode = "HUD_ALIGN_SET" {
-        set hud_land_elev to data[0].
-        set hud_land_head to data[1].
-        set hud_land_roll to data[2].
+        set align_elev to data[0].
+        set align_head to data[1].
+        set align_roll to data[2].
     } else {
         util_shbus_ack("could not decode hud rx msg", sender).
         print "could not decode hud rx msg".
