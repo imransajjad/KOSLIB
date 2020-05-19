@@ -8,17 +8,8 @@ function has_connection_to_base {
     }
 }
 
-function spin_if_not_us {
-    until (SHIP_NAME_ACRO_IN_PARAMS = string_acro(ship:name) ) {
-        wait 1.0.
-    }
-}
-
 WAIT UNTIL SHIP:LOADED.
-
-global DEV_FLAG is true.
-
-if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
+IF has_connection_to_base() {
     COPYPATH("0:/koslib/util/common.ks","util_common").
     run once "util_common".
     COPYPATH("0:/param/"+string_acro(ship:name)+".json","param.json").
@@ -32,14 +23,14 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
 
     COPYPATH("0:/koslib/ap/engines.ks","ap_engines").
-    COPYPATH("0:/koslib/ap/flcs_rot.ks","ap_flcs_rot").
+    COPYPATH("0:/koslib/ap/aero_rot.ks","ap_aero_rot").
+    COPYPATH("0:/koslib/ap/nav_srf.ks","ap_nav_srf").
+    COPYPATH("0:/koslib/ap/nav_orb.ks","ap_nav_orb").
+    COPYPATH("0:/koslib/ap/nav_tar.ks","ap_nav_tar").
     COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
 }
-global SHIP_NAME_ACRO_IN_PARAMS is
-        readJson("1:/param.json")["ship_name_acro"].
-spin_if_not_us().
 
 // Global plane data
 
@@ -71,7 +62,10 @@ run once "util_shbus_rx".
 run once "util_hud".
 
 run once "ap_engines".
-run once "ap_flcs_rot".
+run once "ap_aero_rot".
+run once "ap_nav_srf".
+run once "ap_nav_orb".
+run once "ap_nav_tar".
 run once "ap_nav".
 run once "ap_mode".
 
@@ -82,22 +76,21 @@ flush_core_messages().
 
 // main loop
 UNTIL false {
-    spin_if_not_us().
     util_shbus_rx_check_for_messages().
     util_shsys_check().
 
     ap_mode_update().
-    ap_nav_disp().
+    ap_nav_display().
 
-    if AP_MODE_FLCS {
+    if AP_MODE_PILOT {
         ap_engine_throttle_map().
-        ap_flcs_rot(pilot_input_u1, pilot_input_u2, pilot_input_u3).
+        ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_MODE_VEL {
         ap_engine_throttle_auto().
-        ap_flcs_rot(pilot_input_u1, pilot_input_u2, pilot_input_u3).
+        ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_MODE_NAV {
         ap_engine_throttle_auto().
-        ap_nav_do_flcs_rot().
+        ap_nav_do().
     } else {
         unlock THROTTLE.
         SET SHIP:CONTROL:NEUTRALIZE to true.
