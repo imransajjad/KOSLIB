@@ -67,7 +67,7 @@
         {
             "entries": [
                 "PILOT_ENABLED", true,
-                "NAV_ENABLED", true,
+                "NAV_ENABLED", true
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

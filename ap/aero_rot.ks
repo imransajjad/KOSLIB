@@ -149,7 +149,7 @@ local rrateI is PIDLOOP(
     0,
     -0.05,0.05).
 
-local lock rrate_max to sat(vel/CORNER_VELOCITY*MAX_ROLL, CORNER_VELOCITY/vel*MAX_ROLL).
+local lock rrate_max to sat(vel/CORNER_VELOCITY*MAX_ROLL, MAX_ROLL).
 
 
 local LF2G is 1.0.
