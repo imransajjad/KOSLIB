@@ -15,7 +15,7 @@ IF has_connection_to_base() {
     COPYPATH("0:/param/"+string_acro(ship:name)+".json","param.json").
     
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
-    COPYPATH("0:/koslib/util/shbus_rx.ks","util_shbus_rx").
+    COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
     COPYPATH("0:/koslib/util/shsys.ks","util_shsys").
 
     COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
@@ -31,7 +31,7 @@ LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
 
 run once "util_common".
-run once "util_shbus_rx".
+run once "util_shbus".
 run once "util_shsys".
 
 run once "ap_mode".
@@ -40,7 +40,7 @@ run once "ap_nav".
 GLOBAL BOOT_RCOM_ENABLED IS true.
 
 UNTIL FALSE {
-    util_shbus_rx_check_for_messages().
+    util_shbus_rx_msg().
     util_shsys_check().
 
     ap_mode_update().
@@ -48,7 +48,7 @@ UNTIL FALSE {
         ap_mode_set("NAV").
     }
 
-    if AP_MODE_FLCS {
+    if AP_MODE_PILOT {
         unlock THROTTLE.
         SET SHIP:CONTROL:NEUTRALIZE to true.
     } else if AP_MODE_NAV {

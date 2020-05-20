@@ -355,12 +355,7 @@ function util_term_get_input {
 
 function util_term_do_command {
     parameter comm_string_input is "".
-
-    if comm_string_input = "" {
-        print "util_shbus_tx_do_command invalid param".
-    } else {
-        parse_command(comm_string_input).
-    }
+    parse_command(comm_string_input).   
 }
 
 // TX SECTION END

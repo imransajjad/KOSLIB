@@ -13,7 +13,7 @@ global AP_NAV_V_SET_PREV is -1.0.
 global AP_NAV_V_SET is vel.
 global AP_NAV_E_SET is vel_pitch.
 global AP_NAV_H_SET is vel_bear.
-global AP_NAV_R_SET is roll.
+global AP_NAV_R_SET is 0.
 
 global AP_NAV_W_E_SET is 0.0.
 global AP_NAV_W_H_SET is 0.0.

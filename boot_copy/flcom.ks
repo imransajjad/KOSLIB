@@ -35,7 +35,6 @@ run once "util_term".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
-flush_core_messages().
 util_term_do_command("unask flcs").
 util_term_do_command("askhost flcs").
 

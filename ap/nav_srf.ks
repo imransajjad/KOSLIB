@@ -22,6 +22,7 @@ local GCAS_MARGIN is get_param(PARAM,"GCAS_MARGIN").
 local GCAS_GAIN_MULTIPLIER is get_param(PARAM,"GCAS_GAIN_MULTIPLIER").
 
 local USE_UTIL_WP is readJson("1:/param.json"):haskey("UTIL_WP").
+local USE_UTIL_FLDR is readJson("1:/param.json"):haskey("UTIL_FLDR").
 
 local lock AG to AG3.
 
@@ -284,19 +285,24 @@ function ap_nav_srf_wp_guide {
             //         + "," + round_dec(wp_vec*heading(vel_bear,vel_pitch):starvector,2)
             //         + "," + round_dec(wp_vec*heading(vel_bear,vel_pitch):topvector,2)
             //         + ")".
-            print "(" + round_dec(ship:altitude,0) + "," +
-                        round_dec(vel,0) + "," +
-                        round_dec(ship:geoposition:lat,1) + "," +
-                        round_dec(ship:geoposition:lng,1) + "," +
-                        round_dec(vel_pitch,1) + "," +
-                        round_dec(vel_bear,1) + ")".
-            PRINT "Reached Waypoint " + (util_wp_queue_length()-1).
+            local wp_reached_str is  "Reached Waypoint " + (util_wp_queue_length()-1) +
+                char(10)+"(" + round_dec(ship:altitude,0) + "," +
+                round_dec(vel,0) + "," +
+                round_dec(ship:geoposition:lat,1) + "," +
+                round_dec(ship:geoposition:lng,1) + "," +
+                round_dec(vel_pitch,1) + "," +
+                round_dec(vel_bear,1) + ")".
+            print wp_reached_str.
+            if USE_UTIL_FLDR {
+                util_fldr_send_event(wp_reached_str).
+            }
             set alpha_x to 0.
             util_wp_done().
             set WP_FOLLOW_MODE["F"] to false.
             if util_wp_queue_length() = 0 {
                 set AP_NAV_E_SET to vel_pitch.
                 set AP_NAV_H_SET to vel_bear.
+                set AP_NAV_R_SET to 0.
                 set AP_NAV_V_SET to vel.
             }
             return.

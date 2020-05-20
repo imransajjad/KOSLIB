@@ -40,6 +40,7 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
 }
+run once "util_common".
 global SHIP_NAME_ACRO_IN_PARAMS is
         readJson("1:/param.json")["ship_name_acro"].
 spin_if_not_us().
@@ -109,5 +110,5 @@ UNTIL false {
     }
     
     util_hud_info().
-    WAIT 0.02.
+    WAIT 0.01.
 }

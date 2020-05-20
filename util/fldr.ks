@@ -165,7 +165,7 @@ local function start_logging {
     set logdesc to logdesc:replace(" ", "_").
     set logdesc to logdesc:replace(",", "").
     set fldr_evt_string to "".
-    print "log writing to "+ filename.
+    print "logging " + logdesc + " to " + filename.
 
     log logdesc to filename.
     log "t,u0,u1,u2,u3,y0,y1,y2,y3,ft,p,y,r,vp,vh,afore,aup,alat,alpha,beta,h,m,q,lat,lng" to filename.
@@ -388,6 +388,7 @@ function util_fldr_decode_rx_msg {
         util_shbus_ack(print_sequences(), sender).
     } else if opcode = "FLDR_EVENT" {
         set fldr_evt_string to data[0].
+        print data[0].
     } else {
         util_shbus_ack("could not decode fldr rx msg", sender).
         print "could not decode fldr rx msg".

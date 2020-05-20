@@ -3,6 +3,9 @@ GLOBAL AP_AERO_ROT_ENABLED IS true.
 
 local PARAM is readJson("param.json")["AP_AERO_ROT"].
 
+local USE_UTIL_FLDR is readJson("param.json"):haskey("UTIL_FLDR").
+local USE_UTIL_HUD is readJson("param.json"):haskey("UTIL_HUD").
+
 // glimits
 local GLIM_VERT is get_param(PARAM,"GLIM_VERT", 5).
 local GLIM_LAT is get_param(PARAM,"GLIM_LAT", 1).
@@ -41,8 +44,11 @@ local lock AG to AG6.
 
 // AERO ROT PID STUFF
 
+local lock wg to vcrs(vel_prograde:vector, ship:up:vector)*
+                (get_frame_accel_orbit()/max(1,vel)):mag.
+
 local lock pitch_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:STARVECTOR).
-local lock yaw_rate to ((SHIP:ANGULARVEL)*SHIP:FACING:TOPVECTOR).
+local lock yaw_rate to ((SHIP:ANGULARVEL+wg)*SHIP:FACING:TOPVECTOR).
 local lock roll_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 
 
@@ -165,7 +171,7 @@ local function gain_schedule {
 
     if prev_AG <> AG {
         set prev_AG to AG.
-        print "LF2G: " + round_dec(LF2G,2).
+        print "LF2G: " + round_dec(LF2G/(choose 3 if AG else 1),2).
     }
     if prev_AG {
         set LF2G to LF2G/3.
@@ -194,12 +200,15 @@ local function display_land_stats {
             local land_stats is "landed" + char(10) +
                 "  pitch "+ round_dec(pitch,2) + char(10) +
                 "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
-            if UTIL_HUD_ENABLED {
+            if USE_UTIL_HUD {
                 util_hud_push_left("AERO_ROT_LAND_STATS" , land_stats ).
+            }
+            if USE_UTIL_FLDR {
+                util_fldr_send_event(land_stats).
             }
             print land_stats.
         } else if SHIP:STATUS = "FLYING" {
-            if UTIL_HUD_ENABLED {
+            if USE_UTIL_HUD {
                 util_hud_pop_left("AERO_ROT_LAND_STATS").
             }
         }
@@ -274,20 +283,22 @@ function ap_aero_rot_maxrates {
     return list(RAD2DEG*prate_max,RAD2DEG*yrate_max,RAD2DEG*rrate_max).
 }
 
+local departure is false.
 function ap_aero_rot_status_string {
 
     local hud_str is "".
 
     if (ship:q > MIN_AERO_Q) {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
-        char(10) + char(945) + " " + round_dec(alpha,1).    
-    }
-    
-
-
-    if ( false) { // orbit info
-        set hud_str to hud_str + ( choose char(10)+"t Ap "+round(eta:apoapsis)+"s" if eta:apoapsis > 25 and Vslast > 10 else "") +
-        ( choose char(10)+"t Ap "+round(eta:apoapsis-ship:orbit:period)+"s" if (eta:apoapsis-ship:orbit:period) < -25 and Vslast < -10 else "").
+        char(10) + char(945) + " " + round_dec(alpha,1).
+        if USE_UTIL_FLDR {
+            if abs(alpha) > 45 and not departure {
+                util_fldr_send_event("aero_rot departure").
+                set departure to true.
+            } else if abs(alpha) < 20 and departure {
+                set departure to false.
+            }
+        }
     }
 
     if ( false) { // pitch debug
