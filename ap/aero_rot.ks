@@ -301,7 +301,7 @@ function ap_aero_rot_status_string {
         }
     }
 
-    if ( false) { // pitch debug
+    if ( true) { // pitch debug
     set hud_str to hud_str+
         char(10) + "ppid" + " " + round_dec(PR_KP,2) + " " + round_dec(PR_KI,2) + " " + round_dec(PR_KD,2) +
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
@@ -328,7 +328,7 @@ function ap_aero_rot_status_string {
         char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1).
     }
 
-    if ( false) { // q debug
+    if ( true) { // q debug
     set hud_str to hud_str+
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,3) +

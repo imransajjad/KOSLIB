@@ -82,7 +82,7 @@ function util_shbus_parse_command {
                     set new_host_name to args.
                 }
             }
-            if not (new_host_name = -1) and not tx_hosts:haskey(new_host_name){
+            if not (new_host = -1) and not tx_hosts:haskey(new_host_name){
                 tx_hosts:add(new_host_name, new_host).
                 util_shbus_tx_msg("ASKHOST", list(my_fullname), list(new_host_name)).
             }
@@ -295,13 +295,13 @@ function util_shbus_rx_msg {
 
             if util_shbus_decode_rx_msg(sender, recipient, opcode, data) {
                 print "shbus decoded".
-            } else if UTIL_WP_ENABLED and util_wp_decode_rx_msg(sender, recipient, opcode, data) {
+            } else if defined UTIL_WP_ENABLED and util_wp_decode_rx_msg(sender, recipient, opcode, data) {
                 print "wp decoded.".
-            } else if UTIL_FLDR_ENABLED and util_fldr_decode_rx_msg(sender, recipient, opcode, data) {
+            } else if defined UTIL_FLDR_ENABLED and util_fldr_decode_rx_msg(sender, recipient, opcode, data) {
                 print "fldr decoded".
-            } else if UTIL_SHSYS_ENABLED and util_shsys_decode_rx_msg(sender, recipient, opcode, data) {
+            } else if defined UTIL_SHSYS_ENABLED and util_shsys_decode_rx_msg(sender, recipient, opcode, data) {
                 print "shsys decoded".
-            } else if UTIL_HUD_ENABLED and util_hud_decode_rx_msg(sender, recipient, opcode, data) {
+            } else if defined UTIL_HUD_ENABLED and util_hud_decode_rx_msg(sender, recipient, opcode, data) {
                 print "hud decoded".
             } else {
                 print "Unexpected message from "+received_msg:SENDER:NAME +

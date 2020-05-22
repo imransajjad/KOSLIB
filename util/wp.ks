@@ -210,7 +210,7 @@ local function generate_landing_seq {
     list(alt_stp + flare_h +distance*tan(GSlope)/2, 1.17*speed, p4[0], p4[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list(-2),
-    list(alt_stp+2.0 , 0.857*speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
+    list(alt_stp+3.0 , 0.857*speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
     list(alt_stp, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
     list(-1)). // brakes
 

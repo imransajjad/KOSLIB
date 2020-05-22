@@ -17,7 +17,7 @@ local logtag to "".
 local filename is "".
 local logdesc is "".
 
-local fldr_evt_string is "".
+local fldr_evt_data is list(0,"").
 
 list sensors in Slist.
 
@@ -164,7 +164,6 @@ local function start_logging {
 
     set logdesc to logdesc:replace(" ", "_").
     set logdesc to logdesc:replace(",", "").
-    set fldr_evt_string to "".
     print "logging " + logdesc + " to " + filename.
 
     log logdesc to filename.
@@ -190,10 +189,10 @@ local function start_logging {
         if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
             util_shbus_rx_msg().
             // and record events sent by messages
-            if not (fldr_evt_string = "")
+            if not (fldr_evt_data[1] = "")
             {
-                log "event, " + fldr_evt_string to filename.
-                set fldr_evt_string to "".
+                log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to filename.
+                set fldr_evt_data[1] to "".
             }
         }
     }
@@ -299,9 +298,8 @@ function util_fldr_parse_command {
 
 function util_fldr_send_event {
     parameter str_in.
-    set str_in to str_in:replace(char(10), "\n").
     if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
-        util_shbus_tx_msg("FLDR_EVENT", list(str_in)).
+        util_shbus_tx_msg("FLDR_EVENT", list(time:seconds, str_in)).
     }
 }
 
@@ -387,8 +385,8 @@ function util_fldr_decode_rx_msg {
     } else if opcode = "FLDR_PRINT_TEST" {
         util_shbus_ack(print_sequences(), sender).
     } else if opcode = "FLDR_EVENT" {
-        set fldr_evt_string to data[0].
-        print data[0].
+        set fldr_evt_data to data.
+        print data[1].
     } else {
         util_shbus_ack("could not decode fldr rx msg", sender).
         print "could not decode fldr rx msg".
