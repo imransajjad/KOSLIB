@@ -3,9 +3,6 @@ GLOBAL AP_AERO_ROT_ENABLED IS true.
 
 local PARAM is readJson("param.json")["AP_AERO_ROT"].
 
-local USE_UTIL_FLDR is readJson("param.json"):haskey("UTIL_FLDR").
-local USE_UTIL_HUD is readJson("param.json"):haskey("UTIL_HUD").
-
 // glimits
 local GLIM_VERT is get_param(PARAM,"GLIM_VERT", 5).
 local GLIM_LAT is get_param(PARAM,"GLIM_LAT", 1).
@@ -200,15 +197,15 @@ local function display_land_stats {
             local land_stats is "landed" + char(10) +
                 "  pitch "+ round_dec(pitch,2) + char(10) +
                 "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
-            if USE_UTIL_HUD {
+            if UTIL_HUD_ENABLED {
                 util_hud_push_left("AERO_ROT_LAND_STATS" , land_stats ).
             }
-            if USE_UTIL_FLDR {
+            if UTIL_FLDR_ENABLED {
                 util_fldr_send_event(land_stats).
             }
             print land_stats.
         } else if SHIP:STATUS = "FLYING" {
-            if USE_UTIL_HUD {
+            if UTIL_HUD_ENABLED {
                 util_hud_pop_left("AERO_ROT_LAND_STATS").
             }
         }
@@ -291,7 +288,7 @@ function ap_aero_rot_status_string {
     if (ship:q > MIN_AERO_Q) {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
         char(10) + char(945) + " " + round_dec(alpha,1).
-        if USE_UTIL_FLDR {
+        if UTIL_FLDR_ENABLED {
             if abs(alpha) > 45 and not departure {
                 util_fldr_send_event("aero_rot departure").
                 set departure to true.
@@ -301,7 +298,7 @@ function ap_aero_rot_status_string {
         }
     }
 
-    if ( true) { // pitch debug
+    if ( false) { // pitch debug
     set hud_str to hud_str+
         char(10) + "ppid" + " " + round_dec(PR_KP,2) + " " + round_dec(PR_KI,2) + " " + round_dec(PR_KD,2) +
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
@@ -328,7 +325,7 @@ function ap_aero_rot_status_string {
         char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1).
     }
 
-    if ( true) { // q debug
+    if ( false) { // q debug
     set hud_str to hud_str+
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,3) +

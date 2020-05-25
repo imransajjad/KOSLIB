@@ -14,6 +14,13 @@
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
+        "UTIL_HUD",
+        {
+            "entries": [
+                "ON_START", false
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
         "UTIL_SHSYS",
         {
             "entries": [

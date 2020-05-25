@@ -9,8 +9,16 @@ function has_connection_to_base {
     return false.
 }
 
+function spin_if_not_us {
+    until (SHIP_NAME_ACRO_IN_PARAMS = string_acro(ship:name) ) {
+        wait 1.0.
+    }
+}
+
+global DEV_FLAG is true.
+
 WAIT UNTIL SHIP:LOADED.
-IF has_connection_to_base() {
+if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/common.ks","util_common").
     run once "util_common".
     COPYPATH("0:/param/"+string_acro(ship:name)+".json","param.json").
@@ -22,6 +30,10 @@ IF has_connection_to_base() {
     COPYPATH("0:/koslib/util/term.ks","util_term").
     print "loaded resources from base".
 }
+run once "util_common".
+global SHIP_NAME_ACRO_IN_PARAMS is
+        readJson("1:/param.json")["ship_name_acro"].
+spin_if_not_us().
 
 wait 0.04.
 wait 0.04.
@@ -39,5 +51,6 @@ util_term_do_command("unask flcs").
 util_term_do_command("askhost flcs").
 
 UNTIL FALSE {
+    spin_if_not_us().
     util_term_get_input().
 }

@@ -26,7 +26,7 @@ local USE_AP_NAV is PARAM:haskey("AP_NAV").
 
 local NOM_NAV_G is 1.0.
 
-if USE_AP_NAV {
+if PARAM:haskey("AP_NAV") {
     set NOM_NAV_G to get_param(PARAM["AP_NAV"], "ROT_GNOM_VERT", NOM_NAV_G).
 }
 
@@ -187,20 +187,24 @@ local function generate_landing_seq {
 
     local lat_stp is -0.0493672258730508.
     local lng_stp is -74.6115615766677.
-    local alt_stp is latlng(lat_stp,lng_stp):terrainheight.
+    local alt_stp is latlng(lat_stp,lng_stp):terrainheight+2.0.
 
     local stop_dist is 1000.
     set GSlope to abs(GSlope).
+    local LSlope is 0.15.
 
-    local flare_radius is 10*speed/(GSlope*DEG2RAD). // 10 second flare
-    local flare_g is speed^2/flare_radius/g0.
+    // local flare_radius is 0.857*speed/((0.5)*DEG2RAD). // deg/s  flare
+    local flare_radius is 10*0.857*speed/((GSlope-LSlope)*DEG2RAD). // 10 second flare
+    local flare_g is (0.857*speed)^2/flare_radius/g0.
 
+    // figure out what's going on, why isn't my math for flare along circle working out
 
-    local flare_long is flare_radius*sin(GSlope).
-    local flare_h is flare_radius*(1-cos(GSlope)).
+    local flare_long is flare_radius*(sin(GSlope) - sin(LSlope)).
+    local flare_h is flare_radius*(cos(LSlope)-cos(GSlope)).
 
     local p5 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance)/ship:body:radius*RAD2DEG).
     local p4 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/2)/ship:body:radius*RAD2DEG).
+    local p3 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/10)/ship:body:radius*RAD2DEG).
     local p2f is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long)/ship:body:radius*RAD2DEG).
     local p1td is haversine_latlng(lat_stp,lng_stp,runway_angle+180,stop_dist/ship:body:radius*RAD2DEG).
     // local p1stp is haversine_latlng(lat_stp,lng_stp,0, 0).
@@ -208,10 +212,12 @@ local function generate_landing_seq {
     local landing_sequence is LIST(
     list(alt_stp + flare_h +distance*tan(GSlope), 1.43*speed, p5[0], p5[1], -GSlope,runway_angle),
     list(alt_stp + flare_h +distance*tan(GSlope)/2, 1.17*speed, p4[0], p4[1],-GSlope,runway_angle),
+    // list(alt_stp + flare_h +distance*tan(GSlope)/10, 1.17*speed, p3[0], p3[1],-GSlope,runway_angle),
+    // list(-5),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list(-2),
-    list(alt_stp+3.0 , 0.857*speed-10,    p1td[0], p1td[1], -0.15,runway_angle,flare_g),
-    list(alt_stp, -1, lat_stp, lng_stp, -0.15,runway_angle,flare_g),
+    list(alt_stp , 0.857*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
+    list(alt_stp-2.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
     list(-1)). // brakes
 
     return landing_sequence.
@@ -295,7 +301,8 @@ function util_wp_parse_command {
                 -74.69), cur_mode) ).
     } else if commtext:startswith("wpl(") and 
     (args:length = 3 or args:length = 4) {
-        if args:length = 3 { args:insert(3,90.4). }
+        if args:length = 3 { args:insert(3,90.4 +
+                (choose 180 if ship:geoposition:lng > -74.69 else 0) ). }
         for wp_seq_i in generate_landing_seq(args[0],args[1],args[2],args[3]) {
             insert_waypoint(-1,
                 construct_incomplete_waypoint(wp_seq_i, "srf") ).

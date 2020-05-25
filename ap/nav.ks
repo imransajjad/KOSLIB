@@ -4,7 +4,8 @@ local PARAM is readJson("1:/param.json")["AP_NAV"].
 
 local lock cur_vel_head to heading(vel_bear, vel_pitch).
 
-local USE_UTIL_WP is readJson("1:/param.json"):haskey("UTIL_WP").
+local GOT_ENABLED_FLAGS is false.
+local USE_UTIL_WP is false.
 
 local lock W_PITCH_NOM to max(50,vel)/(g0*ROT_GNOM_VERT).
 local lock W_YAW_NOM to max(50,vel)/(g0*ROT_GNOM_LAT).
@@ -20,6 +21,9 @@ global AP_NAV_W_H_SET is 0.0.
 global AP_NAV_W_R_SET is 0.0.
 
 global AP_NAV_TIME_TO_WP is 0.
+
+local USE_GCAS is get_param(PARAM,"GCAS_ENABLED",false).
+
 
 local lock in_orbit to (ship:apoapsis > 20000).
 local lock in_surface to (ship:altitude < 36000).
@@ -38,6 +42,14 @@ function ap_nav_display {
     // if nav mode
     //      if wp exists, set nav to wp, set dnav to no set
     //      else,           set dnav to manual
+
+    if not GOT_ENABLED_FLAGS {
+        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
+    }
+
+    if in_surface and (USE_GCAS) and ap_nav_srf_gcas(){
+        return.
+    }
 
 
     set AP_NAV_V_SET_PREV to AP_NAV_V_SET.

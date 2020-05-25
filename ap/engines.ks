@@ -182,6 +182,7 @@ function ap_engine_throttle_map {
     parameter input_throttle is pilot_input_u0.
     SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
     common_func().
+    precharge_integrator().
 }
 
 

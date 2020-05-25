@@ -17,12 +17,11 @@ local TAIL_STRIKE is get_param(PARAM,"TAIL_STRIKE").
 local VSET_MAX is get_param(PARAM,"VSET_MAX").
 local GEAR_HEIGHT is get_param(PARAM,"GEAR_HEIGHT").
 
-local USE_GCAS is get_param(PARAM,"GCAS_ENABLED",false).
 local GCAS_MARGIN is get_param(PARAM,"GCAS_MARGIN").
 local GCAS_GAIN_MULTIPLIER is get_param(PARAM,"GCAS_GAIN_MULTIPLIER").
 
-local USE_UTIL_WP is readJson("1:/param.json"):haskey("UTIL_WP").
-local USE_UTIL_FLDR is readJson("1:/param.json"):haskey("UTIL_FLDR").
+local GOT_USE_UTIL_WP is false.
+local USE_UTIL_WP is false.
 
 local lock AG to AG3.
 
@@ -36,7 +35,7 @@ local H_CLOSE is false.
 local WP_FOLLOW_MODE is lexicon("F", false, "A", false, "Q", false).
 
 local vec_scale is 1.0.
-local vec_width is 2.0.
+local vec_width is 5.0.
 
 local debug_vectors is false.
 
@@ -230,15 +229,23 @@ local wp_vec is V(0,0,0).
 local wp_final_head is R(0,0,0).
 local final_radius is 100.
 local farness is 1.0.
-local in_circ is 0.0.
+local to_circ is 0.0.
+local in_circ is 1.0.
 local alpha_x is 0.0.
+
+local follow_mode_str is WP_FOLLOW_MODE:keys:join("").
 
 // handles a surface type waypoint
 function ap_nav_srf_wp_guide {
     parameter wp.
 
-    if (USE_GCAS) and ap_nav_srf_gcas(){
-        return.
+    local new_follow_mode is "".
+    for i in WP_FOLLOW_MODE:keys {
+        if WP_FOLLOW_MODE[i] { set new_follow_mode to new_follow_mode+i.}
+    }
+    if not (new_follow_mode = follow_mode_str) and defined UTIL_FLDR_ENABLED {
+        set follow_mode_str to new_follow_mode.
+        util_fldr_send_event("WP_"+new_follow_mode).
     }
 
     set AP_NAV_V_SET to wp["vel"].
@@ -257,10 +264,10 @@ function ap_nav_srf_wp_guide {
             (choose GEAR_HEIGHT if GEAR else 0)).
     set wp_final_head to heading(wp["head"],wp["elev"]).
 
-    set final_radius to max(MIN_SRF_RAD, wp["vel"]^2/(wp["nomg"]*g0)).
+    set final_radius to max(MIN_SRF_RAD, (wp["vel"])^2/(wp["nomg"]*g0)).
     set farness to wp_vec:mag/final_radius.
 
-    if ( final_radius > 10000) or (wp_vec:mag > 9*final_radius) {
+    if ( final_radius > 20000) or (wp_vec:mag > 9*final_radius) {
         set AP_NAV_H_SET to latlng(wp["lat"],wp["lng"]):heading.
         set WP_FOLLOW_MODE["F"] to false.
         set WP_FOLLOW_MODE["A"] to false.
@@ -286,14 +293,14 @@ function ap_nav_srf_wp_guide {
             //         + "," + round_dec(wp_vec*heading(vel_bear,vel_pitch):topvector,2)
             //         + ")".
             local wp_reached_str is  "Reached Waypoint " + (util_wp_queue_length()-1) +
-                char(10)+"(" + round_dec(ship:altitude,0) + "," +
-                round_dec(vel,0) + "," +
-                round_dec(ship:geoposition:lat,1) + "," +
-                round_dec(ship:geoposition:lng,1) + "," +
-                round_dec(vel_pitch,1) + "," +
-                round_dec(vel_bear,1) + ")".
+                char(10)+"(" + round_dec(ship:altitude,2) + "," +
+                round_dec(vel,2) + "," +
+                round_dec(ship:geoposition:lat,4) + "," +
+                round_dec(ship:geoposition:lng,4) + "," +
+                round_dec(vel_pitch,2) + "," +
+                round_dec(vel_bear,2) + ")".
             print wp_reached_str.
-            if USE_UTIL_FLDR {
+            if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event(wp_reached_str).
             }
             set alpha_x to 0.
@@ -304,6 +311,8 @@ function ap_nav_srf_wp_guide {
                 set AP_NAV_H_SET to vel_bear.
                 set AP_NAV_R_SET to 0.
                 set AP_NAV_V_SET to vel.
+                set AP_NAV_W_E_SET to 0.
+                set AP_NAV_W_H_SET to 0.
             }
             return.
         }
@@ -326,50 +335,32 @@ function ap_nav_srf_wp_guide {
     // if close enough, do heading alignment circle
     if WP_FOLLOW_MODE["A"] {
         // extract altitude, velocity, lat, long, final_pitch, final_heading
-        // set AP_NAV_V_SET to convex(AP_NAV_V_SET_PREV,wp["vel"],min(1,max(0,3-farness))).
 
         set head_have to haversine_dir((-wp_final_head)*wp_vec:direction).
 
-        set in_circ to farness/max(0.00001,2*sin(head_have[1])).
+        set center_vec to final_radius*
+            (wp_final_head*dir_haversine(list(head_have[0],-90,head_have[2]))):vector.
 
-        if (WP_FOLLOW_MODE["F"]) {
-            set alpha_x to head_have[1].
-        } else if (in_circ < 1.0) {
-            // set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
-            set alpha_x to head_have[1].
+        set to_circ to (wp_vec+center_vec):normalized*vel_prograde:vector.
+        set in_circ to (farness^2)/max(0.00001,2-2*cos(2*head_have[1])).
+
+        if (to_circ <= 0.00) and (in_circ < 2) {
             set WP_FOLLOW_MODE["F"] to true.
-        } else {
-            // set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
+        } else if (in_circ > 4) {
+            set WP_FOLLOW_MODE["F"] to false.
+        }
 
-            set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
+        if WP_FOLLOW_MODE["F"] {
+            set alpha_x to head_have[1].
+        } else {
+            if (farness-2*sin(head_have[1]) >= 0) {
+                set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
                   / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
-            // set WP_FOLLOW_MODE["F"] to false.
-            if (head_have[1] <= alpha_x){
+                
+            } else {
                 set alpha_x to head_have[1].
-                set WP_FOLLOW_MODE["F"] to true.
             }
         }
-        
-        if WP_FOLLOW_MODE["F"] {
-
-        } else {
-
-            // set alpha_x to alpha_x - 
-            //     (1-cos(head_have[1]+alpha_x)-farness*sin(alpha_x))/
-            //     (2*(sin(head_have[1]+alpha_x)-farness*cos(alpha_x))).
-            // set alpha_x to 2/farness*sin(head_have[1]/2)*sin(head_have[1]).
-        }
-
-        // set alpha_x to head_have[1].
-        // if (in_circ > 1.0) {
-        //     set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
-        //           / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
-        // }
-        // set alpha_x to min(head_have[1], alpha_x).
-
-        // set alpha_x to head_have[1]*(2*sin(head_have[1])/farness)^2.
-
-
 
         set new_have to list(head_have[0],head_have[1]+alpha_x, head_have[2]).
         set c_have to list(head_have[0],head_have[1]+alpha_x-90, head_have[2]).
@@ -384,9 +375,9 @@ function ap_nav_srf_wp_guide {
 
         set AP_NAV_E_SET to max(AP_NAV_E_SET, -arcsin(min(1.0,ship:altitude/vel/5))).
 
-        if WP_FOLLOW_MODE["F"] and AG3{
+        if WP_FOLLOW_MODE["F"] {
             local cur_vel_head_set is heading(AP_NAV_H_SET, AP_NAV_E_SET).
-            local w_mag is max(vel,7)/final_radius*RAD2DEG.
+            local w_mag is max(vel,0.0001)/final_radius*RAD2DEG.
             set AP_NAV_W_E_SET to centripetal_vector*cur_vel_head:topvector*w_mag.
             set AP_NAV_W_H_SET to centripetal_vector*cur_vel_head:starvector*w_mag.
         }
@@ -395,7 +386,8 @@ function ap_nav_srf_wp_guide {
             local bear_to_final is rotateFromTo(wp_vec,wp_final_head:vector).
             set nav_debug_vec0:vec to wp_vec.
             set nav_debug_vec1:vec to final_radius*centripetal_vector. // arc
-            set nav_debug_vec2:vec to wp_vec.
+            set nav_debug_vec2:start to wp_vec.
+            set nav_debug_vec2:vec to center_vec.
             set nav_debug_vec3:vec to 100*new_arc_direction:vector. // res
 
             set nav_debug_vec4:vec to 30*wp_final_head:starvector.
@@ -414,10 +406,6 @@ function ap_nav_srf_wp_guide {
 }
 
 function ap_nav_srf_stick {
-
-    if (USE_GCAS) and ap_nav_srf_gcas(){
-        return.
-    }
 
     local increment is 0.0.
 
@@ -451,6 +439,12 @@ function ap_nav_srf_stick {
 
 function ap_nav_srf_status_string {
     local dstr is "".
+
+    if not GOT_USE_UTIL_WP {
+        set USE_UTIL_WP to (defined UTIL_WP_ENABLED).
+        set GOT_USE_UTIL_WP to true.
+    }
+
     if AP_MODE_NAV or AP_MODE_VEL or (USE_UTIL_WP and (util_wp_queue_length() > 0)) {
         set dstr to "/"+round_dec(AP_NAV_V_SET,0).
         if (AP_NAV_V_SET_PREV < AP_NAV_V_SET){
@@ -458,11 +452,7 @@ function ap_nav_srf_status_string {
         } else if (AP_NAV_V_SET_PREV > AP_NAV_V_SET){
             set dstr to dstr + "-".
         }
-        set dstr to dstr + char(10).
-        for i in WP_FOLLOW_MODE:keys {
-            if WP_FOLLOW_MODE[i] { set dstr to dstr+i.}
-        }
-
+        set dstr to dstr + char(10) + follow_mode_str.
         set dstr to dstr+"("+round_dec(AP_NAV_E_SET,2)+","+round(AP_NAV_H_SET)+")".
     }
     if (false) { // debug
@@ -474,14 +464,14 @@ function ap_nav_srf_status_string {
                                   char(10)+    "     " + round_dec(K_ROLL,5) + 
                                   char(10)+    "     " + round_dec(K_Q,5).
         
-        set dstr to dstr+ "h_have " + round_dec(head_have[0],2) +
+        set dstr to dstr+ char(10)+ "h_have " + round_dec(head_have[0],2) +
                                                  "/" + round_dec(head_have[1],2) +
                 char(10)+"n_have " + round_dec(new_have[0],2) +
                                                  "/" + round_dec(new_have[1],2) +
                 char(10)+"/\  " + round_dec(farness,2) +
                 char(10)+"/c  " + round_dec(in_circ,2) +
-                char(10)+"O" + round_dec(final_radius,0) +
-                (choose char(10)+"AG" if AG else "").
+                char(10)+"/vc " + round_dec(to_circ,2) +
+                char(10)+"O" + round_dec(final_radius,0).
     }
 
     return dstr.

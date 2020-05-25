@@ -1,29 +1,28 @@
 
 GLOBAL UTIL_HUD_ENABLED IS true.
 
-local PARAM is readJson("1:/param.json").
+local PARAM is readJson("1:/param.json")["UTIL_HUD"].
 
-local USE_AP_AERO_ROT is PARAM:haskey("AP_AERO_ROT").
-local USE_AP_NAV is PARAM:haskey("AP_NAV").
-local USE_AP_MODE is PARAM:haskey("AP_MODE").
-local USE_UTIL_WP is PARAM:haskey("UTIL_WP").
-local USE_UTIL_SHSYS is PARAM:haskey("UTIL_SHSYS").
+local USE_AP_AERO_ROT is false.
+local USE_AP_NAV is false.
+local USE_AP_MODE is false.
+local USE_UTIL_WP is false.
+local USE_UTIL_SHSYS is false.
 
-local ON_START is get_param(PARAM["UTIL_HUD"], "ON_START", false).
-local CAMERA_HEIGHT is get_param(PARAM["UTIL_HUD"], "CAMERA_HEIGHT", 0).
-local CAMERA_RIGHT is get_param(PARAM["UTIL_HUD"], "CAMERA_RIGHT", 0).
+local ON_START is get_param(PARAM, "ON_START", false).
+local CAMERA_HEIGHT is get_param(PARAM, "CAMERA_HEIGHT", 0).
+local CAMERA_RIGHT is get_param(PARAM, "CAMERA_RIGHT", 0).
 
-local PITCH_DIV is get_param(PARAM["UTIL_HUD"], "PITCH_DIV", 5).
-local FLARE_ALT is get_param(PARAM["UTIL_HUD"], "FLARE_ALT", 20).
-local SHIP_HEIGHT is get_param(PARAM["UTIL_HUD"], "SHIP_HEIGHT", 2).
+local PITCH_DIV is get_param(PARAM, "PITCH_DIV", 5).
+local FLARE_ALT is get_param(PARAM, "FLARE_ALT", 20).
+local SHIP_HEIGHT is get_param(PARAM, "SHIP_HEIGHT", 2).
 
 CLEARVECDRAWS().
 
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
-local hud_setting_dict is lexicon("on", false,
-        "red", false, "green", true, "blue", false,
+local hud_setting_dict is lexicon("on", ON_START,
         "ladder", true, "align", false, "nav", true,
         "movable", false).
 
@@ -371,15 +370,27 @@ local function control_part_vec_draw {
     }
 }
 
+local got_hud_enabled_flags is false.
+local function get_hud_enabled_flags {
+    if not got_hud_enabled_flags {
+        set USE_AP_AERO_ROT to defined AP_AERO_ROT_ENABLED.
+        set USE_AP_NAV to defined AP_NAV_ENABLED.
+        set USE_AP_MODE to defined AP_MODE_ENABLED.
+        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
+        set USE_UTIL_SHSYS to defined UTIL_SHSYS_ENABLED.
+        set got_hud_enabled_flags to true.
+    }
+}
 
 // main function of HUD
 function util_hud_init {
-    set hud_setting_dict["on"] to ON_START.
+    get_hud_enabled_flags().
 }
 
 local hud_interval is 2.
 local hud_i is 0.
 function util_hud_info {
+    get_hud_enabled_flags().
     set hud_i to hud_i+1.
     if hud_i = hud_interval {
         set hud_i to 0.
@@ -437,11 +448,9 @@ function util_hud_get_help_str {
         " ",
         "UTIL_HUD running on "+core:tag,
         "hudalign(elev,bear,roll) set align",
+        "hudcolor(r,g,b) set hud_color",
         "hudsw [setting] toggle setting",
         "    on",
-        "    green",
-        "    red",
-        "    blue",
         "    ladder",
         "    align",
         "    nav",
@@ -471,6 +480,12 @@ function util_hud_parse_command {
             util_shbus_tx_msg("HUD_ALIGN_SET", args).
         } else {
             print "use args (pitch,bear) or (pitch,bear,roll)".
+        }
+    } else if commtext:startswith("hudcolor(") {
+        if (args:length = 3) {
+            util_shbus_tx_msg("HUD_COLOR_SET", args).
+        } else {
+            print "use args (r,g,b) <- [0,1]".
         }
     } else {
         return false.
@@ -506,13 +521,12 @@ function util_hud_decode_rx_msg {
         if data[0] = "off" {set data[0] to "on".}
         if hud_setting_dict:haskey(data[0]) {
             set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
-            set hud_color to RGB( (choose 1 if hud_setting_dict["red"] else 0)
-                                , (choose 1 if hud_setting_dict["green"] else 0)
-                                , (choose 1 if hud_setting_dict["blue"] else 0) ).
         } else {
             util_shbus_ack("util hud setting not found", sender).
 
         }
+    } else if opcode = "HUD_COLOR_SET" {
+        set hud_color to RGB(data[0],data[1],data[2]).
     } else if opcode = "HUD_ALIGN_SET" {
         set align_elev to data[0].
         set align_head to data[1].
