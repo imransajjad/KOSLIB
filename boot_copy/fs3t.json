@@ -14,8 +14,8 @@
                 "GAIN_SCHEDULE_ENABLED", true,
                 "PITCH_SPECIFIC_INERTIA", 28,
                 "MAX_ROLL", 630,
-                "PR_KP",1.4,
-                "PR_KI",2.2,
+                "PR_KP",1.0,
+                "PR_KI",1.8,
                 "PR_KD",0.1,
                 "YR_KP",3,
                 "YR_KI",0,
@@ -43,7 +43,7 @@
         "AP_NAV",
         {
             "entries": [
-                "ROT_GNOM_VERT", 1.5,
+                "ROT_GNOM_VERT", 4.0,
                 "ROT_GNOM_LAT", 0.1,
                 "ROT_GNOM_LONG", 1,
                 
@@ -82,7 +82,11 @@
                 "GHEAD", 90.4,
                 "PITCH_DIV", 5.0,
                 "FLARE_ALT", 15.0,
-                "SHIP_HEIGHT", 1.65
+                "SHIP_HEIGHT", 1.65,
+
+                "COLOR_R", 0.5,
+                "COLOR_G", 1.0,
+                "COLOR_B", 0.75
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

@@ -267,7 +267,7 @@ function ap_nav_srf_wp_guide {
     set final_radius to max(MIN_SRF_RAD, (wp["vel"])^2/(wp["nomg"]*g0)).
     set farness to wp_vec:mag/final_radius.
 
-    if ( final_radius > 20000) or (wp_vec:mag > 9*final_radius) {
+    if ( final_radius > 30000) or (wp_vec:mag > 9*final_radius) {
         set AP_NAV_H_SET to latlng(wp["lat"],wp["lng"]):heading.
         set WP_FOLLOW_MODE["F"] to false.
         set WP_FOLLOW_MODE["A"] to false.
@@ -346,19 +346,22 @@ function ap_nav_srf_wp_guide {
 
         if (to_circ <= 0.00) and (in_circ < 2) {
             set WP_FOLLOW_MODE["F"] to true.
-        } else if (in_circ > 4) {
+        } else if (in_circ > 2) and (farness > 2 ) {
             set WP_FOLLOW_MODE["F"] to false.
         }
 
         if WP_FOLLOW_MODE["F"] {
             set alpha_x to head_have[1].
+            // util_hud_push_right("nav_srf", "head_have[1]").
         } else {
             if (farness-2*sin(head_have[1]) >= 0) {
                 set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
                   / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
+                // util_hud_push_right("nav_srf", "asin()").
                 
             } else {
                 set alpha_x to head_have[1].
+                // util_hud_push_right("nav_srf", "false head").
             }
         }
 
@@ -468,9 +471,9 @@ function ap_nav_srf_status_string {
                                                  "/" + round_dec(head_have[1],2) +
                 char(10)+"n_have " + round_dec(new_have[0],2) +
                                                  "/" + round_dec(new_have[1],2) +
-                char(10)+"/\  " + round_dec(farness,2) +
-                char(10)+"/c  " + round_dec(in_circ,2) +
-                char(10)+"/vc " + round_dec(to_circ,2) +
+                char(10)+"/\  " + round_dec(farness,4) +
+                char(10)+"/c  " + round_dec(in_circ,4) +
+                char(10)+"/vc " + round_dec(to_circ,4) +
                 char(10)+"O" + round_dec(final_radius,0).
     }
 

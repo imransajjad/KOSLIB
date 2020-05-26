@@ -27,7 +27,10 @@ local hud_setting_dict is lexicon("on", ON_START,
         "movable", false).
 
 local hud_far is 30.0.
-local hud_color is RGB(0,1,0).
+local hud_color is RGB(
+        get_param(PARAM, "COLOR_R", 0),
+        get_param(PARAM, "COLOR_G", 1),
+        get_param(PARAM, "COLOR_B", 0)).
 
 local lock camera_offset_vec to SHIP:CONTROLPART:position + 
     CAMERA_HEIGHT*ship:facing:topvector + 
