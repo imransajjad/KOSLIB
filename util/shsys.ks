@@ -7,30 +7,22 @@ local other_ships is UNIQUESET().
 local PARAM is readJson("param.json")["UTIL_SHSYS"].
 
 
-local MAIN_ANTENNAS_NAME is (choose PARAM["MAIN_ANTENNAS_NAME"]
-        if PARAM:haskey("MAIN_ANTENNAS_NAME") else "").
-local AUX_ANTENNAS_NAME is (choose PARAM["AUX_ANTENNAS_NAME"]
-        if PARAM:haskey("AUX_ANTENNAS_NAME") else "").
+local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
+local AUX_ANTENNAS_NAME is get_param(PARAM, "AUX_ANTENNAS_NAME", "").
+local ARM_RLAUNCH_STATUS is get_param(PARAM, "ARM_RLAUNCH_STATUS", "").
 
-local ARM_RLAUNCH_STATUS is (choose PARAM["ARM_RLAUNCH_STATUS"]
-        if PARAM:haskey("ARM_RLAUNCH_STATUS") else false).
+local ATMOS_ESCAPE_STAGE is get_param(PARAM, "ATMOS_ESCAPE_STAGE", "").
+local ATMOS_ESCAPE_ALT is get_param(PARAM, "ATMOS_ESCAPE_ALT", "").
 
-local ATMOS_ESCAPE_STAGE is (choose PARAM["ATMOS_ESCAPE_STAGE"]
-        if PARAM:haskey("ATMOS_ESCAPE_STAGE") else false).
-local ATMOS_ESCAPE_ALT is (choose PARAM["ATMOS_ESCAPE_ALT"]
-        if PARAM:haskey("ATMOS_ESCAPE_ALT") else false).
-
-local REENTRY_STAGE is (choose PARAM["REENTRY_STAGE"]
-        if PARAM:haskey("REENTRY_STAGE") else false).
-local REENTRY_ALT is (choose PARAM["REENTRY_ALT"]
-        if PARAM:haskey("REENTRY_ALT") else false).
-local PARACHUTE_ALT is (choose PARAM["PARACHUTE_ALT"]
-        if PARAM:haskey("PARACHUTE_ALT") else false).
+local REENTRY_STAGE is get_param(PARAM, "REENTRY_STAGE", "").
+local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", "").
+local PARACHUTE_ALT is get_param(PARAM, "PARACHUTE_ALT", "").
 
 local PARAM is readJson("1:/param.json").
-local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
-        if PARAM:haskey("AP_ENGINES") and
-        PARAM["AP_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
+local MAIN_ENGINE_NAME is "".
+if PARAM:haskey("AP_ENGINES") {
+    set MAIN_ENGINE_NAME to get_param(PARAM["AP_ENGINES"], "MAIN_ENGINE_NAME", "").
+}
 
 
 local main_engines is get_parts_tagged(MAIN_ENGINE_NAME).
@@ -141,14 +133,16 @@ function util_shsys_decode_rx_msg {
         return.
     }
 
-    IF opcode:startswith("SYS_CB_OPEN") {
+    if opcode:startswith("SYS_CB_OPEN") {
         set cargo_bay_opened_count to cargo_bay_opened_count + 1.
         set bays to true.
-    } ELSE IF opcode = "SYS_CB_CLOSE" {
+    } else if opcode = "SYS_CB_CLOSE" {
         set bays to false.
-    } ELSE IF opcode = "SYS_PL_AWAY" {
+    } else if opcode = "SYS_PL_AWAY" {
         wait 0.1.
         get_another_ship(ship:name+" Probe").
+    } else if opcode = "SYS_DO_ACTION" {
+        util_shsys_do_action(data[0]).
     } else {
         util_shbus_ack("could not decode shsys rx msg", sender).
         print "could not decode shsys rx msg".
@@ -179,6 +173,49 @@ function util_shsys_check {
     }
 
     iterate_spacecraft_system_state().
+}
+
+function util_shsys_do_action {
+    parameter key_in.
+    if key_in = "1" {
+        toggle AG1.
+    } else if key_in = "2" {
+        toggle AG2.
+    } else if key_in = "3" {
+        toggle AG3.
+    } else if key_in = "4" {
+        toggle AG4.
+    } else if key_in = "5" {
+        toggle AG5.
+    } else if key_in = "6" {
+        toggle AG6.
+    } else if key_in = "7" {
+        toggle AG7.
+    } else if key_in = "8" {
+        toggle AG8.
+    } else if key_in = "9" {
+        toggle AG9.
+    } else if key_in = "0" {
+        toggle AG10.
+    } else if key_in = "g" {
+        toggle GEAR.
+    } else if key_in = "r" {
+        toggle RCS.
+    } else if key_in = "t" {
+        toggle SAS.
+    } else if key_in = "u" {
+        toggle LIGHTS.
+    } else if key_in = "b" {
+        toggle BRAKES.
+    } else if key_in = "m" {
+        toggle MAPVIEW.
+    } else if key_in = " " {
+        print "stage manually".
+    } else {
+        print "could not do action " + key_in.
+        return false.
+    }
+    return true.
 }
 
 function util_shsys_status_string {

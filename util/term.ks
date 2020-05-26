@@ -109,44 +109,12 @@ local function print_help_by_tag {
 
 local function do_action_group_or_key {
     parameter key_in.
-    if key_in = "1" {
-        toggle AG1.
-    } else if key_in = "2" {
-        toggle AG2.
-    } else if key_in = "3" {
-        toggle AG3.
-    } else if key_in = "4" {
-        toggle AG4.
-    } else if key_in = "5" {
-        toggle AG5.
-    } else if key_in = "6" {
-        toggle AG6.
-    } else if key_in = "7" {
-        toggle AG7.
-    } else if key_in = "8" {
-        toggle AG8.
-    } else if key_in = "9" {
-        toggle AG9.
-    } else if key_in = "0" {
-        toggle AG10.
-    } else if key_in = "g" {
-        toggle GEAR.
-    } else if key_in = "r" {
-        toggle RCS.
-    } else if key_in = "t" {
-        toggle SAS.
-    } else if key_in = "u" {
-        toggle LIGHTS.
-    } else if key_in = "b" {
-        toggle BRAKES.
-    } else if key_in = "m" {
-        toggle MAPVIEW.
-    } else if key_in = " " {
-        print "stage manually".
-    } else {
-        return false.
+    // try sending the message to shsys regardless whether it's enabled
+    if defined UTIL_SHBUS_ENABLED {
+        util_shbus_tx_msg("SYS_DO_ACTION", key_in).
+        return true.
     }
-    return true.
+    return false.
 }
 
 // util_term_parse_command function is named like a global function
@@ -210,7 +178,12 @@ local function raw_input_to_args {
         local arg_strings is commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
         local numlist is list().
         for i in arg_strings {
-            numlist:add( i:toscalar() ).
+            local arg_as_num is i:toscalar(-9999999).
+            if arg_as_num = -9999999 {
+                numlist:add(i).
+            } else {
+                numlist:add(arg_as_num).
+            }
         }
         return numlist.
     }

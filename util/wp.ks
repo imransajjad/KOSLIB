@@ -176,7 +176,7 @@ local function generate_takeoff_seq {
         list(start_alt+pullup_radius*(1-cos(pullup_angle)), 350, pr[0], pr[1],pullup_angle,heading),
         list(start_alt+pullup_radius*(1-cos(pullup_angle))+
             takeoff_distance*sin(pullup_angle), 350, pesc[0], pesc[1],pullup_angle,heading),
-        list(-2)
+        list("g")
         ).
     return takeoff_sequence_WP.
 }
@@ -215,14 +215,14 @@ local function generate_landing_seq {
     list(alt_stp + flare_h +distance*tan(GSlope)/2, 1.17*speed, p4[0], p4[1],-GSlope,runway_angle),
     list(alt_stp + flare_h +distance*tan(GSlope)/10, 1.17*speed, p3[0], p3[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
-    list(-2),
+    list("g"),
     list(alt_stp , 0.857*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
     list(alt_stp-3.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
-    list(-1)). // brakes
+    list("b")). // brakes
 
     if flare_h < GCAS_ALTITUDE {
         landing_sequence:remove(4).
-        landing_sequence:insert(3, list(-2)).
+        landing_sequence:insert(3, list("g")).
     }
 
     return landing_sequence.
@@ -387,50 +387,18 @@ local function waypoint_print_str {
 }
 
 local function waypoint_do_leading_action {
+
     
     if wp_queue:length > 0 {
         if wp_queue[0]["mode"] = "act" {
-            set action_code to wp_queue[0]["do_action"].
+            local action_code is wp_queue[0]["do_action"].
             waypoint_remove(0).
             print "doing action from waypoint".
-            if action_code = 0 {
-                if is_active_vessel() {
-                    stage.
-                } else {
-                    print "cannot stage; not active".
-                }
-            } else if action_code = 1 {
-                toggle AG1.
-            } else if action_code = 2 {
-                toggle AG2.
-            } else if action_code = 3 {
-                toggle AG3.
-            } else if action_code = 4 {
-                toggle AG4.
-            } else if action_code = 5 {
-                toggle AG5.
-            } else if action_code = 6 {
-                toggle AG6.
-            } else if action_code = 7 {
-                toggle AG7.
-            } else if action_code = 8 {
-                toggle AG8.
-            } else if action_code = 9 {
-                toggle AG9.
-            } else if action_code = -1 {
-                toggle BRAKES.
-            } else if action_code = -2 {
-                toggle GEAR.
-            } else if action_code = -3 {
-                toggle RCS.
-            } else if action_code = -4 {
-                toggle SAS.
-            } else if action_code = -5 {
-                toggle LIGHTS.
-            } else if action_code = -99 {
-                print "invalid wp except".
+            if defined UTIL_SHSYS_ENABLED {
+                util_shsys_do_action(action_code).
+                return.
             } else {
-                print "Could not parse action:" + action_code.
+                print "util_shsys required to do actions".
             }
             waypoint_do_leading_action().
         }
