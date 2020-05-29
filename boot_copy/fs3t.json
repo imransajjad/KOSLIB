@@ -115,10 +115,20 @@
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
+        "UTIL_RADAR",
+        {
+            "entries": [
+                "MAX_RANGE", 200000,
+                "MAX_ANGLE", 25,
+                "DISPLAY_UPDATE_PERIOD", 0.25,
+                "TARGET_SCAN_TIMEOUT", 10
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
         "UTIL_TERM",
         {
             "entries": [
-                "STARTUP_COMMAND", "unask flcs;askhost flcs;"
+                "STARTUP_COMMAND", "unask flcs;askhost flcs"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

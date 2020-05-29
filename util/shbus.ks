@@ -38,6 +38,7 @@ function util_shbus_get_help_str {
         "hello       hello to hosts",
         "flush       clear message queues",
         "inv         invalid message",
+        "shtx(OP,DATA)  custom command",
         " ARG=[core]            or",
         " ARG=target            or",
         " ARG=target [core]     or",
@@ -132,6 +133,13 @@ function util_shbus_parse_command {
         until not util_shbus_rx_msg() { }
     } else if commtext:STARTSWITH("inv"){
         util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
+    } else if commtext:STARTSWITH("shtx"){
+        if brackets {
+            util_shbus_tx_msg(args[0],args:sublist(1,args:length-1)).
+        } else {
+            print "use shtx(OP_CODE, DATA)".
+        }
+
     } else {
         return false. // could not parse command
     }

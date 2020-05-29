@@ -6,6 +6,10 @@ local other_ships is UNIQUESET().
 
 local PARAM is readJson("param.json")["UTIL_SHSYS"].
 
+local sys_unspin is get_param(PARAM, "UNSPIN_ON_START", true).
+
+local GET_PARENT_ENGINE is get_param(PARAM, "GET_PARENT_ENGINE", false).
+local SPIN_ON_ENGINE is get_param(PARAM, "SPIN_ON_ENGINE", false).
 
 local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
 local AUX_ANTENNAS_NAME is get_param(PARAM, "AUX_ANTENNAS_NAME", "").
@@ -26,6 +30,12 @@ if PARAM:haskey("AP_ENGINES") {
 
 
 local main_engines is get_parts_tagged(MAIN_ENGINE_NAME).
+if GET_PARENT_ENGINE {
+    // try getting a parent engine
+    local stage_engine is get_ancestor_with_module("ModuleEnginesFX").
+    if not (stage_engine = -1) { main_engines:add(stage_engine). }
+}
+
 local main_antennas is get_parts_tagged(MAIN_ANTENNAS_NAME).
 local aux_antennas is get_parts_tagged(AUX_ANTENNAS_NAME).
 
@@ -133,7 +143,9 @@ function util_shsys_decode_rx_msg {
         return.
     }
 
-    if opcode:startswith("SYS_CB_OPEN") {
+    if opcode:startswith("SYS_UNSPIN") {
+        set sys_unspin to true.
+    } else if opcode:startswith("SYS_CB_OPEN") {
         set cargo_bay_opened_count to cargo_bay_opened_count + 1.
         set bays to true.
     } else if opcode = "SYS_CB_CLOSE" {
@@ -152,8 +164,12 @@ function util_shsys_decode_rx_msg {
 }
 
 // main function for ship systems
+// returns true if sys is not blocked.
 function util_shsys_check {
 
+    if SPIN_ON_ENGINE and not sys_unspin {
+        set sys_unspin to main_engines[0]:ignition.
+    }
     // close cargo bay after deploying other ship
     // at a safe distance
     if other_ships:length > 0 {
@@ -173,6 +189,7 @@ function util_shsys_check {
     }
 
     iterate_spacecraft_system_state().
+    return sys_unspin.
 }
 
 function util_shsys_do_action {

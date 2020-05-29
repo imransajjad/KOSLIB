@@ -264,12 +264,30 @@ function spin_if_not_core {
 }
 
 // try to get param file in decreasing order of specificity
+// if ship:name = "SHIP 1A X" and core:tag = "special alpha"
+//   s1xspecial.json > special.json > s1x.json
 function get_param_file {
-    if exists("0:/param/"+string_acro(ship:name)+core:tag+".json") {
-        copypath("0:/param/"+string_acro(ship:name)+core:tag+".json","param.json").
-    } else if exists("0:/param/"+core:tag+".json") {
-        copypath("0:/param/"+core:tag+".json","param.json").
+    local core_first_word is core:tag:split(" ")[0].
+    if exists("0:/param/"+string_acro(ship:name)+core_first_word+".json") {
+        copypath("0:/param/"+string_acro(ship:name)+core_first_word+".json","param.json").
+    } else if exists("0:/param/"+core_first_word+".json") {
+        copypath("0:/param/"+core_first_word+".json","param.json").
     } else if exists("0:/param/"+string_acro(ship:name)+".json") {
         copypath("0:/param/"+string_acro(ship:name)+".json","param.json").
     }
+}
+
+function get_ancestor_with_module {
+    parameter module_str.
+    parameter walk_max is 10.
+
+    local current_part is core:part.
+    for i in range(0,walk_max) {
+        if current_part:hasmodule(module_str) {
+            return current_part.
+        } else {
+            set current_part to current_part:parent.
+        }
+    }
+    return -1. // not found error condition
 }

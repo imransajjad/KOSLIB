@@ -2,19 +2,18 @@
 GLOBAL UTIL_RADAR_ENABLED IS true.
 
 
-local PARAM is readJson("param.json")["UTIL_TERM"].
+local PARAM is readJson("param.json")["UTIL_RADAR"].
 
 
 
 local max_range is get_param(PARAM, "MAX_RANGE", 100000).
 local max_angle is get_param(PARAM, "MAX_ANGLE", 20).
 
-local Ts is get_param(PARAM, "TS", 0.25).
-local scan_timeout_max is get_param(PARAM, "SCAN_TIMEOUT", 10).
+local Ts is get_param(PARAM, "DISPLAY_UPDATE_PERIOD", 1.0).
+local scan_timeout_per_target is get_param(PARAM, "TARGET_SCAN_TIMEOUT", 5).
 
 lock AG to AG1.
 local prev_AG is AG.
-local nAG is 0. // number of times action group was pressed
 
 local lock line_of_sight to ship:facing.
 
@@ -25,22 +24,24 @@ local target_list is list().
 
 local status_str is "".
 
-IF NOT (DEFINED FLCS_PROC) {GLOBAL FLCS_PROC IS 0. } // required global.
-
 local hudtext_sent is false.
 
 local debug_str is "".
 
 local data_width is 12.
-local view_width is TERMINAL:WIDTH-data_width.
-local view_height is TERMINAL:HEIGHT-1.
+lock view_width to TERMINAL:WIDTH-data_width.
+lock view_height to TERMINAL:HEIGHT-1.
 
 
 
 local function print_debug {
     parameter str_in.
     set debug_str to debug_str+str_in.
-    print debug_str AT(view_width,0).
+}
+
+local function do_debug_print {
+    print "debug_str: " + debug_str AT(0,TERMINAL:HEIGHT-1).
+    set debug_str to "".
 }
 
 local function set_status {
@@ -96,11 +97,6 @@ local function print_target_data {
 }
 
 
-local function do_debug_print {
-    print debug_str AT(0,TERMINAL:HEIGHT-1).
-    set debug_str to "".
-}
-
 local function hudtext {
     parameter ttext.
     if defined UTIL_SHBUS_ENABLED and not hudtext_sent {
@@ -151,42 +147,48 @@ local function do_lock {
 }
 
 function target_radar_update_target{
-    if nAG = 1 {
-        if scan_timeout = 0 {
-            if next_lock_index = 0 {
-                do_scan().
-                if target_list:length > 0 {
-                    set scan_timeout to scan_timeout_max.
-                    hudtext("sR"+target_list:length ).
-                    set_status("scanned").
-                }
+    if scan_timeout = 0 {
+        if next_lock_index = 0 {
+            do_scan().
+            if target_list:length > 0 {
+                set scan_timeout to scan_timeout_per_target*target_list:length.
+                hudtext("sR"+target_list:length).
+                set_status("scanned").
             } else {
-                set_status("").
-                just_unlock().
-                set next_lock_index to 0.
+                set scan_timeout to 1.
+                set_status("no tar").
             }
         } else {
-            if next_lock_index = target_list:length {
-                set_status("").
-                just_unlock().
-                set scan_timeout to 0.
-                set next_lock_index to 0.
-            } else {
-                set_status("locked").
-                do_lock().
-                set next_lock_index to next_lock_index+1.
-                set scan_timeout to scan_timeout_max.
-
-            }
+            set_status("").
+            just_unlock().
+            set next_lock_index to 0.
         }
-    }
-    set scan_timeout to max(0, scan_timeout - Ts).
-    if scan_timeout = 0 {
-        set_status("").
-        hudtext_remove().
+    } else {
+        if next_lock_index = target_list:length {
+            set_status("").
+            just_unlock().
+            set scan_timeout to 0.
+            set next_lock_index to 0.
+        } else {
+            set_status("locked").
+            do_lock().
+            set next_lock_index to next_lock_index+1.
+            // set scan_timeout to scan_timeout_per_target.
+
+        }
     }
 }
 
+
+function scan_timeout_do {
+    if scan_timeout > 0 {
+        set scan_timeout to max(0, scan_timeout - Ts).
+        if scan_timeout = 0 {
+            set_status("").
+            hudtext_remove().
+        }
+    }
+}
 
 
 function get_screen_position {
@@ -247,9 +249,40 @@ function target_radar_draw_picture {
     print round_dec( (2^max_distance_log)/1000,1) AT(0,0).
     print round_dec( (2^min_distance_log)/1000,1) AT(0,view_height).
 
-    //do_debug_print().
+    // do_debug_print().
     print_status().
     print_target_data().
+}
+
+function util_radar_loop {
+    local nAG is 0.
+
+    on AG {
+        set nAG to nAG+1.
+        if nAG >= 2 {
+            return false.
+        } else {
+            return true.
+        }
+    }
+
+    until false {
+        if nAG = 1 {
+            target_radar_update_target().
+        }
+        target_radar_draw_picture().
+        scan_timeout_do().
+        // print_debug(nAG).
+        if nAG >= 2 {
+            CLEARSCREEN.
+            set_status("").
+            hudtext_remove().
+            return.
+        } else {
+            set nAG to max(0,nAG-1).
+        }
+        wait Ts.
+    }
 }
 
 // terminal compatible functions
@@ -267,25 +300,7 @@ function util_radar_parse_command {
     parameter args is list().
 
     if commtext = "radar" {
-        set nAG to 0.
-
-        on AG {
-            set nAG to nAG+1.
-            if nAG >= 2 {
-                return false.
-            } else {
-                return true.
-            }
-        }
-
-        until nAG >= 2 {
-            target_radar_update_target().
-            target_radar_draw_picture().
-            set nAg to 0.
-            wait Ts.
-        }
-        CLEARSCREEN.
-        set nAg to 0.
+        util_radar_loop().
         print "radar exiting".
         return true.
     } else {
