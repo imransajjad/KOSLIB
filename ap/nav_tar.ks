@@ -1,4 +1,5 @@
 
+global AP_NAV_TAR_ENABLED is true.
 
 function ap_nav_tar_stick {
     

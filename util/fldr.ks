@@ -55,7 +55,7 @@ local function list_logs {
 }
 
 local function send_logs {
-    if NOT has_connection_to_base() {
+    if not has_connection_to_base() {
         print "send_logs: no connection to KSC".
         return.
     }
@@ -100,7 +100,7 @@ local function start_logging {
     local lock h to ship:ALTITUDE.
     local lock m to ship:MASS.
 
-    local lock u0 to ship:control:PILOTMAINTHROTTLE.
+    local lock u0 to ship:control:mainthrottle.
     local lock u1 to ship:control:pitch.
     local lock u2 to ship:control:yaw.
     local lock u3 to ship:control:roll.
@@ -333,19 +333,21 @@ local function run_test_control {
     local u2_trim is ship:control:yaw.
     local u3_trim is ship:control:roll.
 
-    if NOT (U_seq[0]:length = U_seq[1]:length and 
-        U_seq[0]:length = U_seq[2]:length and
-        U_seq[0]:length = U_seq[3]:length and
-        U_seq[0]:length = PULSE_TIMES:length) {
-        print "lengths of control sequences not equal, aborting".
-        return.
+    // try and make sequence lengths equal to time
+    for i in range(0,4) {
+        if U_seq[i]:length > PULSE_TIMES:length {
+            set U_seq[i]to U_seq[i]:sublist(0,PULSE_TIMES:length).
+            // trim list if more
+        }
+        until U_seq[i]:length = PULSE_TIMES:length {
+            U_seq[i]:add(0). // add zeros if less
+        }
     }
+
+
     local N is U_seq[0]:length.
 
-    //UNLOCK ship:control:mainthrottle.
-
-    set INICES to LIST().
-    FOR i IN RANGE(0, N, 1) {
+    for i in range(0, N, 1) {
         set ship:control:mainthrottle to u0_trim + U_seq[0][i].
         set ship:control:pitch to u1_trim + U_seq[1][i].
         set ship:control:yaw to u2_trim + U_seq[2][i].

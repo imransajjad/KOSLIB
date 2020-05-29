@@ -2,13 +2,9 @@
 GLOBAL AP_NAV_ENABLED IS TRUE.
 local PARAM is readJson("1:/param.json")["AP_NAV"].
 
+local DOCK_DISTANCE is get_param(PARAM, "TARGET_DOCK_DISTANCE_MAX", 200).
+
 local lock cur_vel_head to heading(vel_bear, vel_pitch).
-
-local GOT_ENABLED_FLAGS is false.
-local USE_UTIL_WP is false.
-
-local lock W_PITCH_NOM to max(50,vel)/(g0*ROT_GNOM_VERT).
-local lock W_YAW_NOM to max(50,vel)/(g0*ROT_GNOM_LAT).
 
 global AP_NAV_V_SET_PREV is -1.0.
 global AP_NAV_V_SET is vel.
@@ -23,31 +19,32 @@ global AP_NAV_W_R_SET is 0.0.
 global AP_NAV_TIME_TO_WP is 0.
 
 local USE_GCAS is get_param(PARAM,"GCAS_ENABLED",false).
-
+local USE_UTIL_WP is false.
+local SRF_ENABLED is false.
+local ORB_ENABLED is false.
+local TAR_ENABLED is false.
 
 local lock in_orbit to (ship:apoapsis > 20000).
 local lock in_surface to (ship:altitude < 36000).
-local lock in_target to (HASTARGET).
+local lock in_docking to (HASTARGET and target:distance < DOCK_DISTANCE).
+
+
+local flags_updated is false.
+local function update_flags {
+    if not flags_updated {
+        set SRF_ENABLED to defined AP_NAV_SRF_ENABLED.
+        set ORB_ENABLED to defined AP_NAV_ORB_ENABLED.
+        set TAR_ENABLED to defined AP_NAV_TAR_ENABLED.
+        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
+        set flags_updated to true.
+    }
+}
 
 function ap_nav_display {
-    // for waypoint in waypoint_queue, set pitch, heading to waypoint, else
-    // manually control heading.
 
-    // in flcs mode"
-    //      if wp exists, set nav to wp, set dnav to no set
-    //      else do nothing
-    // if vel mode
-    //      if wp exists, set nav to wp, set dvel to manual, set dpitch dbear to no set.
-    //      else,           set nav to current heading, set dvel to manual.
-    // if nav mode
-    //      if wp exists, set nav to wp, set dnav to no set
-    //      else,           set dnav to manual
+    update_flags().
 
-    if not GOT_ENABLED_FLAGS {
-        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
-    }
-
-    if in_surface and (USE_GCAS) and ap_nav_srf_gcas(){
+    if in_surface and USE_GCAS and ap_nav_srf_gcas(){
         return.
     }
 
@@ -56,21 +53,24 @@ function ap_nav_display {
 
     if USE_UTIL_WP and (util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
-        if cur_wayp["mode"] = "srf" {
+        if SRF_ENABLED and cur_wayp["mode"] = "srf" {
             ap_nav_srf_wp_guide(cur_wayp).
-        } else if cur_wayp["mode"] = "orb" {
+        } else if ORB_ENABLED and cur_wayp["mode"] = "orb" {
             ap_nav_orb_wp_guide(cur_wayp).
-        } else if cur_wayp["mode"] = "tar" {
+        } else if TAR_ENABLED and cur_wayp["mode"] = "tar" {
             ap_nav_tar_wp_guide(cur_wayp).
+        } else {
+            print "got unsupported wp, marking it done".
+            util_wp_done().
         }
     } else {
-        if in_surface {
+        if SRF_ENABLED and in_surface {
             ap_nav_srf_stick().
         }
-        if in_orbit {
+        if ORB_ENABLED and in_orbit {
             // ap_nav_orb_stick().
         }
-        if in_target {
+        if TAR_ENABLED and in_docking {
             ap_nav_tar_stick().
         }
     }
@@ -91,36 +91,30 @@ function ap_nav_get_vel {
 }
 
 function ap_nav_get_time_to_wp {
-    if true {
-        return round(min(9999,AP_NAV_TIME_TO_WP)).
-    } else {
-        return 0.
-    }
+    return round(min(9999,AP_NAV_TIME_TO_WP)).
 }
 
 function ap_nav_do {
     // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
     // are used by these functions
-    if in_surface {
+    if SRF_ENABLED and in_surface {
         ap_nav_do_aero_rot().
-    } 
-    if in_orbit {
-        // ap_nav_do_orb_nav().
-    }
-    if in_target {
-        // ap_nav_do_tar().
+    } else if ORB_ENABLED and in_orbit {
+        ap_nav_do_orb_nav().
+    } else if TAR_ENABLED and in_docking {
+        ap_nav_do_tar().
     }
 }
 
 function ap_nav_status_string {
     local dstr is "".
-    if in_surface {
+    if SRF_ENABLED and in_surface {
         set dstr to dstr+ap_nav_srf_status_string().
     }
-    if in_orbit {
+    if ORB_ENABLED and in_orbit {
         set dstr to dstr+ap_nav_orb_status_string().
     }
-    if in_target {
+    if TAR_ENABLED and in_docking {
         set dstr to dstr+ap_nav_tar_status_string().
     }
 

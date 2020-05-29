@@ -9,12 +9,6 @@ function has_connection_to_base {
     return false.
 }
 
-function spin_if_not_us {
-    until (SHIP_NAME_ACRO_IN_PARAMS = string_acro(ship:name) ) {
-        wait 1.0.
-    }
-}
-
 global DEV_FLAG is true.
 
 WAIT UNTIL SHIP:LOADED.
@@ -26,13 +20,14 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
+    COPYPATH("0:/koslib/util/radar.ks","util_radar").
     COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
     COPYPATH("0:/koslib/util/term.ks","util_term").
     print "loaded resources from base".
 }
 run once "util_common".
-global SHIP_NAME_ACRO_IN_PARAMS is
-        readJson("1:/param.json")["ship_name_acro"].
+global SHIP_TAG_IN_PARAMS is
+        get_param( readJson("1:/param.json"), "control_tag", string_acro(ship:name)).
 spin_if_not_us().
 
 wait 0.04.
@@ -43,12 +38,12 @@ run once "util_fldr".
 run once "util_wp".
 run once "util_hud".
 run once "util_shbus".
+run once "util_radar".
 run once "util_term".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
-util_term_do_command("unask flcs").
-util_term_do_command("askhost flcs").
+util_term_do_command(get_param(readJson("1:/param.json")["UTIL_TERM"], "STARTUP_COMMAND","")).
 
 UNTIL FALSE {
     spin_if_not_us().

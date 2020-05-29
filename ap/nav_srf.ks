@@ -267,7 +267,7 @@ function ap_nav_srf_wp_guide {
     set final_radius to max(MIN_SRF_RAD, (wp["vel"])^2/(wp["nomg"]*g0)).
     set farness to wp_vec:mag/final_radius.
 
-    if ( final_radius > 30000) or (wp_vec:mag > 9*final_radius) {
+    if (wp_vec:mag > 9*final_radius) {
         set AP_NAV_H_SET to latlng(wp["lat"],wp["lng"]):heading.
         set WP_FOLLOW_MODE["F"] to false.
         set WP_FOLLOW_MODE["A"] to false.

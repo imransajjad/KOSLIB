@@ -248,3 +248,28 @@ function simple_q {
 
     return 0.00000840159*constant:e^(-height/5000)*velocity^2.
 }
+
+// requires a global called SHIP_TAG_IN_PARAMS
+function spin_if_not_us {
+    until (SHIP_TAG_IN_PARAMS = string_acro(ship:name) ) {
+        wait 1.0.
+    }
+}
+
+// requires a global called SHIP_TAG_IN_PARAMS
+function spin_if_not_core {
+    until (SHIP_TAG_IN_PARAMS = core:tag ) {
+        wait 0.01.
+    }
+}
+
+// try to get param file in decreasing order of specificity
+function get_param_file {
+    if exists("0:/param/"+string_acro(ship:name)+core:tag+".json") {
+        copypath("0:/param/"+string_acro(ship:name)+core:tag+".json","param.json").
+    } else if exists("0:/param/"+core:tag+".json") {
+        copypath("0:/param/"+core:tag+".json","param.json").
+    } else if exists("0:/param/"+string_acro(ship:name)+".json") {
+        copypath("0:/param/"+string_acro(ship:name)+".json","param.json").
+    }
+}

@@ -74,6 +74,13 @@ local function update_help_list {
         }
         set HELP_LIST_UPDATED to true.
     }
+    if (defined UTIL_RADAR_ENABLED) and UTIL_RADAR_ENABLED {
+        local newlist is util_radar_get_help_str().
+        for i in range(0,newlist:length) {
+            HELP_LIST:add(newlist[i]).
+        }
+        set HELP_LIST_UPDATED to true.
+    }
 }
 
 local function print_help_page_by_index {
@@ -217,6 +224,8 @@ local function parse_command {
             print("wp parsed").
         } else if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED and util_hud_parse_command(commtext,args) {
             print("hud parsed").
+        } else if (defined UTIL_RADAR_ENABLED) and UTIL_RADAR_ENABLED and util_radar_parse_command(commtext,args) {
+            print("radar parsed").
         //} else if util_dev_parse_command(commtext,args) {
         //  print "dev parsed".
         } else {

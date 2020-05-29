@@ -161,7 +161,7 @@ function ap_missile_wait {
 function ap_missile_setup_separate {
     get_target().
     send_rem_q_unsafe().
-    cargo_bay_open().
+    util_shbus_tx_msg("SYS_CB_OPEN",list(core:tag)).
     wait 2.0.
 
     set DELTA_FACE_AWAY to R(90,0,0)*(-ship:UP)*

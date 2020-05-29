@@ -43,7 +43,7 @@
         "AP_NAV",
         {
             "entries": [
-                "ROT_GNOM_VERT", 4.0,
+                "ROT_GNOM_VERT", 2.0,
                 "ROT_GNOM_LAT", 0.1,
                 "ROT_GNOM_LONG", 1,
                 
@@ -112,6 +112,13 @@
         "UTIL_WP",
         {
             "entries": [
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_TERM",
+        {
+            "entries": [
+                "STARTUP_COMMAND", "unask flcs;askhost flcs;"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

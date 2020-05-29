@@ -33,6 +33,10 @@ if PARAM:haskey("AP_NAV") {
 }
 
 local wp_queue is LIST().
+
+if exists("wp_queue.json") {
+    set wp_queue to readJson("wp_queue.json").
+}
 local cur_mode is "srf".
 
 // wp_queue is LIST of WAYPOINTS
@@ -189,7 +193,7 @@ local function generate_landing_seq {
 
     local lat_stp is -0.0493672258730508.
     local lng_stp is -74.6115615766677.
-    local alt_stp is latlng(lat_stp,lng_stp):terrainheight+3.0.
+    local alt_stp is latlng(lat_stp,lng_stp):terrainheight+2.0.
 
     local stop_dist is 1000.
     set GSlope to abs(GSlope).
@@ -217,7 +221,7 @@ local function generate_landing_seq {
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list("g"),
     list(alt_stp , 0.857*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
-    list(alt_stp-3.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
+    list(alt_stp-2.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
     list("b")). // brakes
 
     if flare_h < GCAS_ALTITUDE {
@@ -535,6 +539,9 @@ function util_wp_decode_rx_msg {
         print "could not decode wp rx msg".
         return false.
     }
+    // since this is the only way to update the waypoint queue
+    // we can write the waypoints to file here, even if they are incomplete.
+    writeJson(wp_queue, "wp_queue.json").
     return true.
 }
 

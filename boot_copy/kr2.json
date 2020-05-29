@@ -1,5 +1,7 @@
 {
     "entries": [
+        "ship_name", "Kerbin Relay 2",
+        "ship_name_acro", "kr2",
         "AP_NAV",
         {
             "entries": [

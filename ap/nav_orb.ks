@@ -1,9 +1,11 @@
 
+global AP_NAV_ORB_ENABLED is true.
+
 function ap_nav_orb_stick {
     
 }
 
-function ap_nav_do_orb {
+function ap_nav_orb_do {
 
 }
 

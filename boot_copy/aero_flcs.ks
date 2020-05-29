@@ -8,12 +8,6 @@ function has_connection_to_base {
     }
 }
 
-function spin_if_not_us {
-    until (SHIP_NAME_ACRO_IN_PARAMS = string_acro(ship:name) ) {
-        wait 1.0.
-    }
-}
-
 WAIT UNTIL SHIP:LOADED.
 
 global DEV_FLAG is true.
@@ -41,8 +35,8 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     print "loaded resources from base".
 }
 run once "util_common".
-global SHIP_NAME_ACRO_IN_PARAMS is
-        readJson("1:/param.json")["ship_name_acro"].
+global SHIP_TAG_IN_PARAMS is
+        get_param( readJson("1:/param.json"), "control_tag", string_acro(ship:name)).
 spin_if_not_us().
 
 // Global plane data
