@@ -187,6 +187,10 @@ function get_parts_tagged {
     return tagged_list.
 }
 
+function get_com_offset {
+    return (-ship:facing)*(ship:position - ship:controlpart:position).
+}
+
 function string_acro {
     parameter strin.
     local strout is "".
@@ -279,14 +283,50 @@ function get_param_file {
 
 function get_ancestor_with_module {
     parameter module_str.
+    parameter return_one_less is false.
     parameter walk_max is 10.
 
     local current_part is core:part.
     for i in range(0,walk_max) {
-        if current_part:hasmodule(module_str) {
-            return current_part.
-        } else {
+
+        if current_part:hasparent and 
+            current_part:parent:hasmodule(module_str) {
+            if return_one_less {
+                return current_part.
+            } else {
+                return current_part:parent.
+            }
+        } else if current_part:hasparent {
             set current_part to current_part:parent.
+        } else {
+            return -1.
+        }
+    }
+    return -1. // not found error condition
+}
+
+function get_child_with_module {
+    parameter module_str.
+    parameter return_one_less is false.
+    parameter walk_max is 10.
+    parameter current_part is core:part.
+
+    if walk_max > 0 {
+        for child in current_part:children {
+            if child:hasmodule(module_str) {
+                return child.
+            }
+        }
+        for child in current_part:children {
+            local grandchild is
+                get_child_with_module(module_str,return_one_less,walk_max-1,child).
+            if not (grandchild = -1) {
+                if return_one_less {
+                    return child.
+                } else {
+                    return grandchild.
+                }
+            }
         }
     }
     return -1. // not found error condition

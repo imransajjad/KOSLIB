@@ -8,19 +8,9 @@ local lock DELTA_TARGET TO R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
 local lock target_pitch TO (mod(DELTA_TARGET:pitch+90,180)-90).
 local lock target_bear TO (360-DELTA_TARGET:yaw).
 
-local Qsafe is TRUE.
-local function is_Qsafe {
-    IF (ship:dynamicpressure > 0.75) AND (Qsafe){
-        set Qsafe TO FALSE.
-        print "above launch Q limit".
-        util_shbus_tx_msg("HUD_PUSHL",list(core:tag, "nQS")).
-    }
-    IF (ship:dynamicpressure < 0.75) AND (NOT Qsafe) {
-        set Qsafe TO TRUE.
-        print "Q safe".
-        util_shbus_tx_msg("HUD_POPL",list(core:tag)).
-    }
-}
+local lock DELTA_ALPHA to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE)*(ship:FACING).
+local lock alpha to -(mod(DELTA_ALPHA:pitch+180,360)-180).
+local lock beta to  (mod(DELTA_ALPHA:yaw+180,360)-180).
 
 local function get_true_intercept_error {
     parameter cur_target.
@@ -48,38 +38,15 @@ local function get_true_intercept_error {
     }
 }
 
-local target_vessel is 0.
-local function get_target {
-    IF HASTARGET {
+local target_vessel is -1.
+function ap_missile_cache_target {
+    if is_active_vessel() and HASTARGET {
         set target_vessel to TARGET.
         print "target locked: "+ target_vessel:NAME.
     }
 }
 
-local function print_com_offset {
-    set off_vec to (ship:position - ship:controlpart:position).
-    print "top  " + off_vec*ship:facing:topvector.
-    print "fore " + off_vec*ship:facing:forevector.
-    print "star " + off_vec*ship:facing:starvector.
-}
-
-local function delta_pro_up {
-    if ship:altitude > 35000 {
-        return R(90,0,0)*(-ship:UP)*(ship:prograde).
-    } else {
-        return R(90,0,0)*(-ship:UP)*(ship:srfprograde).
-    }
-}
-
-function ap_missile_wait {
-    until engine:ignition  {
-        is_Qsafe().
-        wait Ts.
-    }.
-}
-
 function ap_missile_setup_separate {
-    get_target().
     util_shbus_tx_msg("HUD_POPL",list(core:tag)).
     util_shbus_tx_msg("SYS_CB_OPEN",list(core:tag)).
     wait 2.0.
@@ -108,8 +75,6 @@ function ap_missile_setup_separate {
     set STEERINGMANAGER:PITCHPID:KD TO 12.0.
     set STEERINGMANAGER:ROLLPID:KD TO 12.0.
 
-    print_com_offset().
-
     lock steering TO heading(yaw_init,pitch_init,roll_init).
 
     until parent:distance > 3 {
@@ -117,7 +82,7 @@ function ap_missile_setup_separate {
     }
 
     set get_ancestor_with_module("ModuleEnginesFX"):thrustlimit to 100.
-    set my_throttle to 1.0.
+    set throttle to 1.0.
     lock throttle to my_throttle.
     print "engine on".
     until parent:distance > 6 {
@@ -125,9 +90,11 @@ function ap_missile_setup_separate {
     }.
 }
 
-
-function ap_missile_guide {    
-    if target_vessel = 0 {
+local my_throttle is 0.0.
+function ap_missile_guide {
+    lock throttle to my_throttle.
+    set my_throttle to 1.0.
+    if target_vessel = -1 {
         print "trying for 30 sec eta apoapsis".
         set yaw_init to yaw.
         lock steering TO heading(yaw_init,30,0).

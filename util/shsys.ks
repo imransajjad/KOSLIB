@@ -6,10 +6,11 @@ local other_ships is UNIQUESET().
 
 local PARAM is readJson("param.json")["UTIL_SHSYS"].
 
-local sys_unspin is get_param(PARAM, "UNSPIN_ON_START", true).
-
-local GET_PARENT_ENGINE is get_param(PARAM, "GET_PARENT_ENGINE", false).
 local SPIN_ON_ENGINE is get_param(PARAM, "SPIN_ON_ENGINE", false).
+local SPIN_ON_DECOUPLER is get_param(PARAM, "SPIN_ON_DECOUPLER", false).
+local SPIN_ON_FARING is get_param(PARAM, "SPIN_ON_FARING", false).
+local SPIN_ON_SEPARATION is get_param(PARAM, "SPIN_ON_SEPARATION", false).
+
 
 local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
 local AUX_ANTENNAS_NAME is get_param(PARAM, "AUX_ANTENNAS_NAME", "").
@@ -18,9 +19,14 @@ local ARM_RLAUNCH_STATUS is get_param(PARAM, "ARM_RLAUNCH_STATUS", "").
 local ATMOS_ESCAPE_STAGE is get_param(PARAM, "ATMOS_ESCAPE_STAGE", "").
 local ATMOS_ESCAPE_ALT is get_param(PARAM, "ATMOS_ESCAPE_ALT", "").
 
-local REENTRY_STAGE is get_param(PARAM, "REENTRY_STAGE", "").
-local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", "").
-local PARACHUTE_ALT is get_param(PARAM, "PARACHUTE_ALT", "").
+local REENTRY_STAGE is get_param(PARAM, "REENTRY_STAGE", -1).
+local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", -1).
+local PARACHUTE_ALT is get_param(PARAM, "PARACHUTE_ALT", 1000).
+
+local Q_SAFE is get_param(PARAM, "Q_SAFE", 0).
+local qsafe_last is true.
+
+local MIN_SEPARATION is get_param(PARAM, "MIN_SEPARATION", 3).
 
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is "".
@@ -30,14 +36,35 @@ if PARAM:haskey("AP_ENGINES") {
 
 
 local main_engines is get_parts_tagged(MAIN_ENGINE_NAME).
-if GET_PARENT_ENGINE {
-    // try getting a parent engine
+if SPIN_ON_ENGINE {
+    // also try getting a parent engine
     local stage_engine is get_ancestor_with_module("ModuleEnginesFX").
+    if (stage_engine = -1) { get_child_with_module("ModuleEnginesFX"). }
     if not (stage_engine = -1) { main_engines:add(stage_engine). }
 }
 
 local main_antennas is get_parts_tagged(MAIN_ANTENNAS_NAME).
 local aux_antennas is get_parts_tagged(AUX_ANTENNAS_NAME).
+
+local connected_to_decoupler is -1.
+local connected_to_decoupler_children_length is -1.
+if SPIN_ON_DECOUPLER {
+    set connected_to_decoupler to get_ancestor_with_module("ModuleDecouple", true).
+    if (connected_to_decoupler = -1) {
+        // in most cases core-> ... -> connected_to_decoupler -> decoupler
+        set connected_to_decoupler to get_child_with_module("ModuleDecouple", true).
+        if not (connected_to_decoupler = -1) {
+            set connected_to_decoupler_children_length to connected_to_decoupler:children:length.
+        }
+    }
+}
+local decoupler is -1.
+set decoupler to get_ancestor_with_module("ModuleDecouple").
+if (decoupler = -1) { get_child_with_module("ModuleDecouple"). }
+
+local reaction_wheels is -1.
+set reaction_wheels to get_ancestor_with_module("ModuleReactionWheel").
+if (reaction_wheels = -1) { get_child_with_module("ModuleReactionWheel"). }
 
 
 local prev_status is "NA".
@@ -45,6 +72,7 @@ local arm_panels_and_antennas is false.
 local arm_for_reentry is false.
 local arm_parachutes is false.
 
+local initial_ship is ship.
 
 // sets systems according to where spacecraft is
 local function iterate_spacecraft_system_state {
@@ -133,42 +161,51 @@ local function get_another_ship {
     //}
 }
 
-function util_shsys_decode_rx_msg {
-    parameter sender.
-    parameter recipient.
-    parameter opcode.
-    parameter data.
-
-    if not opcode:startswith("SYS") {
-        return.
-    }
-
-    if opcode:startswith("SYS_UNSPIN") {
-        set sys_unspin to true.
-    } else if opcode:startswith("SYS_CB_OPEN") {
-        set cargo_bay_opened_count to cargo_bay_opened_count + 1.
-        set bays to true.
-    } else if opcode = "SYS_CB_CLOSE" {
-        set bays to false.
-    } else if opcode = "SYS_PL_AWAY" {
-        wait 0.1.
-        get_another_ship(ship:name+" Probe").
-    } else if opcode = "SYS_DO_ACTION" {
-        util_shsys_do_action(data[0]).
-    } else {
-        util_shbus_ack("could not decode shsys rx msg", sender).
-        print "could not decode shsys rx msg".
-        return false.
-    }
-    return true.
-}
-
 // main function for ship systems
 // returns true if sys is not blocked.
 function util_shsys_check {
 
-    if SPIN_ON_ENGINE and not sys_unspin {
-        set sys_unspin to main_engines[0]:ignition.
+    // check for fakely staged parts
+    if SPIN_ON_ENGINE {
+        set SPIN_ON_ENGINE to not main_engines[0]:ignition.
+    }
+    if SPIN_ON_DECOUPLER {
+        if connected_to_decoupler_children_length >= 0 {
+            set SPIN_ON_DECOUPLER to not 
+                (connected_to_decoupler:children:length = connected_to_decoupler_children_length) .
+        } else {
+            set SPIN_ON_DECOUPLER to not connected_to_decoupler:hasparent.
+        }
+    }
+    if SPIN_ON_FARING {
+        set SPIN_ON_FARING to false. // not implemented yet
+    }
+    if SPIN_ON_SEPARATION {
+        if initial_ship:distance > MIN_SEPARATION {
+            set SPIN_ON_SEPARATION to false.
+        }
+    }
+    local do_spin is ( SPIN_ON_ENGINE or SPIN_ON_DECOUPLER or SPIN_ON_FARING or SPIN_ON_SEPARATION).
+
+    // send any safety messages to hud
+    if Q_SAFE > 0 {
+        if qsafe_last and (ship:q > Q_SAFE){
+            print "Q unsafe".
+            set qsafe_last to false.
+            if defined UTIL_HUD_ENABLED {
+                util_hud_push_left("shsys_q", core:tag:split(" ")[0]+"nQS").
+            } else if defined UTIL_SHBUS_ENABLED {
+                util_shbus_tx_msg("HUD_PUSHL", list(core:tag+"shsys_q", core:tag:split(" ")[0]+"nQS")).
+            }
+        } else if (not qsafe_last and (ship:q <= Q_SAFE)) or not do_spin {
+            print "Q safe".
+            set qsafe_last to true.
+            if defined UTIL_HUD_ENABLED {
+                util_hud_pop_left("shsys_q").
+            } else if defined UTIL_SHBUS_ENABLED {
+                util_shbus_tx_msg("HUD_POPL", list(core:tag+"shsys_q")).
+            }
+        }
     }
     // close cargo bay after deploying other ship
     // at a safe distance
@@ -189,47 +226,110 @@ function util_shsys_check {
     }
 
     iterate_spacecraft_system_state().
-    return sys_unspin.
+    return not do_spin.
+}
+
+function util_shsys_decode_rx_msg {
+    parameter sender.
+    parameter recipient.
+    parameter opcode.
+    parameter data.
+
+    if not opcode:startswith("SYS") {
+        return.
+    }
+
+    if opcode:startswith("SYS_CB_OPEN") {
+        set cargo_bay_opened_count to cargo_bay_opened_count + 1.
+        set bays to true.
+    } else if opcode = "SYS_CB_CLOSE" {
+        set bays to false.
+    } else if opcode = "SYS_PL_AWAY" {
+        wait 0.1.
+        get_another_ship(ship:name+" Probe").
+    } else if opcode = "SYS_DO_ACTION" {
+        util_shsys_do_action(data[0]).
+    } else {
+        util_shbus_ack("could not decode shsys rx msg", sender).
+        print "could not decode shsys rx msg".
+        return false.
+    }
+    return true.
 }
 
 function util_shsys_do_action {
-    parameter key_in.
-    if key_in = "1" {
+    parameter action_in.
+    if action_in = "1" {
         toggle AG1.
-    } else if key_in = "2" {
+    } else if action_in = "2" {
         toggle AG2.
-    } else if key_in = "3" {
+    } else if action_in = "3" {
         toggle AG3.
-    } else if key_in = "4" {
+    } else if action_in = "4" {
         toggle AG4.
-    } else if key_in = "5" {
+    } else if action_in = "5" {
         toggle AG5.
-    } else if key_in = "6" {
+    } else if action_in = "6" {
         toggle AG6.
-    } else if key_in = "7" {
+    } else if action_in = "7" {
         toggle AG7.
-    } else if key_in = "8" {
+    } else if action_in = "8" {
         toggle AG8.
-    } else if key_in = "9" {
+    } else if action_in = "9" {
         toggle AG9.
-    } else if key_in = "0" {
+    } else if action_in = "0" {
         toggle AG10.
-    } else if key_in = "g" {
+    } else if action_in = "g" {
         toggle GEAR.
-    } else if key_in = "r" {
+    } else if action_in = "r" {
         toggle RCS.
-    } else if key_in = "t" {
+    } else if action_in = "t" {
         toggle SAS.
-    } else if key_in = "u" {
+    } else if action_in = "u" {
         toggle LIGHTS.
-    } else if key_in = "b" {
+    } else if action_in = "b" {
         toggle BRAKES.
-    } else if key_in = "m" {
+    } else if action_in = "m" {
         toggle MAPVIEW.
-    } else if key_in = " " {
+    } else if action_in = " " {
         print "stage manually".
+    // additional actions
+    } else if action_in = "engine" {
+        for i in main_engines {
+            i:activate().
+        }
+    } else if action_in = "thrust_max" {
+        for i in main_engines {
+            set i:thrustlimit to 100.
+        }
+    } else if action_in = "thrust_min" {
+        for i in main_engines {
+            set i:thrustlimit to 0.
+        }
+    } else if action_in = "decouple" and not (decoupler = -1) {
+        decoupler:getmodule("ModuleDecouple"):doevent("Decouple").
+    } else if action_in = "faring" {
+        set SPIN_ON_FARING to false.
+    } else if action_in = "reaction_wheels_activate" {
+        reaction_wheels:getmodule("ModuleReactionWheel"):doaction("activate wheel", true).
+    } else if action_in = "spinon_engine" {
+        set SPIN_ON_ENGINE to true.
+    } else if action_in = "spinon_decouple" {
+        set SPIN_ON_DECOUPLER to true.
+    } else if action_in = "spinon_faring" {
+        set SPIN_ON_FARING to true.
+    } else if action_in = "spinon_separate" {
+        set SPIN_ON_SEPARATION to true.
+    } else if action_in = "unspin_engine" {
+        set SPIN_ON_ENGINE to false.
+    } else if action_in = "unspin_decouple" {
+        set SPIN_ON_DECOUPLER to false.
+    } else if action_in = "unspin_faring" {
+        set SPIN_ON_FARING to false.
+    } else if action_in = "unspin_separate" {
+        set SPIN_ON_SEPARATION to false.
     } else {
-        print "could not do action " + key_in.
+        print "could not do action " + action_in.
         return false.
     }
     return true.
