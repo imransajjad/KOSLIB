@@ -6,12 +6,6 @@ local other_ships is UNIQUESET().
 
 local PARAM is readJson("param.json")["UTIL_SHSYS"].
 
-local SPIN_ON_ENGINE is get_param(PARAM, "SPIN_ON_ENGINE", false).
-local SPIN_ON_DECOUPLER is get_param(PARAM, "SPIN_ON_DECOUPLER", false).
-local SPIN_ON_FARING is get_param(PARAM, "SPIN_ON_FARING", false).
-local SPIN_ON_SEPARATION is get_param(PARAM, "SPIN_ON_SEPARATION", false).
-
-
 local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
 local AUX_ANTENNAS_NAME is get_param(PARAM, "AUX_ANTENNAS_NAME", "").
 local ARM_RLAUNCH_STATUS is get_param(PARAM, "ARM_RLAUNCH_STATUS", "").
@@ -36,8 +30,8 @@ if PARAM:haskey("AP_ENGINES") {
 
 
 local main_engines is get_parts_tagged(MAIN_ENGINE_NAME).
-if SPIN_ON_ENGINE {
-    // also try getting a parent engine
+if main_engines:length = 0 {
+    // if no tagged engines found try getting a parent engine
     local stage_engine is get_ancestor_with_module("ModuleEnginesFX").
     if (stage_engine = -1) { get_child_with_module("ModuleEnginesFX"). }
     if not (stage_engine = -1) { main_engines:add(stage_engine). }
@@ -48,16 +42,16 @@ local aux_antennas is get_parts_tagged(AUX_ANTENNAS_NAME).
 
 local connected_to_decoupler is -1.
 local connected_to_decoupler_children_length is -1.
-if SPIN_ON_DECOUPLER {
-    set connected_to_decoupler to get_ancestor_with_module("ModuleDecouple", true).
-    if (connected_to_decoupler = -1) {
-        // in most cases core-> ... -> connected_to_decoupler -> decoupler
-        set connected_to_decoupler to get_child_with_module("ModuleDecouple", true).
-        if not (connected_to_decoupler = -1) {
-            set connected_to_decoupler_children_length to connected_to_decoupler:children:length.
-        }
+
+set connected_to_decoupler to get_ancestor_with_module("ModuleDecouple", true).
+if (connected_to_decoupler = -1) {
+    // in most cases core-> ... -> connected_to_decoupler -> decoupler
+    set connected_to_decoupler to get_child_with_module("ModuleDecouple", true).
+    if not (connected_to_decoupler = -1) {
+        set connected_to_decoupler_children_length to connected_to_decoupler:children:length.
     }
 }
+
 local decoupler is -1.
 set decoupler to get_ancestor_with_module("ModuleDecouple").
 if (decoupler = -1) { get_child_with_module("ModuleDecouple"). }
@@ -73,6 +67,13 @@ local arm_for_reentry is false.
 local arm_parachutes is false.
 
 local initial_ship is ship.
+
+local SPIN_ON_ENGINE is false.
+local SPIN_ON_DECOUPLER is false.
+local SPIN_ON_FARING is false.
+local SPIN_ON_SEPARATION is false.
+
+
 
 // sets systems according to where spacecraft is
 local function iterate_spacecraft_system_state {
@@ -170,7 +171,9 @@ function util_shsys_check {
         set SPIN_ON_ENGINE to not main_engines[0]:ignition.
     }
     if SPIN_ON_DECOUPLER {
-        if connected_to_decoupler_children_length >= 0 {
+        if connected_to_decoupler = -1 {
+            set SPIN_ON_DECOUPLER to false.
+        } else if connected_to_decoupler_children_length >= 0 {
             set SPIN_ON_DECOUPLER to not 
                 (connected_to_decoupler:children:length = connected_to_decoupler_children_length) .
         } else {

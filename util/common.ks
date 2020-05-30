@@ -144,7 +144,11 @@ function pitch_yaw_from_dir {
 function remainder {
     parameter x.
     parameter divisor.
-    return x - floor(x/divisor).
+    if x > 0 {
+        return mod(x,divisor).
+    } else {
+        return mod(divisor+mod(x,divisor),divisor).
+    }
 }
 
 function outerweight {
