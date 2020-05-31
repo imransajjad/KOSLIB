@@ -428,7 +428,11 @@ function ap_nav_srf_stick {
         set HSET_MAN to TRUE.
         set increment to 4.0*deadzone(pilot_input_u3,0.25).
         if increment <> 0 {
-            set AP_NAV_H_SET To wrap_angle_until(AP_NAV_H_SET + increment).
+            if increment > 0 and wrap_angle(AP_NAV_H_SET - vel_bear) > 175 {
+            } else if increment < 0 and wrap_angle(AP_NAV_H_SET - vel_bear) < -175 {
+            } else {
+                set AP_NAV_H_SET To wrap_angle_until(AP_NAV_H_SET + increment).
+            }
         }
         set VSET_MAN to TRUE.
     }

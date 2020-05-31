@@ -96,7 +96,6 @@ local CORNER_SEA_Q is 1.0*(CORNER_VELOCITY/420)^2.
 local W_V_MAX is (GLIM_VERT*g0/CORNER_VELOCITY).
 local W_L_MAX is (GLIM_LAT*g0/CORNER_VELOCITY).
 
-local sc_geo_alpha is 0.32.
 local WING_AREA is 0.
 
 local lock GLimiter to ( prate_max+0.0001 + g0/vel*cos(vel_pitch)*cos(roll) >
@@ -111,13 +110,13 @@ local pitch_rate is 0.
 if (RATE_SCHEDULE_ENABLED)
 {
     set WING_AREA to W_V_MAX/
-            (CORNER_SEA_Q*cl_sched(CORNER_VELOCITY)*sc_geo_alpha)
+            (CORNER_SEA_Q*cl_sched(CORNER_VELOCITY))
             *(START_MASS*CORNER_VELOCITY).
     lock prate_max to 
         max(
             MIN_PITCH_RATE,
             min(
-                WING_AREA*sc_geo_alpha*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel),
+                WING_AREA*SHIP:DYNAMICPRESSURE*cl_sched(vel)/(ship:mass*vel),
                 GLIM_VERT*g0/vel
                 ) - g0/vel*cos(vel_pitch)*cos(roll)
             ).

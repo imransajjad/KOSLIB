@@ -53,7 +53,7 @@ run once "ap_nav".
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.
 
 until false {
-    spin_if_not_us().
+    util_shsys_spin().
     util_shbus_rx_msg().
     util_shsys_check().
 
@@ -66,11 +66,13 @@ until false {
 
     if AP_MODE_PILOT {
         unlock THROTTLE.
+        unlock STEERING.
         SET SHIP:CONTROL:NEUTRALIZE to true.
     } else if AP_MODE_NAV {
         ap_nav_do().
     } else {
         unlock THROTTLE.
+        unlock STEERING.
         SET SHIP:CONTROL:NEUTRALIZE to true.
     }
     wait 0.02.

@@ -86,12 +86,6 @@ local my_throttle is 0.0.
 function ap_missile_guide {
 
     sas off.
-    set STEERINGMANAGER:YAWPID:KP TO 8.0.
-    set STEERINGMANAGER:PITCHPID:KP TO 8.0.
-    set STEERINGMANAGER:ROLLPID:KP TO 8.0.
-    set STEERINGMANAGER:YAWPID:KD TO 12.0.
-    set STEERINGMANAGER:PITCHPID:KD TO 12.0.
-    set STEERINGMANAGER:ROLLPID:KD TO 12.0.
 
     lock throttle to my_throttle.
     set my_throttle to 1.0.

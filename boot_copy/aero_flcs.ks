@@ -100,6 +100,7 @@ UNTIL false {
         ap_nav_do().
     } else {
         unlock THROTTLE.
+        unlock STEERTING.
         SET SHIP:CONTROL:NEUTRALIZE to true.
     }
     

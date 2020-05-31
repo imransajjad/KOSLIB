@@ -43,7 +43,9 @@ run once "util_term".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
-util_term_do_command(get_param(readJson("1:/param.json")["UTIL_TERM"], "STARTUP_COMMAND","")).
+if defined UTIL_TERM_ENABLED {
+    util_term_do_command(get_param(readJson("1:/param.json")["UTIL_TERM"], "STARTUP_COMMAND","")).
+}
 
 UNTIL FALSE {
     spin_if_not_us().

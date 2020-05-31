@@ -193,35 +193,37 @@ local function generate_landing_seq {
 
     local lat_stp is -0.0493672258730508.
     local lng_stp is -74.6115615766677.
-    local alt_stp is latlng(lat_stp,lng_stp):terrainheight+2.0.
+    local alt_stp is latlng(lat_stp,lng_stp):terrainheight+1.0.
 
     local stop_dist is 1000.
     set GSlope to abs(GSlope).
     local LSlope is 0.15.
+    local dist2arc is RAD2DEG/ship:body:radius.
+    local flare_sd is 1.0. // flare slowdown
 
-    local flare_radius is max(10*(0.857*speed)/((GSlope-LSlope)*DEG2RAD),
-                (0.857*speed)^2/((NOM_NAV_G/16)*g0) ).
+    local flare_radius is max(10*(flare_sd*speed)/((GSlope-LSlope)*DEG2RAD),
+                (flare_sd*speed)^2/((NOM_NAV_G/16)*g0) ).
                     // at least 10 second flare or what navg allows
-    local flare_g is (0.857*speed)^2/flare_radius/g0.
+    local flare_g is (flare_sd*speed)^2/flare_radius/g0.
 
     local flare_long is flare_radius*(sin(GSlope) - sin(LSlope)).
     local flare_h is flare_radius*(cos(LSlope)-cos(GSlope)).
 
-    local p5 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance)/ship:body:radius*RAD2DEG).
-    local p4 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/2)/ship:body:radius*RAD2DEG).
-    local p3 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/10)/ship:body:radius*RAD2DEG).
-    local p2f is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long)/ship:body:radius*RAD2DEG).
-    local p1td is haversine_latlng(lat_stp,lng_stp,runway_angle+180,stop_dist/ship:body:radius*RAD2DEG).
+    local p5 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance)*dist2arc).
+    local p4 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/2)*dist2arc).
+    local p3 is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long+distance/10)*dist2arc).
+    local p2f is haversine_latlng(lat_stp,lng_stp,runway_angle+180, (stop_dist+flare_long)*dist2arc).
+    local p1td is haversine_latlng(lat_stp,lng_stp,runway_angle+180,stop_dist*dist2arc).
     // local p1stp is haversine_latlng(lat_stp,lng_stp,0, 0).
 
     local landing_sequence is LIST(
-    list(alt_stp + flare_h +distance*tan(GSlope), 1.43*speed, p5[0], p5[1], -GSlope,runway_angle),
-    list(alt_stp + flare_h +distance*tan(GSlope)/2, 1.17*speed, p4[0], p4[1],-GSlope,runway_angle),
-    list(alt_stp + flare_h +distance*tan(GSlope)/10, 1.17*speed, p3[0], p3[1],-GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope), speed, p5[0], p5[1], -GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
+    list(alt_stp + flare_h +distance*tan(GSlope)/10, speed, p3[0], p3[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list("g"),
-    list(alt_stp , 0.857*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
-    list(alt_stp-2.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
+    list(alt_stp , flare_sd*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
+    list(alt_stp-1.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
     list("b")). // brakes
 
     if flare_h < GCAS_ALTITUDE {
@@ -398,6 +400,7 @@ local function waypoint_do_leading_action {
             local action_code is wp_queue[0]["do_action"].
             waypoint_remove(0).
             print "doing action from waypoint".
+            writeJson(wp_queue, "wp_queue.json"). // and another place wp updated
             if defined UTIL_SHSYS_ENABLED {
                 util_shsys_do_action(action_code).
                 return.
@@ -461,6 +464,7 @@ local function waypoint_queue_purge {
 function util_wp_done {
     waypoint_do_leading_action().
     waypoint_remove(0).
+    writeJson(wp_queue, "wp_queue.json"). // only other place wp updated
 }
 
 function util_wp_queue_length {
@@ -539,7 +543,7 @@ function util_wp_decode_rx_msg {
         print "could not decode wp rx msg".
         return false.
     }
-    // since this is the only way to update the waypoint queue
+    // since this is one of the only two ways to update the waypoint queue
     // we can write the waypoints to file here, even if they are incomplete.
     writeJson(wp_queue, "wp_queue.json").
     return true.

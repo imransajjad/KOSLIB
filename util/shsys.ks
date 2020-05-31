@@ -177,8 +177,9 @@ function util_shsys_check {
             set SPIN_ON_DECOUPLER to not 
                 (connected_to_decoupler:children:length = connected_to_decoupler_children_length) .
         } else {
-            set SPIN_ON_DECOUPLER to not connected_to_decoupler:hasparent.
+            set SPIN_ON_DECOUPLER to connected_to_decoupler:hasparent.
         }
+        if not SPIN_ON_DECOUPLER { print "unspin on decoupler"+connected_to_decoupler+connected_to_decoupler_children_length.}
     }
     if SPIN_ON_FARING {
         set SPIN_ON_FARING to false. // not implemented yet
@@ -230,6 +231,13 @@ function util_shsys_check {
 
     iterate_spacecraft_system_state().
     return not do_spin.
+}
+
+function util_shsys_spin {
+    until util_shsys_check()  {
+        if defined UTIL_SHBUS_ENABLED { util_shbus_rx_msg(). }
+        wait 0.02.
+    }
 }
 
 function util_shsys_decode_rx_msg {
@@ -311,6 +319,7 @@ function util_shsys_do_action {
         }
     } else if action_in = "decouple" and not (decoupler = -1) {
         decoupler:getmodule("ModuleDecouple"):doevent("Decouple").
+        set decoupler to -1.
     } else if action_in = "faring" {
         set SPIN_ON_FARING to false.
     } else if action_in = "reaction_wheels_activate" {

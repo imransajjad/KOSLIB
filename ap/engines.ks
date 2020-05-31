@@ -10,6 +10,7 @@ local TOGGLE_VEL is get_param(PARAM,"TOGGLE_VEL", 0).
 local V_PID_KP is get_param(PARAM,"V_PID_KP", 0.01).
 local V_PID_KI is get_param(PARAM,"V_PID_KI", 0.004).
 local V_PID_KD is get_param(PARAM,"V_PID_KD", 0).
+local PRECHARGE_PID is get_param(PARAM,"PRECHARGE_PID", false).
 local AUTO_BRAKES is get_param(PARAM,"AUTO_BRAKES", false).
 local MAIN_ENGINE_NAME is get_param(PARAM,"MAIN_ENGINE_NAME", "").
 
@@ -169,7 +170,7 @@ local function turbofan_common {
 
 function ap_engine_throttle_auto {
     // this function depends on AP_NAV_ENABLED
-    if (abs(vpid:output-my_throttle) > 0.02 ) {
+    if PRECHARGE_PID and (abs(vpid:output-my_throttle) > 0.02 ) {
         precharge_integrator().
     } else {
         SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
@@ -182,7 +183,9 @@ function ap_engine_throttle_map {
     parameter input_throttle is pilot_input_u0.
     SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
     common_func().
-    precharge_integrator().
+    if PRECHARGE_PID {
+        precharge_integrator().
+    }
 }
 
 

@@ -8,13 +8,16 @@
                 "GLIM_VERT", 3.5,
                 "GLIM_LAT",  0.75,
                 "GLIM_LONG", 5,
-                "CORNER_VELOCITY", 60,
+                "CORNER_VELOCITY", 120,
                 "START_MASS", 85.9,
                 "MAX_ROLL", 270,
+                "RATE_SCHEDULE_ENABLED", true,
+                "GAIN_SCHEDULE_ENABLED", true,
+                "PITCH_SPECIFIC_INERTIA", 80,
                 "PR_KP",2.5,
                 "PR_KI",3.1,
                 "PR_KD",0.01,
-                "YR_KP",15.0,
+                "YR_KP",1.0,
                 "YR_KI",0.0,
                 "YR_KD",0.0,
                 "RR_KP",0.15,
@@ -26,8 +29,8 @@
         "AP_ENGINES",
         {
             "entries": [
-                "V_PID_KP", 0.01,
-                "V_PID_KI", 0.005,
+                "V_PID_KP", 0.05,
+                "V_PID_KI", 0.002,
                 "V_PID_KD", 0.00,
                 "MAIN_ENGINE_NAME", "turboFanSize2"
             ],
@@ -40,15 +43,15 @@
                 "ROT_GNOM_LAT", 0.2,
                 "ROT_GNOM_LONG", 1,
                 
-                "K_PITCH", 0.25,
+                "K_PITCH", 0.95,
                 "K_YAW", 0.25,
-                "K_ROLL", 1.0,
+                "K_ROLL", 0.75,
                 "K_Q", 1.0,
                 "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 30,
                 "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 350,
-                "GEAR_HEIGHT", 4.8,
+                "GEAR_HEIGHT", 3.8,
                 
                 "GCAS_ENABLED", true,
                 "GCAS_MARGIN", 30,
@@ -90,6 +93,19 @@
         {
             "entries": [
                 "FLCS_PROC_TAG", "flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_TERM",
+        {
+            "entries": [
+                "STARTUP_COMMAND", "unask flcs;askhost flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_RADAR",
+        {
+            "entries": [
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

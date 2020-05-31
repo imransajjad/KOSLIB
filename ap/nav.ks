@@ -98,11 +98,17 @@ function ap_nav_do {
     // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
     // are used by these functions
     if SRF_ENABLED and in_surface {
+        unlock steering.
         ap_nav_do_aero_rot().
     } else if ORB_ENABLED and in_orbit {
-        ap_nav_do_orb_nav().
-    } else if TAR_ENABLED and in_docking {
-        ap_nav_do_tar().
+        ap_nav_orb_do().
+    } else if SRF_ENABLED {
+        unlock steering.
+        ap_nav_do_aero_rot().
+    } else if ORB_ENABLED {
+        ap_nav_orb_do().
+    } else if false {
+        ap_nav_tar_do().
     }
 }
 

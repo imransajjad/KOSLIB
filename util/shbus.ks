@@ -68,8 +68,9 @@ function util_shbus_parse_command {
                 if is_active_vessel() and HASTARGET {
                     if (ship:name = TARGET:name) { print "warning adding self".}
                     set new_host to TARGET.
+                    splitargs:remove(0).
                     set new_host_name to TARGET:name +
-                    (choose SEP+splitargs[1] if (splitargs:length = 2) else "").
+                    (choose SEP+splitargs:join(" ") if (splitargs:length >= 1) else "").
                 } else {
                     print "askhost could not find target".
                 }
@@ -100,7 +101,9 @@ function util_shbus_parse_command {
         if args = -1 {
             set single_host_key to "".
         } else {
-            if brackets { set args to tx_hosts:keys[args[0]].}
+            if brackets and (args[0] < tx_hosts:keys:length) {
+                set args to tx_hosts:keys[args[0]].
+            }
             // hoping order of returned keys does not vary
             if (tx_hosts:haskey(args)) {
                 set single_host_key to args.
@@ -112,7 +115,9 @@ function util_shbus_parse_command {
             set exclude_host_key to "".
         }
         else {
-            if brackets { set args to tx_hosts:keys[args[0]].}
+            if brackets and (args[0] < tx_hosts:keys:length) {
+                set args to tx_hosts:keys[args[0]].
+            }
             if (tx_hosts:haskey(args)) {
                 set exclude_host_key to args.
             }
@@ -121,7 +126,9 @@ function util_shbus_parse_command {
         if args = -1 {
             print "unask expected string arg".
         } else {
-            if brackets { set args to tx_hosts:keys[args[0]].}
+            if brackets and (args[0] < tx_hosts:keys:length) {
+                set args to tx_hosts:keys[args[0]].
+            }
             if (tx_hosts:haskey(args)) and not (args = exclude_host_key) {
                 util_shbus_tx_msg("UNASKHOST", list(my_fullname), list(args)).
                 tx_hosts:remove(args).
