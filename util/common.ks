@@ -121,9 +121,9 @@ function haversine_dir {
     parameter dirf.
 
     local dir_temp is R(90,0,0)*dirf.
-    local total is wrap_angle_until(90-dir_temp:pitch).
+    local total is wrap_angle(90-dir_temp:pitch).
     local roll is dir_temp:roll.
-    local eject is wrap_angle_until(dir_temp:yaw).
+    local eject is wrap_angle(dir_temp:yaw).
     return list( eject, total, roll ).
 }
 

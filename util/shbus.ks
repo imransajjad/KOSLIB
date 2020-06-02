@@ -11,7 +11,8 @@ GLOBAL UTIL_SHBUS_ENABLED IS true.
 
 // TX SECTION
 
-local PARAM is readJson("1:/param.json")["UTIL_SHBUS"].
+local PARAM is get_param(readJson("param.json"),"UTIL_SHBUS", lexicon()).
+
 
 local tx_hosts is lexicon().
 local single_host_key is "".

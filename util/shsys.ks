@@ -4,7 +4,7 @@ GLOBAL UTIL_SHSYS_ENABLED IS true.
 local cargo_bay_opened_count is 0.
 local other_ships is UNIQUESET().
 
-local PARAM is readJson("param.json")["UTIL_SHSYS"].
+local PARAM is get_param(readJson("param.json"),"UTIL_SHSYS", lexicon()).
 
 local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
 local AUX_ANTENNAS_NAME is get_param(PARAM, "AUX_ANTENNAS_NAME", "").

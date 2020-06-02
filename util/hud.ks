@@ -1,7 +1,7 @@
 
 GLOBAL UTIL_HUD_ENABLED IS true.
 
-local PARAM is readJson("1:/param.json")["UTIL_HUD"].
+local PARAM is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
 
 local USE_AP_AERO_ROT is false.
 local USE_AP_NAV is false.

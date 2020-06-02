@@ -52,9 +52,9 @@ local lock roll_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 local lock LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
 local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
 
-local lock DELTA_ALPHA to R(0,0,roll)*(-SHIP:SRFPROGRADE)*(SHIP:FACING).
-local lock alpha to -(mod(DELTA_ALPHA:PITCH+180,360)-180).
-
+local lock ship_vel to (-SHIP:FACING)*vel_prograde.
+local lock alpha to wrap_angle(ship_vel:pitch).
+local lock beta to wrap_angle(-ship_vel:yaw).
 
 local function cl_sched {
     parameter v.

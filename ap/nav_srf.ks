@@ -82,9 +82,9 @@ function ap_nav_do_aero_rot {
     local target_pro is (-ship:facing)*heading(AP_NAV_H_SET, AP_NAV_E_SET, AP_NAV_R_SET).
 
     local ship_frame_error is 
-        V(-wrap_angle_until(target_pro:pitch-cur_pro:pitch),
-        wrap_angle_until(target_pro:yaw-cur_pro:yaw),
-        wrap_angle_until(target_pro:roll-cur_pro:roll) ).
+        V(-wrap_angle(target_pro:pitch-cur_pro:pitch),
+        wrap_angle(target_pro:yaw-cur_pro:yaw),
+        wrap_angle(target_pro:roll-cur_pro:roll) ).
     local ship_frame_ff is (R(0,0,-roll)*V(AP_NAV_W_E_SET,AP_NAV_W_H_SET,0)).
     
     // omega applied by us
@@ -431,7 +431,7 @@ function ap_nav_srf_stick {
             if increment > 0 and wrap_angle(AP_NAV_H_SET - vel_bear) > 175 {
             } else if increment < 0 and wrap_angle(AP_NAV_H_SET - vel_bear) < -175 {
             } else {
-                set AP_NAV_H_SET To wrap_angle_until(AP_NAV_H_SET + increment).
+                set AP_NAV_H_SET To wrap_angle(AP_NAV_H_SET + increment).
             }
         }
         set VSET_MAN to TRUE.
@@ -463,7 +463,7 @@ function ap_nav_srf_status_string {
         set dstr to dstr+"("+round_dec(AP_NAV_E_SET,2)+","+round(AP_NAV_H_SET)+")".
     }
     if (false) { // debug
-        set dstr to dstr+ char(10)+"["+round_dec(wrap_angle_until(AP_NAV_E_SET - vel_pitch),2)+","+round_dec(wrap_angle_until(AP_NAV_H_SET - vel_bear),2)+"]".
+        set dstr to dstr+ char(10)+"["+round_dec(wrap_angle(AP_NAV_E_SET - vel_pitch),2)+","+round_dec(wrap_angle(AP_NAV_H_SET - vel_bear),2)+"]".
         set dstr to dstr+ char(10)+"["+round_dec(AP_NAV_W_E_SET,5)+","+round_dec(AP_NAV_W_H_SET,5)+"]".
 
         set dstr to dstr+ char(10)+ "NAV_K " + round_dec(K_PITCH,5) + 

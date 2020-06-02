@@ -202,7 +202,7 @@ local function generate_landing_seq {
     local flare_sd is 1.0. // flare slowdown
 
     local flare_radius is max(10*(flare_sd*speed)/((GSlope-LSlope)*DEG2RAD),
-                (flare_sd*speed)^2/((NOM_NAV_G/16)*g0) ).
+                (flare_sd*speed)^2/((NOM_NAV_G/4)*g0) ).
                     // at least 10 second flare or what navg allows
     local flare_g is (flare_sd*speed)^2/flare_radius/g0.
 

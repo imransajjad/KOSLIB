@@ -132,9 +132,10 @@ local function start_logging {
     local lock dynamic_pres to ship:DYNAMICPRESSURE.
 
 
-    local lock DELTA_ALPHA to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE)*(ship:FACING).
-    local lock alpha to -DEG2RAD*(mod(DELTA_ALPHA:pitch+180,360)-180).
-    local lock beta to  DEG2RAD*(mod(DELTA_ALPHA:yaw+180,360)-180).
+    local lock vel_prograde to (choose ship:srfprograde if ship:altitude < 36000 else ship:prograde).
+    local lock ship_vel to (-SHIP:FACING)*vel_prograde.
+    local lock alpha to DEG2RAD*wrap_angle(ship_vel:pitch).
+    local lock beta to DEG2RAD*wrap_angle(-ship_vel:yaw).
 
     local lock VEL_FROM_FACE to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE).
 

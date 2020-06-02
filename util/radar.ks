@@ -2,7 +2,7 @@
 GLOBAL UTIL_RADAR_ENABLED IS true.
 
 
-local PARAM is readJson("param.json")["UTIL_RADAR"].
+local PARAM is get_param(readJson("param.json"), "UTIL_RADAR", lexicon())..
 
 local max_range is get_param(PARAM, "MAX_RANGE", 100000).
 local max_angle is get_param(PARAM, "MAX_ANGLE", 20).

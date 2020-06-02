@@ -18,7 +18,8 @@ GLOBAL UTIL_TERM_ENABLED IS true.
 // TX SECTION
 
 
-local PARAM is readJson("1:/param.json").
+local PARAM is get_param(readJson("1:/param.json"), "UTIL_TERM", lexicon()).
+local startup_command is get_param(PARAM, "STARTUP_COMMAND","").
 
 local lock H to terminal:height.
 local lock W to terminal:width.
@@ -338,6 +339,10 @@ function util_term_get_input {
 function util_term_do_command {
     parameter comm_string_input is "".
     parse_command(comm_string_input).   
+}
+
+function util_term_do_startup {
+    util_term_do_command(startup_command).
 }
 
 // TX SECTION END
