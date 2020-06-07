@@ -17,12 +17,16 @@ if readJson("param.json"):haskey("AP_STEER_MAN") {
     set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
 }
 
+local in_mannode is false.
+
 function ap_nav_orb_stick {
     
 }
 
 function ap_nav_orb_do {
-    lock STEERING to heading(AP_NAV_H_SET,AP_NAV_E_SET,AP_NAV_R_SET).
+    if in_mannode {
+        lock STEERING to AP_NAV_ATT.
+    }
 }
 
 function ap_nav_orb_status_string {

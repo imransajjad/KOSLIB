@@ -60,7 +60,6 @@ function ap_nav_do_aero_rot {
     local w_g is vcrs(vel_prograde:vector, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
 
-    // local wff is -AP_NAV_W_H_SET*cur_vel_head:topvector + AP_NAV_W_E_SET*cur_vel_head:starvector.
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
     local cur_pro is (-ship:facing)*vel_prograde.
@@ -99,8 +98,6 @@ function ap_nav_do_aero_rot {
     //                             char(10)+round_dec(-w_us*ship:facing:topvector,3) +
     //                             char(10)+round_dec(w_us*ship:facing:forevector,3) +
     //                             char(10)+"rt:"+round_dec(have_roll_pre[0],1)).
-
-
 
     ap_aero_rot_do(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
 
@@ -237,7 +234,7 @@ function ap_nav_srf_wp_guide {
     } else {
         // do q_follow for height and current heading
         set align_data to ap_nav_q_target(wp["alt"],wp["vel"],vel_bear).
-        set AP_NAV_TIME_TO_WP to 9999.
+        set AP_NAV_TIME_TO_WP to 0.
     }
     return list(max(MIN_NAV_SRF_VEL,wp["vel"])*align_data[0], align_data[1], ship:facing).
 }

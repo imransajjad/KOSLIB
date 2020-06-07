@@ -11,6 +11,8 @@ global AP_NAV_VEL is V(0,0,0).
 global AP_NAV_ACC is V(0,0,0).
 global AP_NAV_ATT is R(0,0,0).
 
+local FOLLOW_MODES is lexicon("F",false,"A",false,"Q",false).
+
 local USE_GCAS is get_param(PARAM,"GCAS_ENABLED",false).
 local USE_UTIL_WP is false.
 local SRF_ENABLED is false.
@@ -43,6 +45,7 @@ function ap_nav_align {
     parameter frame_vel. // a velocity vector in this frame
     parameter radius. // a turning radius.
 
+    set FOLLOW_MODES["A"] to true.
     local alpha_x is 0.
     local head_have is haversine_dir((-head_final)*vec_final:direction).
 
@@ -60,9 +63,11 @@ function ap_nav_align {
     }
 
     if on_circ_feedforward {
+        set FOLLOW_MODES["F"] to true.
         set alpha_x to head_have[1].
         // util_hud_push_right("nav_srf", "head_have[1]").
     } else {
+        set FOLLOW_MODES["F"] to false.
         if (farness-2*sin(head_have[1]) >= 0) {
             set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
                 / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
@@ -80,7 +85,7 @@ function ap_nav_align {
     local new_arc_direction is head_final*dir_haversine(new_have).
     local centripetal_vector is head_final*dir_haversine(c_have):vector.
 
-    local acc_mag is choose frame_vel:mag^2/radius if on_circ_feedforward else 0.
+    local acc_mag is choose frame_vel:mag^2/radius if FOLLOW_MODES["F"] else 0.
     
     return list(new_arc_direction:vector, acc_mag*centripetal_vector).
 }
@@ -90,6 +95,8 @@ function ap_nav_q_target {
     parameter target_altitude.
     parameter target_vel.
     parameter target_heading.
+
+    set FOLLOW_MODES["Q"] to true.
 
     local sin_max_vangle is 0.5. // sin(30).
     local qtar is simple_q(target_altitude,target_vel).
@@ -129,6 +136,7 @@ function ap_nav_check_done {
                 util_fldr_send_event(wp_reached_str).
             }
             util_wp_done().
+            set AP_NAV_TIME_TO_WP to 0.
         }
     }
 }
@@ -229,9 +237,15 @@ function ap_nav_status_string {
     if TAR_ENABLED and in_docking {
         set dstr to dstr+ap_nav_tar_status_string().
     }
-    if on_circ_feedforward {
-        set dstr to dstr+"F".
+
+    local mode_str is "".
+    for k in FOLLOW_MODES:keys {
+        if FOLLOW_MODES[k] {
+            set mode_str to mode_str+k.
+            set FOLLOW_MODES[k] to false.
+        }
     }
+    set dstr to dstr + (choose "" if mode_str = "" else char(10)+mode_str).
     if (debug_vectors) {
         set nav_debug_vec0:show to true.
         set nav_debug_vec1:show to true.

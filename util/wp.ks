@@ -50,7 +50,6 @@ local cur_mode is "srf".
 // five messages
 
 // this function will be used by shbus_tx
-// another function used by shbus_rx will fill in missing info
 local function construct_incomplete_waypoint {
     parameter wp_args. // has to be a list of numbers
     parameter wp_mode is "srf".
@@ -335,37 +334,6 @@ function util_wp_parse_command {
 
 // RX SECTION
 
-
-local function fill_in_waypoint_data {
-    parameter wp.
-    set wp["complete"] to true.
-    if wp["mode"] = "act" {
-        if not wp:haskey("do_action") {
-            set wp["do_action"] to -99.
-        }
-        return wp.
-    } else if wp["mode"] = "srf" {
-        if not wp:haskey("lat") or not wp:haskey("lng") {
-            local lat_lng_opp is haversine_latlng(
-                            ship:geoposition:lat, ship:geoposition:lng,
-                                vel_bear, 175).
-            set wp["lat"] to lat_lng_opp[0].
-            set wp["lng"] to lat_lng_opp[1].
-        }
-        if not wp:haskey("soi_name") {
-            set wp["soi_name"] to ship:body:name.
-        }
-        if not wp:haskey("nomg") {
-            set wp["nomg"] to max(0.05,NOM_NAV_G).
-        }
-        return wp.
-    } else if wp["mode"] = "snv" {
-        return wp.
-    } else if wp["mode"] = "tar" {
-        return wp.
-    }
-}
-
 local function waypoint_print_str {
     parameter WP.
     if WP["mode"] = "act" {
@@ -481,11 +449,6 @@ function util_wp_queue_last {
 
 function util_wp_queue_first {
     return wp_queue[0].
-    // if wp_queue[0]:haskey("complete") {
-    //     return wp_queue[0].
-    // } else {
-    //     return fill_in_waypoint_data(wp_queue[0]).
-    // }
 }
 
 function util_wp_status_string {
@@ -537,9 +500,7 @@ function util_wp_decode_rx_msg {
             data:insert(1,start_head).
         }
         for wp_seq_i in generate_takeoff_seq(data[0],data[1]) {
-            waypoint_add(-1,
-                fill_in_waypoint_data(
-                    construct_incomplete_waypoint(wp_seq_i, "srf"))).
+            waypoint_add(-1, construct_incomplete_waypoint(wp_seq_i, "srf")).
         }
 
     } else {
