@@ -223,7 +223,7 @@ local function generate_landing_seq {
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list("g"),
     list(alt_stp , flare_sd*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
-    list(alt_stp-1.0, -1, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
+    list(alt_stp-1.0, 0, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
     list("b")). // brakes
 
     if flare_h < GCAS_ALTITUDE {
@@ -352,17 +352,8 @@ local function fill_in_waypoint_data {
             set wp["lat"] to lat_lng_opp[0].
             set wp["lng"] to lat_lng_opp[1].
         }
-        if (not wp:haskey("elev")) or ( not wp:haskey("head")) {
-            set wp["elev"] to 0.
-            // set wp["head"] to latlng(wp["lat"],wp["lng"]):heading.
-            set wp["head"] to haversine(wp["lat"],wp["lng"],
-                        ship:geoposition:lat, ship:geoposition:lng)[0]-180.
-        }
         if not wp:haskey("soi_name") {
             set wp["soi_name"] to ship:body:name.
-        }        
-        if not wp:haskey("roll") {
-            set wp["roll"] to 0.0.
         }
         if not wp:haskey("nomg") {
             set wp["nomg"] to max(0.05,NOM_NAV_G).
@@ -380,14 +371,26 @@ local function waypoint_print_str {
     if WP["mode"] = "act" {
         return WP["mode"] + " " + WP["do_action"].
     } else if WP["mode"] = "srf" {
-        return WP["mode"] + " " + round(get_param(WP,"alt",0))
-                        + " " + round(get_param(WP,"vel",0))
-                        + " (" + round_dec(wrap_angle(get_param(WP,"lat",0)),3)
-                        + "," + round_dec(wrap_angle(get_param(WP,"lng",0)),3)
-                        + ")(" + round_dec(wrap_angle(get_param(WP,"elev",0)),3)
-                        + "," + round_dec(wrap_angle(get_param(WP,"head",0)),3)
-                        + "," + round(get_param(WP,"roll",0))
-                        + ") " + round_dec(get_param(WP,"nomg",0),2).
+        local wp_str is WP["mode"].
+        set wp_str to wp_str + " " + round(get_param(WP,"alt",0))
+                        + " " + round(get_param(WP,"vel",0)).
+        if wp:haskey("lat") {
+            set wp_str to wp_str + " (" + round_dec(wrap_angle(get_param(WP,"lat",0)),3)
+                        + "," + round_dec(wrap_angle(get_param(WP,"lng",0)),3) + ")".
+        }
+        if wp:haskey("elev") {
+            set wp_str to wp_str + "(" + round_dec(wrap_angle(get_param(WP,"elev",0)),1)
+                        + "," + round_dec(wrap_angle(get_param(WP,"head",0)),1) + ")".
+        }
+        if wp:haskey("roll") {
+            set wp_str to wp_str + "(" + round_dec(wrap_angle(get_param(WP,"pitch",0)),2)
+                        + "," + round_dec(wrap_angle(get_param(WP,"yaw",0)),2)
+                        + "," + round_dec(wrap_angle(get_param(WP,"roll",0)),2) + ")".
+        }
+        if wp:haskey("nomg") {
+            set wp_str to wp_str + " " + round_dec(get_param(WP,"nomg",0),2).
+        }
+        return wp_str.
     }
     return "".
 }
@@ -477,11 +480,12 @@ function util_wp_queue_last {
 }
 
 function util_wp_queue_first {
-    if wp_queue[0]:haskey("complete") {
-        return wp_queue[0].
-    } else {
-        return fill_in_waypoint_data(wp_queue[0]).
-    }
+    return wp_queue[0].
+    // if wp_queue[0]:haskey("complete") {
+    //     return wp_queue[0].
+    // } else {
+    //     return fill_in_waypoint_data(wp_queue[0]).
+    // }
 }
 
 function util_wp_status_string {

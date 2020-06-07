@@ -10,7 +10,7 @@
                 "GLIM_LONG", 5,
                 "CORNER_VELOCITY", 120,
                 "START_MASS", 85.9,
-                "MAX_ROLL", 270,
+                "MAX_ROLL", 180,
                 "RATE_SCHEDULE_ENABLED", true,
                 "GAIN_SCHEDULE_ENABLED", true,
                 "PITCH_SPECIFIC_INERTIA", 80,

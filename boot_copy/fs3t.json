@@ -36,7 +36,6 @@
                 "V_PID_KI", 0.01,
                 "V_PID_KD", 0.0,
                 "AUTO_BRAKES", true,
-                "PRECHARGE_PID", false,
                 "MAIN_ENGINE_NAME", "turboJet"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"

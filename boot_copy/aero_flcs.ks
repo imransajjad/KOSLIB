@@ -96,7 +96,6 @@ UNTIL false {
         ap_engine_throttle_auto().
         ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_MODE_NAV {
-        ap_engine_throttle_auto().
         ap_nav_do().
     } else {
         unlock THROTTLE.

@@ -10,7 +10,6 @@ local TOGGLE_VEL is get_param(PARAM,"TOGGLE_VEL", 0).
 local V_PID_KP is get_param(PARAM,"V_PID_KP", 0.01).
 local V_PID_KI is get_param(PARAM,"V_PID_KI", 0.004).
 local V_PID_KD is get_param(PARAM,"V_PID_KD", 0).
-local PRECHARGE_PID is get_param(PARAM,"PRECHARGE_PID", false).
 local AUTO_BRAKES is get_param(PARAM,"AUTO_BRAKES", false).
 local MAIN_ENGINE_NAME is get_param(PARAM,"MAIN_ENGINE_NAME", "").
 
@@ -67,30 +66,16 @@ local function generic_common {
     return.
 }
 
-local function precharge_integrator {
-    set vpid:setpoint to vel. //my_throttle*vel/my_throttle.
-    set vpid:KP to 0.0.
-    set vpid:KI to V_PID_KI.
-    set vpid:KD to 0.0.
-    if my_throttle > 0 {
-        vpid:update(time:seconds, vpid:output*vel/my_throttle).
-    } else {
-        set my_throttle to 0.01.
-    }
-    set vpid:KP to V_PID_KP.
-    set vpid:KI to V_PID_KI.
-    set vpid:KD to V_PID_KD.
-}
-
 local auto_brakes_used is false.
 local function apply_auto_brakes {
+    parameter v_set.
     if AUTO_BRAKES and not GEAR {
         set auto_brakes_used to true.
         if BRAKES {
-            set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -0.5  ) and 
+            set BRAKES to ( V_PID_KP*(v_set - vel) < -0.5  ) and 
                 ship:facing:vector*ship:srfprograde:vector > 0.990. //~cos(2.5d)
         } else {
-            set BRAKES to ( V_PID_KP*(ap_nav_get_vel() - vel) < -1.5  ) and 
+            set BRAKES to ( V_PID_KP*(v_set - vel) < -1.5  ) and 
                 ship:facing:vector*ship:srfprograde:vector > 0.990.
         }
     } else if auto_brakes_used {
@@ -131,8 +116,7 @@ local function turbojet_throttle_map {
 local function turbojet_throttle_auto {
     parameter v_set.
     IF NOT (MAIN_ENGINES:length = 0){
-        local ab_on is (v_set > TOGGLE_VEL or V_PID_KP*(ap_nav_get_vel() - vel) > 3.0).
-        // local ab_off is (v_set < TOGGLE_VEL or V_PID_KP*(ap_nav_get_vel() - vel) < 2.0).
+        local ab_on is (v_set > TOGGLE_VEL or V_PID_KP*(v_set - vel) > 3.0).
         IF ab_on and MAIN_ENGINES[0]:MODE = "Dry"
         { MAIN_ENGINES[0]:TOGGLEMODE(). }
         IF not ab_on and MAIN_ENGINES[0]:MODE = "Wet"
@@ -169,13 +153,11 @@ local function turbofan_common {
 }
 
 function ap_engine_throttle_auto {
+    parameter vel_r is ap_nav_get_vel().
+    parameter acc_r is 0.
     // this function depends on AP_NAV_ENABLED
-    if PRECHARGE_PID and (abs(vpid:output-my_throttle) > 0.02 ) {
-        precharge_integrator().
-    } else {
-        SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(ap_nav_get_vel()).
-    }
-    apply_auto_brakes().
+    SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag).
+    apply_auto_brakes(vel_r:mag).
     common_func().
 }
 
@@ -183,9 +165,6 @@ function ap_engine_throttle_map {
     parameter input_throttle is pilot_input_u0.
     SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
     common_func().
-    if PRECHARGE_PID {
-        precharge_integrator().
-    }
 }
 
 
