@@ -7,36 +7,37 @@ set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
 
-FUNCTION sat {
-    PARAMETER X.
-    PARAMETER Lim is 1.0.
-    IF X > Lim { RETURN Lim.}
-    IF X < -Lim { RETURN -Lim.}
-    RETURN X.
+function sat {
+    parameter X.
+    parameter Lim is 1.0.
+    IF X > Lim { return Lim.}
+    IF X < -Lim { return -Lim.}
+    return X.
 }
 
-FUNCTION deadzone {
-    PARAMETER X.
-    PARAMETER BAND.
-    If X > BAND { RETURN X-BAND.}
-    If X < -BAND { RETURN X+BAND.}
-    RETURN 0.
+function deadzone {
+    parameter X.
+    parameter BAND.
+    If X > BAND { return X-BAND.}
+    If X < -BAND { return X+BAND.}
+    return 0.
 }
 
-FUNCTION angle_vectors {
-    PARAMETER v1.
-    PARAMETER v2.
-    RETURN ARCCOS(vdot(v2,v1)/sqrt(vdot(v1,v1)*vdot(v2,v2))).
+function convex {
+    parameter X.
+    parameter Y.
+    parameter e.
+    return (1-e)*X + e*Y.
 }
 
-FUNCTION round_dec {
-    PARAMETER NUM.
-    PARAMETER FRAD_DIG.
-    RETURN ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
+function round_dec {
+    parameter NUM.
+    parameter FRAD_DIG.
+    return ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
 }
 
-FUNCTION list_print {
-    PARAMETER arg_in.
+function list_print {
+    parameter arg_in.
     LOCAL TOTAL_STRING is "".
     for e in arg_in{
         SET TOTAL_STRING TO TOTAL_STRING+e+ " ".
@@ -44,9 +45,9 @@ FUNCTION list_print {
     PRINT TOTAL_STRING.
 }
 
-FUNCTION float_list_print {
-    PARAMETER arg_in.
-    PARAMETER flen.
+function float_list_print {
+    parameter arg_in.
+    parameter flen.
     LOCAL TOTAL_STRING is "".
     for e in arg_in{
         SET TOTAL_STRING TO TOTAL_STRING+round_dec(e,flen)+ " ".
@@ -54,8 +55,8 @@ FUNCTION float_list_print {
     PRINT TOTAL_STRING.
 }
 
-FUNCTION wrap_angle_until {
-    PARAMETER theta.
+function wrap_angle_until {
+    parameter theta.
     UNTIL (theta < 180){
         SET theta TO theta-360.
     }
@@ -65,24 +66,25 @@ FUNCTION wrap_angle_until {
     return theta.
 }
 
-FUNCTION wrap_angle {
-    PARAMETER theta.
-    PARAMETER max_angle is 360.
-    return remainder(theta+max_angle/2,max_angle)-max_angle/2.
+function wrap_angle {
+    parameter theta.
+    parameter max_angle is 360.
+    return wrap_angle_until(theta).
+    // return remainder(theta+max_angle/2,max_angle)-max_angle/2.
 }
 
-FUNCTION unit_vector {
+function unit_vector {
     parameter vector_in.
     return (1.0/vector_in:mag)*vector_in.
 }
 
-FUNCTION listsum {
-    PARAMETER L.
+function listsum {
+    parameter L.
     LOCAL TOTAL IS 0.
     for e in L{
         SET TOTAL TO TOTAL+e.
     }
-    RETURN TOTAL.
+    return TOTAL.
 }
 
 function haversine {
@@ -104,20 +106,32 @@ function haversine {
 
 }
 
+function haversine_latlng {
+    parameter lat0.
+    parameter lng0.
+
+    parameter eject.
+    parameter total.
+
+    local dir_temp is R(lat0-90,lng0,0)*R(90-total,180-eject,0).
+    return list(dir_temp:pitch,dir_temp:yaw).
+}
+
 function haversine_dir {
-    parameter dir0.
     parameter dirf.
 
-    local dir_temp is R(90,0,0)*(-dir0)*(dirf).
-    local total is wrap_angle_until(90-dir_temp:pitch).
-    local roll is (180-dir_temp:roll).
-    local eject is dir_temp:yaw.
+    local dir_temp is R(90,0,0)*dirf.
+    local total is wrap_angle(90-dir_temp:pitch).
+    local roll is dir_temp:roll.
+    local eject is wrap_angle(dir_temp:yaw).
     return list( eject, total, roll ).
 }
 
 function dir_haversine {
     parameter have_list. // eject, total, roll
-    return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
+    return R(-90,0,0)*R(90-have_list[1],have_list[0],have_list[2]).
+    // return R(-90,0,0)*R(0,have_list[0],0)*R(90-have_list[1],0,0)*R(0,0,have_list[2]).
+    // return R(0,0,have_list[0])*R(have_list[1],0,0).
 }
 
 function pitch_yaw_from_dir {
@@ -130,7 +144,11 @@ function pitch_yaw_from_dir {
 function remainder {
     parameter x.
     parameter divisor.
-    return x - floor(x/divisor).
+    if x > 0 {
+        return mod(x,divisor).
+    } else {
+        return mod(divisor+mod(x,divisor),divisor).
+    }
 }
 
 function outerweight {
@@ -164,9 +182,17 @@ function get_parts_tagged {
             tagged_list:add(e).
         }
     }
-    print "get_parts_tagged " + tag.
-    print tagged_list.
+    if tagged_list:length > 0 {
+        print "get_parts_tagged " + tag.
+        for p in tagged_list {
+            print p:name.
+        }
+    }
     return tagged_list.
+}
+
+function get_com_offset {
+    return (-ship:facing)*(ship:position - ship:controlpart:position).
 }
 
 function string_acro {
@@ -179,7 +205,7 @@ function string_acro {
 }
 
 function flush_core_messages {
-    PARAMETER ECHO is true.
+    parameter ECHO is true.
     UNTIL CORE:MESSAGES:EMPTY {
         SET RECEIVED TO CORE:MESSAGES:POP.
         IF ECHO {print RECEIVED:CONTENT.}
@@ -194,4 +220,118 @@ function sign {
         return -1.0.
     }
     return 0.0.
+}
+
+function get_param {
+    parameter dict.
+    parameter key.
+    parameter default is 0.
+    if dict:haskey(key) {
+        return dict[key].
+    } else {
+        return default.
+    }
+}
+
+function get_frame_accel_orbit {
+    // returns a force that if subtracted from the ship
+    // will result in a constant height in SOI
+    return ship:up:vector*(-1.0*g0 +
+        (VECTOREXCLUDE(ship:up:vector,ship:velocity:orbit):mag^2
+        /(ship:altitude+ship:body:radius))).
+}
+
+function get_frame_accel {
+    // if the negative of this value is applied to ship
+    // it will always move in a straight line in sidereal frame
+
+    return ship:up:vector*(-1.0*g0).
+}
+
+function simple_q {
+    // returns a non accurate dynamic pressure-like reading
+    // that can be used for some contol purposes
+    parameter height.
+    parameter velocity.
+
+    return 0.00000840159*constant:e^(-height/5000)*velocity^2.
+}
+
+// requires a global called SHIP_TAG_IN_PARAMS
+function spin_if_not_us {
+    until (SHIP_TAG_IN_PARAMS = string_acro(ship:name) ) {
+        wait 1.0.
+    }
+}
+
+// requires a global called SHIP_TAG_IN_PARAMS
+function spin_if_not_core {
+    until (SHIP_TAG_IN_PARAMS = core:tag ) {
+        wait 0.01.
+    }
+}
+
+// try to get param file in decreasing order of specificity
+// if ship:name = "SHIP 1A X" and core:tag = "special alpha"
+//   s1xspecial.json > special.json > s1x.json
+function get_param_file {
+    local core_first_word is core:tag:split(" ")[0].
+    if exists("0:/param/"+string_acro(ship:name)+core_first_word+".json") {
+        copypath("0:/param/"+string_acro(ship:name)+core_first_word+".json","param.json").
+    } else if exists("0:/param/"+core_first_word+".json") {
+        copypath("0:/param/"+core_first_word+".json","param.json").
+    } else if exists("0:/param/"+string_acro(ship:name)+".json") {
+        copypath("0:/param/"+string_acro(ship:name)+".json","param.json").
+    }
+}
+
+function get_ancestor_with_module {
+    parameter module_str.
+    parameter return_one_less is false.
+    parameter walk_max is 10.
+
+    local current_part is core:part.
+    for i in range(0,walk_max) {
+
+        if current_part:hasparent and 
+            current_part:parent:hasmodule(module_str) {
+            if return_one_less {
+                return current_part.
+            } else {
+                return current_part:parent.
+            }
+        } else if current_part:hasparent {
+            set current_part to current_part:parent.
+        } else {
+            return -1.
+        }
+    }
+    return -1. // not found error condition
+}
+
+function get_child_with_module {
+    parameter module_str.
+    parameter return_one_less is false.
+    parameter walk_max is 10.
+    parameter current_part is core:part.
+
+    if walk_max > 0 {
+        for child in current_part:children {
+            if child:hasmodule(module_str) {
+                return child.
+            }
+        }
+        for child in current_part:children {
+            local grandchild is
+                get_child_with_module(module_str,return_one_less,walk_max-1,child).
+            if not (grandchild = -1) {
+                if return_one_less {
+                    return child.
+                } else {
+                    return grandchild.
+                }
+            }
+        }
+    }
+    return -1. // not found error condition
 }

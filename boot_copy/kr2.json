@@ -1,5 +1,22 @@
 {
     "entries": [
+        "ship_name", "Kerbin Relay 2",
+        "ship_name_acro", "kr2",
+        "AP_STEER_MAN",
+        {
+            "entries": [
+                "P_KP",1.0,
+                "P_KI",1.8,
+                "P_KD",0.1,
+                "Y_KP",3,
+                "Y_KI",0,
+                "Y_KD",0,
+                "R_KP",0.05,
+                "R_KI",0.01,
+                "R_KD",0.02
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
         "AP_NAV",
         {
             "entries": [
@@ -11,6 +28,13 @@
             "entries": [
                 "FLCS_ENABLED", true,
                 "NAV_ENABLED", true
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_HUD",
+        {
+            "entries": [
+                "ON_START", false
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
@@ -31,10 +55,22 @@
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
+        "UTIL_TERM",
+        {
+            "entries": [
+                "STARTUP_COMMAND", "askhost flcs 1;wpf(spinon_decouple);askhost flcs"
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_RADAR",
+        {
+            "entries": [
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
         "UTIL_SHBUS",
         {
             "entries": [
-                "FLCS_PROC_TAG", "flcs"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }
