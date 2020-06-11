@@ -57,12 +57,12 @@ function ap_nav_do_aero_rot {
     // uses roll to minimze the bearing in the ship frame so that most omega is
     // applied by pitch and not by yaw
 
-    local w_g is vcrs(vel_prograde:vector, ship:up:vector)*
+    local w_g is vcrs(current_nav_velocity:normalized, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
 
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
-    local cur_pro is (-ship:facing)*vel_prograde.
+    local cur_pro is (-ship:facing)*current_nav_velocity:direction.
     local target_pro is (-ship:facing)*vel_vec:direction.
 
     local ship_frame_error is 

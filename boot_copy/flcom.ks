@@ -15,7 +15,7 @@ WAIT UNTIL SHIP:LOADED.
 if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/common.ks","util_common").
     run once "util_common".
-    COPYPATH("0:/param/"+string_acro(ship:name)+".json","param.json").
+    get_ship_param_file().
     
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").

@@ -262,8 +262,8 @@ function util_wp_parse_command {
         waypoints_print().
     } else if commtext = "wpqd" {
         waypoints_purge().
-    } else if commtext = "wpmd" {
-        if (args = "act") or (args = "srf") or (args = "snv") or (args = "tar"){
+    } else if commtext:startswith("wpmd") {
+        if not brackets and ((args = "act") or (args = "srf") or (args = "snv") or (args = "tar")){
             set cur_mode to args.
         } else {
             print "wp mode " + args + " not supported".

@@ -41,7 +41,7 @@ local lock AG to AG6.
 
 // AERO ROT PID STUFF
 
-local lock wg to vcrs(vel_prograde:vector, ship:up:vector)*
+local lock wg to vcrs(ship:velocity:surface:normalized, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)):mag.
 
 local lock pitch_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:STARVECTOR).
@@ -52,7 +52,7 @@ local lock roll_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 local lock LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
 local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
 
-local lock ship_vel to (-SHIP:FACING)*vel_prograde.
+local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
 local lock alpha to wrap_angle(ship_vel:pitch).
 local lock beta to wrap_angle(-ship_vel:yaw).
 

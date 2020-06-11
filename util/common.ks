@@ -285,6 +285,30 @@ function get_param_file {
     }
 }
 
+// try to get param file for this ship
+function get_ship_param_file {
+    if exists("0:/param/"+string_acro(ship:name)+".json") {
+        copypath("0:/param/"+string_acro(ship:name)+".json","param.json").
+    }
+}
+
+// try to get param file for this core
+function get_core_param_file {
+    local core_first_word is core:tag:split(" ")[0].
+    if exists("0:/param/"+core_first_word+".json") {
+        copypath("0:/param/"+core_first_word+".json","param.json").
+    }
+}
+
+// try to get param file for this boot file
+function get_boot_param_file {
+    local bootfile_name is core:bootfilename:replace("/boot/",""):replace(".ks",".json").
+
+    if exists("0:/param/"+bootfile_name) {
+        copypath("0:/param/"+bootfile_name,"param.json").
+    }
+}
+
 function get_ancestor_with_module {
     parameter module_str.
     parameter return_one_less is false.

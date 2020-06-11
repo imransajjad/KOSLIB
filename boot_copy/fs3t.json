@@ -128,7 +128,7 @@
         "UTIL_TERM",
         {
             "entries": [
-                "STARTUP_COMMAND", "unask flcs;askhost flcs"
+                "STARTUP_COMMAND", "askhost flcs"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

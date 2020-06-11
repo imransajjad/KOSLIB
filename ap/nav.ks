@@ -11,6 +11,8 @@ global AP_NAV_VEL is V(0,0,0).
 global AP_NAV_ACC is V(0,0,0).
 global AP_NAV_ATT is R(0,0,0).
 
+global lock current_nav_velocity to (choose ship:velocity:surface if in_surface else ship:velocity:orbit).
+
 local FOLLOW_MODES is lexicon("F",false,"A",false,"Q",false).
 
 local USE_GCAS is get_param(PARAM,"GCAS_ENABLED",false).
@@ -22,6 +24,7 @@ local TAR_ENABLED is false.
 local lock in_orbit to (ship:apoapsis > 20000).
 local lock in_surface to (ship:altitude < 36000).
 local lock in_docking to false. //(HASTARGET and target:distance < DOCK_DISTANCE).
+
 
 local debug_vectors is false.
 if (debug_vectors) { // debug
@@ -174,7 +177,10 @@ function ap_nav_display {
         } else if ORB_ENABLED and cur_wayp["mode"] = "orb" {
             ap_nav_orb_wp_guide(cur_wayp).
         } else if TAR_ENABLED and cur_wayp["mode"] = "tar" {
-            ap_nav_tar_wp_guide(cur_wayp).
+            local nav_data is ap_nav_tar_wp_guide(cur_wayp).
+            set AP_NAV_VEL to nav_data[0].
+            set AP_NAV_ACC to nav_data[1].
+            set AP_NAV_ATT to nav_data[2].
         } else {
             print "got unsupported wp, marking it done".
             util_wp_done().
