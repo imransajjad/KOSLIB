@@ -89,9 +89,8 @@ local function construct_incomplete_waypoint {
         set wp["do_action"] to -99.
         return wp.
     } else if wp["mode"] = "tar" {
-        // not implemented yet
-        set wp["mode"] to "act".
-        set wp["do_action"] to -99.
+        set wp["speed"] to 1.0.
+        set wp["radius"] to 1.0.
         return wp.
     }
     print "received invalid waypoint data".

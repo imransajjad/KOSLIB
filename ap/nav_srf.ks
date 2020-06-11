@@ -24,8 +24,6 @@ local USE_UTIL_WP is false.
 
 local lock AG to AG3.
 
-local lock cur_vel_head to heading(vel_bear, vel_pitch).
-
 local lock W_PITCH_NOM to RAD2DEG*(g0*ROT_GNOM_VERT)/max(50,vel).
 local lock W_YAW_NOM to RAD2DEG*(g0*ROT_GNOM_LAT)/max(50,vel).
 
@@ -57,6 +55,7 @@ function ap_nav_do_aero_rot {
     // uses roll to minimze the bearing in the ship frame so that most omega is
     // applied by pitch and not by yaw
 
+    local current_nav_velocity is ap_nav_get_vessel_vel().
     local w_g is vcrs(current_nav_velocity:normalized, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
 

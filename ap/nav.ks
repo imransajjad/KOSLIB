@@ -2,7 +2,6 @@
 GLOBAL AP_NAV_ENABLED IS TRUE.
 local PARAM is readJson("1:/param.json")["AP_NAV"].
 
-local DOCK_DISTANCE is get_param(PARAM, "TARGET_DOCK_DISTANCE_MAX", 200).
 local K_Q is get_param(PARAM,"K_Q").
 
 global AP_NAV_TIME_TO_WP is 0.
@@ -11,7 +10,9 @@ global AP_NAV_VEL is V(0,0,0).
 global AP_NAV_ACC is V(0,0,0).
 global AP_NAV_ATT is R(0,0,0).
 
-global lock current_nav_velocity to (choose ship:velocity:surface if in_surface else ship:velocity:orbit).
+global lock in_orbit to (ship:apoapsis > 20000).
+global lock in_surface to (ship:altitude < 36000).
+global lock in_docking to false. //(HASTARGET and target:distance < DOCK_DISTANCE).
 
 local FOLLOW_MODES is lexicon("F",false,"A",false,"Q",false).
 
@@ -21,9 +22,6 @@ local SRF_ENABLED is false.
 local ORB_ENABLED is false.
 local TAR_ENABLED is false.
 
-local lock in_orbit to (ship:apoapsis > 20000).
-local lock in_surface to (ship:altitude < 36000).
-local lock in_docking to false. //(HASTARGET and target:distance < DOCK_DISTANCE).
 
 
 local debug_vectors is false.
@@ -189,12 +187,12 @@ function ap_nav_display {
         if SRF_ENABLED and in_surface {
             ap_nav_srf_stick(pilot_input_u0,pilot_input_u1,pilot_input_u2,pilot_input_u3).
         }
-        if ORB_ENABLED and in_orbit {
-            // ap_nav_orb_stick().
-        }
-        if TAR_ENABLED and in_docking {
-            ap_nav_tar_stick().
-        }
+        // if ORB_ENABLED and in_orbit {
+        //     // ap_nav_orb_stick().
+        // }
+        // if TAR_ENABLED and in_docking {
+        //     ap_nav_tar_stick().
+        // }
     }
     // all of the above functions can contribute to setting
     // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
@@ -207,6 +205,18 @@ function ap_nav_get_direction {
 
 function ap_nav_get_vel {
     return AP_NAV_VEL.
+}
+
+function ap_nav_get_vessel_vel {
+    parameter this_vessel is ship.
+    if not this_vessel:hassuffix("velocity") {
+        set this_vessel to this_vessel:ship.
+    }
+    if (ship:altitude < 36000) {
+        return this_vessel:velocity:surface.
+    } else {
+        return this_vessel:velocity:orbit.
+    }
 }
 
 function ap_nav_get_time_to_wp {
