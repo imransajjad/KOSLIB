@@ -89,8 +89,10 @@ local function construct_incomplete_waypoint {
         set wp["do_action"] to -99.
         return wp.
     } else if wp["mode"] = "tar" {
-        set wp["speed"] to 1.0.
-        set wp["radius"] to 1.0.
+        local L is wp_args:length.
+        if L >= 1 { set wp["speed"] to wp_args[0]. }
+        if L >= 2 { set wp["radius"] to wp_args[1].}
+        if L >= 5 { set wp["offsvec"] to V(wp_args[2],wp_args[3],wp_args[4]).}
         return wp.
     }
     print "received invalid waypoint data".
@@ -174,7 +176,7 @@ local function generate_takeoff_seq {
         /ship:body:radius*RAD2DEG).
 
     set takeoff_sequence_WP to LIST(
-        list(start_alt, 350, p1[0], p1[1]),
+        list(start_alt, 350, p1[0], p1[1], 0, heading),
         list(start_alt+pullup_radius*(1-cos(pullup_angle)), 350, pr[0], pr[1],pullup_angle,heading),
         list(start_alt+pullup_radius*(1-cos(pullup_angle))+
             takeoff_distance*sin(pullup_angle), 350, pesc[0], pesc[1],pullup_angle,heading),
@@ -356,6 +358,21 @@ local function waypoint_print_str {
         }
         if wp:haskey("nomg") {
             set wp_str to wp_str + " " + round_dec(get_param(WP,"nomg",0),2).
+        }
+        return wp_str.
+    } else if WP["mode"] = "tar" {
+        local wp_str is WP["mode"].
+        if wp:haskey("speed") {
+            set wp_str to wp_str + " " + round_dec(get_param(WP, "speed", 1.0),1).
+        }
+        if wp:haskey("radius") {
+            set wp_str to wp_str + " " + round(get_param(wp, "radius", 1.0)).
+        }
+        if wp:haskey("offsvec") {
+            local offsvec is get_param(WP, "offsvec", V(0,0,0)).
+            set wp_str to wp_str + " (" +
+                round_dec(offsvec:x,2) + " " + round_dec(offsvec:y,2) + " " +
+                round_dec(offsvec:z,2) + ")".
         }
         return wp_str.
     }

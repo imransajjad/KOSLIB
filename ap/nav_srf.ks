@@ -22,17 +22,10 @@ local GCAS_GAIN_MULTIPLIER is get_param(PARAM,"GCAS_GAIN_MULTIPLIER").
 local GOT_USE_UTIL_WP is false.
 local USE_UTIL_WP is false.
 
-local lock AG to AG3.
-
-local lock W_PITCH_NOM to RAD2DEG*(g0*ROT_GNOM_VERT)/max(50,vel).
-local lock W_YAW_NOM to RAD2DEG*(g0*ROT_GNOM_LAT)/max(50,vel).
+// local lock AG to AG3.
 
 local VSET_MAN is FALSE.
-local H_CLOSE is false.
 local MIN_NAV_SRF_VEL is 0.01.
-
-local vec_scale is 1.0.
-local vec_width is 5.0.
 
 
 // this function takes the desired NAV direction and finds
@@ -55,9 +48,9 @@ function ap_nav_do_aero_rot {
     // uses roll to minimze the bearing in the ship frame so that most omega is
     // applied by pitch and not by yaw
 
-    local current_nav_velocity is ap_nav_get_vessel_vel().
+    local current_nav_velocity is ship:velocity:surface.
     local w_g is vcrs(current_nav_velocity:normalized, ship:up:vector)*
-                (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
+                (get_frame_accel_orbit()/max(1,ship:airspeed)*RAD2DEG):mag.
 
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
@@ -137,10 +130,10 @@ function ap_nav_srf_gcas {
         local t_pitch is abs(vel_pitch_up/rates[0]).
 
         set straight_vector to
-                ship:srfprograde:forevector*( (t_pitch + t_preroll)*vel ).
+                ship:srfprograde:forevector*( (t_pitch + t_preroll)*ship:airspeed ).
         set impact_vector to 
-                ship:srfprograde:forevector*( vel/(DEG2RAD*rates[0])*sin(vel_pitch_up) + t_preroll*vel ) +
-                ship:srfprograde:topvector*( vel/(DEG2RAD*rates[0])*(1-cos(vel_pitch_up))).
+                ship:srfprograde:forevector*( ship:airspeed/(DEG2RAD*rates[0])*sin(vel_pitch_up) + t_preroll*ship:airspeed ) +
+                ship:srfprograde:topvector*( ship:airspeed/(DEG2RAD*rates[0])*(1-cos(vel_pitch_up))).
 
         if not GCAS_ARMED {
             if gcas_vector_impact(straight_vector) {
@@ -219,7 +212,7 @@ function ap_nav_srf_wp_guide {
         set AP_NAV_TIME_TO_WP to
             (ship:body:radius+ship:altitude)*DEG2RAD*
             haversine(ship:geoposition:lat,ship:geoposition:lng, wp["lat"],wp["lng"])[1]
-            /max(1,vel).
+            /max(1,ship:airspeed).
         
         if wp:haskey("elev") and (wp_vec:mag < 9*final_radius) { 
             // do final alignment
@@ -248,9 +241,10 @@ function ap_nav_srf_stick {
 
     if AP_MODE_PILOT {
         set AP_NAV_VEL to ship:velocity:surface.
+        set VSET_MAN to false.
     } else if AP_MODE_VEL {
-        set AP_NAV_VEL to ship:velocity:surface.
-        set VSET_MAN to TRUE.
+        // set AP_NAV_VEL to ship:velocity:surface.
+        set VSET_MAN to true.
     } else if AP_MODE_NAV {
         set increment to 2.0*deadzone(u1,0.25).
         if increment <> 0 {
@@ -265,7 +259,7 @@ function ap_nav_srf_stick {
             //     set AP_NAV_H_SET To wrap_angle(AP_NAV_H_SET + increment).
             // }
         }
-        set VSET_MAN to TRUE.
+        set VSET_MAN to true.
     }
     if VSET_MAN AND is_active_vessel() {
         set increment to 2.7*deadzone(2*u0-1,0.1).

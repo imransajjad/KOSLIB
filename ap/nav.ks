@@ -22,10 +22,14 @@ local SRF_ENABLED is false.
 local ORB_ENABLED is false.
 local TAR_ENABLED is false.
 
+LOCK pilot_input_v1 TO sat(1.0*SHIP:CONTROL:PILOTFORE, 1.0).
+LOCK pilot_input_v2 TO sat(1.0*SHIP:CONTROL:PILOTTOP, 1.0).
+LOCK pilot_input_v3 TO sat(1.0*SHIP:CONTROL:PILOTSTARBOARD, 1.0).
 
 
-local debug_vectors is false.
+local debug_vectors is true.
 if (debug_vectors) { // debug
+    clearvecdraws().
     local vec_width is 1.0.
     local vec_scale is 1.0.
     set nav_debug_vec0 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),
@@ -106,7 +110,7 @@ function ap_nav_q_target {
     // util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).
 
     local elev is arcsin(sat(-K_Q*(qtar-q_simp), sin_max_vangle)).
-    set elev to max(elev, -arcsin(min(1.0,ship:altitude/vel/5))).
+    set elev to max(elev, -arcsin(min(1.0,ship:altitude/ship:airspeed/5))).
     return list(heading(target_heading,elev):vector, V(0,0,0)).
 }
 
@@ -127,7 +131,7 @@ function ap_nav_check_done {
             ( time_to < 1) {
             local wp_reached_str is  "Reached Waypoint " + (util_wp_queue_length()-1) +
                 char(10)+"(" + round_dec(ship:altitude,2) + "," +
-                round_dec(vel,2) + "," +
+                round_dec(ship:airspeed,2) + "," +
                 round_dec(ship:geoposition:lat,4) + "," +
                 round_dec(ship:geoposition:lng,4) + "," +
                 round_dec(vel_pitch,2) + "," +
@@ -179,6 +183,10 @@ function ap_nav_display {
             set AP_NAV_VEL to nav_data[0].
             set AP_NAV_ACC to nav_data[1].
             set AP_NAV_ATT to nav_data[2].
+            if (debug_vectors) {
+                set nav_debug_vec0:vec to AP_NAV_VEL.
+                set nav_debug_vec1:vec to AP_NAV_VEL-ap_nav_get_vessel_vel().
+            }
         } else {
             print "got unsupported wp, marking it done".
             util_wp_done().
@@ -194,6 +202,7 @@ function ap_nav_display {
         //     ap_nav_tar_stick().
         // }
     }
+    set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
     // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
 }
@@ -205,6 +214,10 @@ function ap_nav_get_direction {
 
 function ap_nav_get_vel {
     return AP_NAV_VEL.
+}
+
+function ap_nav_get_vel_err_mag {
+    return (AP_NAV_VEL:mag-ap_nav_get_vessel_vel():mag).
 }
 
 function ap_nav_get_vessel_vel {

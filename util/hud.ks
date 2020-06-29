@@ -76,7 +76,7 @@ local function nav_vecdraw {
        (( USE_UTIL_WP and util_wp_queue_length() > 0 ) or (AP_MODE_NAV)){
 
         local nav_heading is ap_nav_get_direction().
-        local nav_vel_error is sat(ap_nav_get_vel():mag-vel,10)/10.
+        local nav_vel_error is sat(ap_nav_get_vel_err_mag(),10)/10.
         local camera_offset is camera_offset_vec.
 
         set guide_tri_ll:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
@@ -152,7 +152,7 @@ local function ladder_vec_draw {
             }
         }
     }
-    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and is_active_vessel() and not MAPVIEW and vel > 1.0 {
+    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and is_active_vessel() and not MAPVIEW and ship:airspeed > 1.0 {
 
         local closest_pitch is sat(
             round(vel_pitch/PITCH_DIV)*PITCH_DIV,

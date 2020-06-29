@@ -13,7 +13,7 @@ function ap_nav_tar_wp_guide {
 
     local offsvec is get_param(wp, "offsvec", V(0,0,0)).
     local radius is get_param(wp, "radius", 1.0).
-    local approach_speed is get_param(wp, "speed", 1.0).
+    local approach_speed is get_param(wp, "speed", 3.0).
 
     local current_nav_velocity is ap_nav_get_vessel_vel().
 
@@ -35,7 +35,7 @@ function ap_nav_tar_wp_guide {
                 set approach_speed to target_nav_velocity:mag+VSET_MAX*sat(position:mag/INTERCEPT_DISTANCE).
                 local t_bear is pitch_yaw_from_dir(position:direction)[1].
                 set align_data to ap_nav_q_target(target:altitude, target_nav_velocity:mag, t_bear).
-                return list(approach_speed*align_data[0]+ap_nav_get_vessel_vel() ,V(0,0,0), final_head).
+                return list(approach_speed*align_data[0]+target_nav_velocity ,V(0,0,0), final_head).
 
             } else {
                 // figure out how to choose later

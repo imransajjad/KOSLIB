@@ -41,6 +41,8 @@ local lock AG to AG6.
 
 // AERO ROT PID STUFF
 
+local lock vel to ship:airspeed.
+
 local lock wg to vcrs(ship:velocity:surface:normalized, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)):mag.
 

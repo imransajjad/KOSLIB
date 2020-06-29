@@ -29,6 +29,8 @@ if MAIN_ENGINE_NAME = "turboJet" {
 
 local lock MAX_TMR TO ap_engines_get_total_thrust()/SHIP:MASS.
 
+local lock vel to ship:airspeed.
+
 local my_throttle is 0.0.
 
 local vpid is PIDLOOP(
@@ -95,15 +97,15 @@ local function turbojet_throttle_map {
     local MaxDryThrottle_x is TOGGLE_X-0.05.
 
     IF NOT (MAIN_ENGINES:length = 0){
-        IF u0 > TOGGLE_X AND MAIN_ENGINES[0]:MODE = "Dry"
-        { MAIN_ENGINES[0]:TOGGLEMODE(). }
-        IF u0 <= TOGGLE_X AND MAIN_ENGINES[0]:MODE = "Wet"
-        { MAIN_ENGINES[0]:TOGGLEMODE(). }
+        IF u0 > TOGGLE_X and MAIN_ENGINES[0]:MODE = "Dry"
+        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
+        IF u0 <= TOGGLE_X and MAIN_ENGINES[0]:MODE = "Wet"
+        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
     }
 
     if u0 <= MaxDryThrottle_x {
         SET my_throttle TO (u0/MaxDryThrottle_x).
-    } else if u0 <= TOGGLE_X AND u0 > MaxDryThrottle_x{
+    } else if u0 <= TOGGLE_X and u0 > MaxDryThrottle_x{
         SET my_throttle TO 1.0.
     } else if u0 > TOGGLE_X {
         SET my_throttle TO ((1-TOGGLE_Y)*u0 + 
@@ -118,9 +120,9 @@ local function turbojet_throttle_auto {
     IF NOT (MAIN_ENGINES:length = 0){
         local ab_on is (v_set > TOGGLE_VEL or V_PID_KP*(v_set - vel) > 3.0).
         IF ab_on and MAIN_ENGINES[0]:MODE = "Dry"
-        { MAIN_ENGINES[0]:TOGGLEMODE(). }
+        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
         IF not ab_on and MAIN_ENGINES[0]:MODE = "Wet"
-        { MAIN_ENGINES[0]:TOGGLEMODE(). }
+        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
     }
 
     set vpid:setpoint to v_set.
@@ -154,7 +156,6 @@ local function turbofan_common {
 
 function ap_engine_throttle_auto {
     parameter vel_r is ap_nav_get_vel().
-    parameter acc_r is 0.
     // this function depends on AP_NAV_ENABLED
     SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag).
     apply_auto_brakes(vel_r:mag).

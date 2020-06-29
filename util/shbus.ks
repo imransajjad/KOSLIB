@@ -12,7 +12,7 @@ GLOBAL UTIL_SHBUS_ENABLED IS true.
 // TX SECTION
 
 local PARAM is get_param(readJson("param.json"),"UTIL_SHBUS", lexicon()).
-
+local ship_router_core is (get_param(PARAM, "ship_router_core_tag", "flcs") = core:tag).
 
 local tx_hosts is lexicon().
 local single_host_key is "".
@@ -290,10 +290,10 @@ local function util_shbus_decode_rx_msg {
 function util_shbus_rx_msg {
     local received_msg is 0.
 
-    if not core:messages:empty or not ship:messages:empty{
+    if not core:messages:empty or (ship_router_core and not ship:messages:empty){
         if not core:messages:empty {
             set received_msg to core:messages:pop.
-        } else if not ship:messages:empty {
+        } else if ship_router_core and not ship:messages:empty {
             set received_msg to ship:messages:pop.
         }
         if not (received_msg:content:length = 4) {
