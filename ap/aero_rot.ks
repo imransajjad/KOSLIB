@@ -11,11 +11,16 @@ local GLIM_LONG is get_param(PARAM,"GLIM_LONG", 3).
 local CORNER_VELOCITY is get_param(PARAM,"CORNER_VELOCITY", 200).
 
 
-local RATE_SCHEDULE_ENABLED is get_param(PARAM,"RATE_SCHEDULE_ENABLED", false).
+local RATE_SCHEDULE_ENABLED is get_param(PARAM, "RATE_SCHEDULE_ENABLED", false).
 local START_MASS is get_param(PARAM,"START_MASS", 0).
 
 local GAIN_SCHEDULE_ENABLED is get_param(PARAM,"GAIN_SCHEDULE_ENABLED", false).
 local PITCH_SPECIFIC_INERTIA is get_param(PARAM,"PITCH_SPECIFIC_INERTIA", 0).
+
+local USE_GCAS is get_param(PARAM, "GCAS_ENABLED", false).
+local GCAS_MARGIN is get_param(PARAM, "GCAS_MARGIN").
+local GCAS_SPEED is get_param(PARAM, "GCAS_SPEED").
+local GCAS_GAIN_MULTIPLIER is get_param(PARAM, "GCAS_GAIN_MULTIPLIER").
 
 // rate limits
 local MAX_ROLL is DEG2RAD*get_param(PARAM,"MAX_ROLL", 180).
@@ -34,6 +39,11 @@ local YR_KD is get_param(PARAM,"YR_KD", 0).
 local RR_KP is get_param(PARAM,"RR_KP", 0).
 local RR_KI is get_param(PARAM,"RR_KI", 0).
 local RR_KD is get_param(PARAM,"RR_KD", 0).
+
+// nav angle difference gains
+local K_PITCH is get_param(PARAM,"K_PITCH").
+local K_YAW is get_param(PARAM,"K_YAW").
+local K_ROLL is get_param(PARAM,"K_ROLL").
 
 // USES AG6
 
@@ -220,15 +230,19 @@ local function display_land_stats {
 
 local aero_active is true.
 function ap_aero_rot_do {
-    PARAMETER u1. // pitch
-    PARAMETER u2. // yaw
-    PARAMETER u3. // roll in radians/sec
+    parameter u1. // pitch
+    parameter u2. // yaw
+    parameter u3. // roll in radians/sec
     parameter direct_mode is false.
     // in direct_mode, u1,u2,u3 are expected to be direct rate values
     // else they are stick inputs
 
-    IF not SAS and ship:q > MIN_AERO_Q {
 
+    if not SAS and ship:q > MIN_AERO_Q {
+
+        if USE_GCAS {
+            ap_aero_rot_gcas().
+        }
         if GAIN_SCHEDULE_ENABLED {
             gain_schedule().
         }
@@ -277,8 +291,167 @@ function ap_aero_rot_do {
     }
 }
 
-function ap_aero_rot_maxrates {
-    return list(RAD2DEG*prate_max,RAD2DEG*yrate_max,RAD2DEG*rrate_max).
+local function gcas_vector_impact {
+    parameter impact_vector.
+    local sticky_factor is 2.0.
+
+    local impact_distance is impact_vector*heading(vel_bear,0):vector.
+    local impact_latlng is haversine_latlng(ship:geoposition:lat, ship:geoposition:lng,
+            vel_bear ,RAD2DEG*impact_distance/ship:body:radius ).
+    local impact_alt is max(latlng(impact_latlng[0],impact_latlng[1]):terrainheight,0).
+    return (ship:altitude+impact_vector*ship:up:vector < 
+        impact_alt+GCAS_MARGIN + (choose sticky_factor*GCAS_MARGIN if GCAS_ACTIVE else 0)).
+}
+
+local GCAS_ARMED is false.
+local GCAS_ACTIVE is false.
+local n_impact_pts is 5.
+local straight_vector is V(0,0,0).
+local impact_vector is V(0,0,0).
+local escape_bear is 0.
+local old_mode_str is "".
+local gcas_vel_vec is V(0,0,0).
+
+function ap_aero_rot_gcas {
+    // ground collision avoidance system
+    local escape_pitch is 10+max(0,vel_pitch).
+    local react_time is 1.0.
+
+    if not GEAR and not SAS {
+        local gcas_prate to max(RAD2DEG*prate_max/1.0,1.0).
+        local gcas_yrate to max(RAD2DEG*yrate_max,1.0).
+        local gcas_rrate to max(RAD2DEG*rrate_max/6.0,1.0).
+
+        local t_preroll is abs(roll/gcas_rrate) + react_time.
+        local vel_pitch_up is min(90,max(0,-vel_pitch+escape_pitch)).
+        local t_pitch is abs(vel_pitch_up/gcas_prate).
+
+        set straight_vector to
+                ship:srfprograde:forevector*( (t_pitch + t_preroll)*ship:airspeed ).
+        set impact_vector to 
+                ship:srfprograde:forevector*( ship:airspeed/(DEG2RAD*gcas_prate)*sin(vel_pitch_up) + t_preroll*ship:airspeed ) +
+                ship:srfprograde:topvector*( ship:airspeed/(DEG2RAD*gcas_prate)*(1-cos(vel_pitch_up))).
+
+        if not GCAS_ARMED {
+            if gcas_vector_impact(straight_vector) {
+                util_hud_push_right("NAV_GCAS", "GCAS").
+                print "GCAS armed".
+                set GCAS_ARMED to true.
+            }
+        } else if GCAS_ARMED {
+            local impact_condition is false.
+            for i in range(0,n_impact_pts) {
+                set impact_condition to impact_condition or gcas_vector_impact(((i+1)/n_impact_pts)*impact_vector).
+            }
+
+            if not GCAS_ACTIVE and impact_condition {
+                // GCAS is active here, will put in NAV mode after setting headings etc
+                set GCAS_ACTIVE to true.
+                util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"ACTIVE").
+                print "GCAS ACTIVE".
+                set old_mode_str to ap_mode_get_str().
+                set escape_bear to vel_bear.
+                ap_mode_set("NAV").
+
+            } else if GCAS_ACTIVE and not impact_condition {
+                ap_mode_set(old_mode_str).
+                print "GCAS INACTIVE".
+                util_hud_push_right("NAV_GCAS", "GCAS").
+                set GCAS_ACTIVE to false.
+            }
+
+            if GCAS_ACTIVE {
+                ap_nav_overwrite_vel(GCAS_SPEED*heading(escape_bear,escape_pitch):vector).
+
+                if (ship:altitude - GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
+                {
+                    print "GCAS FLOOR BREACHED".
+                    util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"BREACHED").
+                }
+            }
+
+            if not GCAS_ACTIVE and not gcas_vector_impact(straight_vector) {
+                util_hud_pop_right("NAV_GCAS").
+                print "GCAS disarmed".
+                set GCAS_ARMED to false.
+            }
+        }
+    } else if GCAS_ARMED or GCAS_ACTIVE {
+        // if GEAR or SAS, undo everything
+        ap_mode_set(old_mode_str).
+        util_hud_pop_right("NAV_GCAS").
+        set GCAS_ARMED to false.
+        set GCAS_ACTIVE to false.
+    }
+    return GCAS_ACTIVE.
+}
+
+// this function takes the desired NAV direction and finds
+// an angular velocity to supply to the flcs. 
+//  mostly it's just omega = K(NAV_DIR - prograde) + omega_ff 
+function ap_aero_rot_nav_do {
+    parameter vel_vec.
+    parameter acc_vec.
+    parameter head_dir.
+
+    // a roll command is found as follows:
+    // pitch errors and yaw errors are found in the ship frame
+    // the omega required to overcome gravity pitching down plus 
+    // the feed forward rates are also expressed in the ship frame.
+    // we now have a omega that we have to "apply", but without any roll
+    // 
+    // this omega is fed to the haversine and we get a bearing and magnitude
+    // like information about the pitch and yaw components of omega. Then
+    // omega_roll = -K*have_roll_pre[0]
+    // uses roll to minimze the bearing in the ship frame so that most omega is
+    // applied by pitch and not by yaw
+
+    unlock steering. // steering manager needs to be disabled.
+
+    local current_nav_velocity is ship:velocity:surface.
+    local w_g is vcrs(current_nav_velocity:normalized, ship:up:vector)*
+                (get_frame_accel_orbit()/max(1,ship:airspeed)*RAD2DEG):mag.
+
+    local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
+
+    local cur_pro is (-ship:facing)*current_nav_velocity:direction.
+    local target_pro is (-ship:facing)*vel_vec:direction.
+
+    local ship_frame_error is 
+        V(-wrap_angle(target_pro:pitch-cur_pro:pitch),
+        wrap_angle(target_pro:yaw-cur_pro:yaw),
+        0 ).
+
+    local WGM is 1.0/kuniverse:timewarp:rate*(choose GCAS_GAIN_MULTIPLIER if GCAS_ACTIVE else 1.0).
+
+    // omega applied by us
+    local w_us is wff + WGM*K_PITCH*ship_frame_error:x*ship:facing:starvector +
+                            -WGM*K_YAW*ship_frame_error:y*ship:facing:topvector.
+    
+    // omega applied by us including gravity for deciding roll
+    local w_us_w_g is w_us-w_g.
+    
+    // util_hud_push_right("nav_w", "w_ff: (p,y): " + round_dec(wff*ship:facing:starvector,2) + "," + round_dec(-wff*ship:facing:topvector,2) +
+    //     char(10)+ "w_g: (p,y): " + round_dec(w_g*ship:facing:starvector,2) + "," + round_dec(-w_g*ship:facing:topvector,2) +
+    //     char(10)+ "w_us: (p,y): " + round_dec(w_us*ship:facing:starvector,2) + "," + round_dec(-w_us*ship:facing:topvector,2)).
+    
+    local have_roll_pre is haversine(0,0,w_us_w_g*ship:facing:starvector, -w_us_w_g*ship:facing:topvector).
+    local roll_w is sat(have_roll_pre[1]/2.5,1.0).
+
+    if ship:status = "LANDED" {
+        set roll_w to 0.
+    }
+
+    local p_rot is w_us*ship:facing:starvector.
+    local y_rot is -w_us*ship:facing:topvector.
+    local r_rot is K_ROLL*convex(0-roll, wrap_angle(have_roll_pre[0]), roll_w).
+
+    // util_hud_push_right("nav_w", ""+ round_dec(w_us*ship:facing:starvector,3) +
+    //                             char(10)+round_dec(-w_us*ship:facing:topvector,3) +
+    //                             char(10)+round_dec(w_us*ship:facing:forevector,3) +
+    //                             char(10)+"rt:"+round_dec(have_roll_pre[0],1)).
+
+    ap_aero_rot_do(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
 }
 
 local departure is false.
@@ -331,6 +504,11 @@ function ap_aero_rot_status_string {
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,3) +
         char(10) + "WA " + round_dec(WING_AREA,1).
+    }
+    if (false) { // debug
+        set hud_str to hud_str+ char(10)+ "NAV_K " + round_dec(K_PITCH,5) + 
+                                  char(10)+    "     " + round_dec(K_YAW,5) + 
+                                  char(10)+    "     " + round_dec(K_ROLL,5).
     }
 
     return hud_str.

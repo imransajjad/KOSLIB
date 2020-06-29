@@ -17,34 +17,22 @@ function ap_nav_tar_wp_guide {
 
     local current_nav_velocity is ap_nav_get_vessel_vel().
 
+    local target_ship is -1.
     if HASTARGET {
-        local target_ship is target.
+        set target_ship to target.
+    } else if false and util_shsys_has_target() {
+        set target_ship to util_shsys_get_target().
+    }
+
+    if not (target_ship = -1) {
         local target_nav_velocity is ap_nav_get_vessel_vel(target_ship).
         local relative_velocity is current_nav_velocity-target_nav_velocity.
         local final_head is target:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(180,0,0)).
         local position is target_ship:position + (final_head)*offsvec.
 
-        local align_data is list().
-
-        if (position:mag < DOCK_DISTANCE) and (approach_speed < DOCK_SPEED) {
-            // close enough and set to dock
-            set align_data to ap_nav_align(position, final_head, relative_velocity, radius).
-            return list(approach_speed*align_data[0]+target_nav_velocity ,V(0,0,0), final_head).
-        } else { // do a surface (q) or orbital intercept
-            if true {
-                set approach_speed to target_nav_velocity:mag+VSET_MAX*sat(position:mag/INTERCEPT_DISTANCE).
-                local t_bear is pitch_yaw_from_dir(position:direction)[1].
-                set align_data to ap_nav_q_target(target:altitude, target_nav_velocity:mag, t_bear).
-                return list(approach_speed*align_data[0]+target_nav_velocity ,V(0,0,0), final_head).
-
-            } else {
-                // figure out how to choose later
-            }
-        }
-
-
-    } else if false {
-        // get stored target from shsys
+        // local align_data is ap_nav_align(position, final_head, relative_velocity, radius).
+        // return list(approach_speed*align_data[0]+target_nav_velocity ,V(0,0,0), final_head).
+        return list(approach_speed*position:normalized+target_nav_velocity ,V(0,0,0), final_head).
     } else {
         // do nothing
     }

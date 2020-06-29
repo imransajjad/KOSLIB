@@ -16,7 +16,6 @@ global lock in_docking to false. //(HASTARGET and target:distance < DOCK_DISTANC
 
 local FOLLOW_MODES is lexicon("F",false,"A",false,"Q",false).
 
-local USE_GCAS is get_param(PARAM,"GCAS_ENABLED",false).
 local USE_UTIL_WP is false.
 local SRF_ENABLED is false.
 local ORB_ENABLED is false.
@@ -161,10 +160,6 @@ function ap_nav_display {
 
     update_flags().
 
-    if in_surface and USE_GCAS and ap_nav_srf_gcas(){
-        return.
-    }
-
     if USE_UTIL_WP and (util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
         if SRF_ENABLED and cur_wayp["mode"] = "srf" {
@@ -185,7 +180,7 @@ function ap_nav_display {
             set AP_NAV_ATT to nav_data[2].
             if (debug_vectors) {
                 set nav_debug_vec0:vec to AP_NAV_VEL.
-                set nav_debug_vec1:vec to AP_NAV_VEL-ap_nav_get_vessel_vel().
+                set nav_debug_vec1:vec to 10*(AP_NAV_VEL-ship:velocity:orbit).
             }
         } else {
             print "got unsupported wp, marking it done".
@@ -195,9 +190,12 @@ function ap_nav_display {
         if SRF_ENABLED and in_surface {
             ap_nav_srf_stick(pilot_input_u0,pilot_input_u1,pilot_input_u2,pilot_input_u3).
         }
-        // if ORB_ENABLED and in_orbit {
-        //     // ap_nav_orb_stick().
-        // }
+        if ORB_ENABLED and in_orbit {
+            local nav_data is ap_nav_orb_stick().
+            set AP_NAV_VEL to nav_data[0].
+            set AP_NAV_ACC to nav_data[1].
+            set AP_NAV_ATT to nav_data[2].
+        }
         // if TAR_ENABLED and in_docking {
         //     ap_nav_tar_stick().
         // }
@@ -214,6 +212,11 @@ function ap_nav_get_direction {
 
 function ap_nav_get_vel {
     return AP_NAV_VEL.
+}
+
+function ap_nav_overwrite_vel {
+    parameter vec_in.
+    set AP_NAV_VEL to vec_in.
 }
 
 function ap_nav_get_vel_err_mag {
@@ -239,19 +242,17 @@ function ap_nav_get_time_to_wp {
 function ap_nav_do {
     // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
     // are used by these functions
-    if SRF_ENABLED and in_surface {
-        unlock steering.
-        ap_engine_throttle_auto(AP_NAV_VEL).
-        ap_nav_do_aero_rot(AP_NAV_VEL,AP_NAV_ACC,AP_NAV_ATT).
-    } else if ORB_ENABLED and in_orbit {
-        ap_nav_orb_do().
-    } else if SRF_ENABLED {
-        unlock steering.
-        ap_nav_do_aero_rot().
-    } else if ORB_ENABLED {
-        ap_nav_orb_do().
-    } else if false {
-        ap_nav_tar_do().
+    if SRF_ENABLED and (in_surface or (not ORB_ENABLED and in_orbit)) {
+        if defined AP_AERO_ROT_ENABLED {
+            ap_aero_rot_nav_do(AP_NAV_VEL,AP_NAV_ACC,AP_NAV_ATT).
+        }
+        if defined AP_ENGINES_ENABLED {
+            ap_engine_throttle_auto(AP_NAV_VEL).
+        }
+    } else if ORB_ENABLED and (in_orbit or (not SRF_ENABLED and in_surface)) {
+        if defined AP_ORB_ENABLED {
+            ap_orb_nav_do(AP_NAV_VEL,AP_NAV_ACC,AP_NAV_ATT).
+        }
     }
 }
 

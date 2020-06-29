@@ -155,7 +155,9 @@ local function turbofan_common {
 }
 
 function ap_engine_throttle_auto {
-    parameter vel_r is ap_nav_get_vel().
+    parameter vel_r is V(0,0,0).
+    parameter acc_r is -1.
+    parameter head_r is -1.
     // this function depends on AP_NAV_ENABLED
     SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag).
     apply_auto_brakes(vel_r:mag).
