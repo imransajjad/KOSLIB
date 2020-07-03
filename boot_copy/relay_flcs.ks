@@ -24,6 +24,8 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/shsys.ks","util_shsys").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
 
+    COPYPATH("0:/koslib/ap/orb.ks","ap_orb").
+    COPYPATH("0:/koslib/ap/nav_tar.ks","ap_nav_tar").
     COPYPATH("0:/koslib/ap/nav_orb.ks","ap_nav_orb").
     COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
@@ -46,7 +48,9 @@ run once "util_shbus".
 run once "util_shsys".
 run once "util_wp".
 
+run once "ap_orb".
 run once "ap_mode".
+run once "ap_nav_tar".
 run once "ap_nav_orb".
 run once "ap_nav".
 
@@ -64,11 +68,7 @@ until false {
         ap_mode_set("NAV").
     }
 
-    if AP_MODE_PILOT {
-        unlock THROTTLE.
-        unlock STEERING.
-        SET SHIP:CONTROL:NEUTRALIZE to true.
-    } else if AP_MODE_NAV {
+    if AP_MODE_NAV {
         ap_nav_do().
     } else {
         unlock THROTTLE.

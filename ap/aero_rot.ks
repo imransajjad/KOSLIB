@@ -39,6 +39,7 @@ local YR_KD is get_param(PARAM,"YR_KD", 0).
 local RR_KP is get_param(PARAM,"RR_KP", 0).
 local RR_KI is get_param(PARAM,"RR_KI", 0).
 local RR_KD is get_param(PARAM,"RR_KD", 0).
+local RR_I_SAT is get_param(PARAM, "RR_I_SAT", 0.05).
 
 // nav angle difference gains
 local K_PITCH is get_param(PARAM,"K_PITCH").
@@ -161,7 +162,7 @@ local rrateI is PIDLOOP(
     0,
     RR_KI,
     0,
-    -0.05,0.05).
+    -RR_I_SAT,RR_I_SAT).
 
 local lock rrate_max to sat(vel/CORNER_VELOCITY*MAX_ROLL, MAX_ROLL).
 
@@ -208,15 +209,15 @@ local function display_land_stats {
             local land_stats is "landed" + char(10) +
                 "  pitch "+ round_dec(pitch,2) + char(10) +
                 "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
-            if UTIL_HUD_ENABLED {
+            if defined UTIL_HUD_ENABLED {
                 util_hud_push_left("AERO_ROT_LAND_STATS" , land_stats ).
             }
-            if UTIL_FLDR_ENABLED {
+            if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event(land_stats).
             }
             print land_stats.
         } else if SHIP:STATUS = "FLYING" {
-            if UTIL_HUD_ENABLED {
+            if defined UTIL_HUD_ENABLED {
                 util_hud_pop_left("AERO_ROT_LAND_STATS").
             }
         }
@@ -462,7 +463,7 @@ function ap_aero_rot_status_string {
     if (ship:q > MIN_AERO_Q) {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
         char(10) + char(945) + " " + round_dec(alpha,1).
-        if UTIL_FLDR_ENABLED {
+        if defined UTIL_FLDR_ENABLED {
             if abs(alpha) > 45 and not departure {
                 util_fldr_send_event("aero_rot departure").
                 set departure to true.
@@ -472,7 +473,7 @@ function ap_aero_rot_status_string {
         }
     }
 
-    if ( false) { // pitch debug
+    if ( true) { // pitch debug
     set hud_str to hud_str+
         char(10) + "ppid" + " " + round_dec(PR_KP,2) + " " + round_dec(PR_KI,2) + " " + round_dec(PR_KD,2) +
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
@@ -499,13 +500,13 @@ function ap_aero_rot_status_string {
         char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1).
     }
 
-    if ( false) { // q debug
+    if ( true) { // q debug
     set hud_str to hud_str+
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,3) +
         char(10) + "WA " + round_dec(WING_AREA,1).
     }
-    if (false) { // debug
+    if ( false) { // nav debug
         set hud_str to hud_str+ char(10)+ "NAV_K " + round_dec(K_PITCH,5) + 
                                   char(10)+    "     " + round_dec(K_YAW,5) + 
                                   char(10)+    "     " + round_dec(K_ROLL,5).

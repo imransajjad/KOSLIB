@@ -63,7 +63,7 @@ function util_shbus_parse_command {
             print "askhost expected string arg".
         } else {
             local new_host_name is -1.
-            local new_host is 0.
+            local new_host is -1.
             local splitargs is args:split(" ").
             if splitargs[0] = "target" {
                 if is_active_vessel() and HASTARGET {

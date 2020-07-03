@@ -4,8 +4,9 @@ global AP_NAV_TAR_ENABLED is true.
 local PARAM is readJson("1:/param.json")["AP_NAV"].
 local INTERCEPT_DISTANCE is get_param(PARAM, "TARGET_INTERCEPT_DISTANCE_MAX", 1000).
 local DOCK_DISTANCE is get_param(PARAM, "TARGET_DOCK_DISTANCE_MAX", 200).
+
 local DOCK_SPEED is get_param(PARAM, "TARGET_DOCK_SPEED_MAX", 10).
-local VSET_MAX is get_param(PARAM, "VSET_MAX", 280).
+local MAX_STATION_KEEP_SPEED is get_param(PARAM, "MAX_STATION_KEEP_SPEED", 1.0).
 
 
 function ap_nav_tar_wp_guide {
@@ -30,9 +31,16 @@ function ap_nav_tar_wp_guide {
         local final_head is target:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(180,0,0)).
         local position is target_ship:position + (final_head)*offsvec.
 
-        // local align_data is ap_nav_align(position, final_head, relative_velocity, radius).
-        // return list(approach_speed*align_data[0]+target_nav_velocity ,V(0,0,0), final_head).
-        return list(approach_speed*position:normalized+target_nav_velocity ,V(0,0,0), final_head).
+        if abs(approach_speed) > MAX_STATION_KEEP_SPEED {
+            ap_nav_check_done(position, ship:facing, relative_velocity, radius).
+        }
+
+        set approach_speed to approach_speed*sat(position:mag/radius,2).
+        util_hud_push_right("nav_tar", "a_s " + round_dec(approach_speed,1)).
+
+        local align_data is ap_nav_align(position, final_head, relative_velocity, radius).
+        return list(approach_speed*align_data[0]+target_nav_velocity ,V(0,0,0), final_head).
+        // return list(approach_speed*position:normalized+target_nav_velocity ,V(0,0,0), final_head).
     } else {
         // do nothing
     }

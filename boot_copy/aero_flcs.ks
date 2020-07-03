@@ -51,7 +51,7 @@ LOCK pitch TO (mod(DELTA_FACE_UP:pitch+90,180)-90).
 LOCK roll TO (180-DELTA_FACE_UP:roll).
 LOCK yaw TO (360-DELTA_FACE_UP:yaw).
 
-LOCK vel TO (choose SHIP:AIRSPEED if ship:altitude < 36000 else SHIP:VELOCITY:ORBIT:mag).
+// LOCK vel TO (choose SHIP:AIRSPEED if ship:altitude < 36000 else SHIP:VELOCITY:ORBIT:mag).
 
 LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
     (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
@@ -92,7 +92,7 @@ UNTIL false {
         ap_engine_throttle_map().
         ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_MODE_VEL {
-        ap_engine_throttle_auto().
+        ap_engine_throttle_auto(ap_nav_get_vel()).
         ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
     } else if AP_MODE_NAV {
         ap_nav_do().

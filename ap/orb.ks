@@ -30,6 +30,7 @@ local orb_steer_direction is ship:facing.
 local orb_throttle is 0.0.
 local MAIN_ENGINE_IN_USE is false.
 local RCS_IN_USE is false.
+local STEERMAN_IN_USE is false.
 
 local RCS_MAX_DV is 100.0.
 
@@ -41,58 +42,67 @@ function ap_orb_nav_do {
     local delta_v is (vel_vec - ship:velocity:orbit).
     local alignment is ship:facing:forevector*delta_v:normalized.
     
-    local STEERMAN_IN_USE is false.
 
-    if USE_RCS and not MAIN_ENGINE_IN_USE {
-        print "here".
-        if (delta_v:mag > 0.05) and delta_v:mag < RCS_MAX_DV {
-            set orb_steer_direction to head_dir.
-            set STEERMAN_IN_USE to true.
-            set RCS_IN_USE to true.
+    if not SAS {
+        if USE_RCS and not MAIN_ENGINE_IN_USE {
+            print "here".
+            if (delta_v:mag > 0.1) and delta_v:mag < RCS_MAX_DV {
+                set STEERMAN_IN_USE to true.
+                set RCS_IN_USE to true.
 
-        } else {
-            set STEERMAN_IN_USE to false.
-            set RCS_IN_USE to false.
+            } else if (delta_v:mag < 0.01) or delta_v:mag > RCS_MAX_DV{
+                set STEERMAN_IN_USE to false.
+                set RCS_IN_USE to false.
+            }
         }
-    }
 
-    // if not MAIN_ENGINE_IN_USE and (delta_v:mag > RCS_MAX_DV) {
-    //     set MAIN_ENGINE_IN_USE to true.
-    //     set orb_steer_direction to delta_v:direction.
-    //     set STEERMAN_IN_USE to true.
-    // } else if MAIN_ENGINE_IN_USE and (delta_v:mag < 0.1 or alignment < 0 ) {
-    //     set MAIN_ENGINE_IN_USE to false.
-    // }
+        // if not MAIN_ENGINE_IN_USE and (delta_v:mag > RCS_MAX_DV) {
+        //     set MAIN_ENGINE_IN_USE to true.
+        //     set orb_steer_direction to delta_v:direction.
+        //     set STEERMAN_IN_USE to true.
+        // } else if MAIN_ENGINE_IN_USE and (delta_v:mag < 0.1 or alignment < 0 ) {
+        //     set MAIN_ENGINE_IN_USE to false.
+        // }
 
+        set orb_steer_direction to head_dir.
 
-    if USE_STEERMAN and not SAS {
-        lock steering to orb_steer_direction.
-    } else {
-        unlock steering.
-    }
-    if MAIN_ENGINE_IN_USE {
-        set orb_throttle to (choose 1.0 if alignment > 0.99 else 0.0).
-        lock throttle to orb_throttle.
+        if USE_STEERMAN and STEERMAN_IN_USE {
+            lock steering to orb_steer_direction.
+        } else {
+            unlock steering.
+        }
+        if MAIN_ENGINE_IN_USE {
+            set orb_throttle to (choose 1.0 if alignment > 0.99 else 0.0).
+            lock throttle to orb_throttle.
+        } else {
+            unlock throttle.
+        }
+        if RCS_IN_USE {
+            set RCS to true.
+            set ship:control:starboard to K_RCS_STARBOARD*(ship:facing:starvector*delta_v).
+            set ship:control:top to K_RCS_TOP*(ship:facing:topvector*delta_v).
+            set ship:control:fore to K_RCS_FORE*(ship:facing:forevector*delta_v).
+        } else {
+            set RCS to false.
+            set ship:control:translation to V(0,0,0).
+        }
+        print "ap_orb_nav_do".
+        print round_dec(delta_v:mag,1).
+        print round_dec(alignment,2).
+        print ap_orb_status_string().
     } else {
         unlock throttle.
+        unlock steering.
+        print "SASon, not doing ap_orb_nav_do".
     }
-    if RCS_IN_USE {
-        set RCS to true.
-        set ship:control:starboard to K_RCS_STARBOARD*(ship:facing:starvector*delta_v).
-        set ship:control:top to K_RCS_TOP*(ship:facing:topvector*delta_v).
-        set ship:control:fore to K_RCS_FORE*(ship:facing:forevector*delta_v).
-    } else {
-        set RCS to false.
-        set ship:control:translation to V(0,0,0).
-    }
-    print "ap_orb_nav_do".
-    print round_dec(delta_v:mag,1).
-    print round_dec(alignment,2).
-    print ap_orb_status_string().
+
 }
 
 function ap_orb_status_string {
     local hud_str is "".
-    set hud_str to round_dec(orb_throttle,1).
+    set hud_str to round_dec(orb_throttle,1) + char(10) +
+        (choose "ME " if MAIN_ENGINE_IN_USE else "") + 
+        (choose "RCS " if RCS_IN_USE else "") + 
+        (choose "SM " if STEERMAN_IN_USE else "").
     return hud_str.
 }
