@@ -60,11 +60,10 @@ function ap_nav_srf_wp_guide {
 }
 
 function ap_nav_srf_stick {
-    parameter u0. // throttle input
-    parameter u1. // pitch input
-    parameter u2. // yaw input
-    parameter u3. // roll input
-
+    parameter u0 is SHIP:CONTROL:PILOTMAINTHROTTLE. // throttle input
+    parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch input
+    parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw input
+    parameter u3 is SHIP:CONTROL:PILOTROLL. // roll input
     local increment is 0.0.
 
     if AP_MODE_PILOT {

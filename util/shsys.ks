@@ -24,8 +24,8 @@ local MIN_SEPARATION is get_param(PARAM, "MIN_SEPARATION", 3).
 
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is "".
-if PARAM:haskey("AP_ENGINES") {
-    set MAIN_ENGINE_NAME to get_param(PARAM["AP_ENGINES"], "MAIN_ENGINE_NAME", "").
+if PARAM:haskey("AP_AERO_ENGINES") {
+    set MAIN_ENGINE_NAME to get_param(PARAM["AP_AERO_ENGINES"], "MAIN_ENGINE_NAME", "").
 }
 
 

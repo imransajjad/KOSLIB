@@ -3,6 +3,8 @@ GLOBAL AP_AERO_ROT_ENABLED IS true.
 
 local PARAM is readJson("param.json")["AP_AERO_ROT"].
 
+local STICK_GAIN is get_param(PARAM, "STICK_GAIN", 3.0).
+
 // glimits
 local GLIM_VERT is get_param(PARAM,"GLIM_VERT", 5).
 local GLIM_LAT is get_param(PARAM,"GLIM_LAT", 1).
@@ -17,9 +19,8 @@ local START_MASS is get_param(PARAM,"START_MASS", 0).
 local GAIN_SCHEDULE_ENABLED is get_param(PARAM,"GAIN_SCHEDULE_ENABLED", false).
 local PITCH_SPECIFIC_INERTIA is get_param(PARAM,"PITCH_SPECIFIC_INERTIA", 0).
 
-local USE_GCAS is get_param(PARAM, "GCAS_ENABLED", false).
+local USE_GCAS is get_param(PARAM, "USE_GCAS", false).
 local GCAS_MARGIN is get_param(PARAM, "GCAS_MARGIN").
-local GCAS_SPEED is get_param(PARAM, "GCAS_SPEED").
 local GCAS_GAIN_MULTIPLIER is get_param(PARAM, "GCAS_GAIN_MULTIPLIER").
 
 // rate limits
@@ -231,9 +232,9 @@ local function display_land_stats {
 
 local aero_active is true.
 function ap_aero_rot_do {
-    parameter u1. // pitch
-    parameter u2. // yaw
-    parameter u3. // roll in radians/sec
+    parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch
+    parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw
+    parameter u3 is SHIP:CONTROL:PILOTROLL. // roll in radians/sec
     parameter direct_mode is false.
     // in direct_mode, u1,u2,u3 are expected to be direct rate values
     // else they are stick inputs
@@ -241,24 +242,25 @@ function ap_aero_rot_do {
 
     if not SAS and ship:q > MIN_AERO_Q {
 
-        if USE_GCAS {
-            ap_aero_rot_gcas().
-        }
+        display_land_stats().
         if GAIN_SCHEDULE_ENABLED {
             gain_schedule().
         }
-        display_land_stats().
-
-        if direct_mode {
+        if USE_GCAS and gcas_check() {
+            set pratePID:SETPOINT TO sat(GCAS_GAIN_MULTIPLIER*K_PITCH*DEG2RAD*(gcas_escape_pitch-vel_pitch)*cos(roll),prate_max).
+            set yratePID:SETPOINT TO 0.0.
+            set rratePD:SETPOINT TO sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
+            set rrateI:SETPOINT TO sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
+        } else if direct_mode {
             set pratePID:SETPOINT TO sat(u1,prate_max).
             set yratePID:SETPOINT TO sat(u2,yrate_max).
             set rratePD:SETPOINT TO sat(u3,rrate_max).
             set rrateI:SETPOINT TO sat(u3,rrate_max).
         } else {
-            set pratePID:SETPOINT TO prate_max*u1.
-            set yratePID:SETPOINT TO yrate_max*u2.
-            set rratePD:SETPOINT TO rrate_max*u3.
-            set rrateI:SETPOINT TO rrate_max*u3.
+            set pratePID:SETPOINT TO prate_max*sat(STICK_GAIN*u1,1.0).
+            set yratePID:SETPOINT TO yrate_max*sat(STICK_GAIN*u2,1.0).
+            set rratePD:SETPOINT TO rrate_max*sat(STICK_GAIN*u3,1.0).
+            set rrateI:SETPOINT TO rrate_max*sat(STICK_GAIN*u3,1.0).
         }
 
         set SHIP:CONTROL:YAW TO yratePID:UPDATE(TIME:SECONDS, yaw_rate)
@@ -309,13 +311,12 @@ local GCAS_ACTIVE is false.
 local n_impact_pts is 5.
 local straight_vector is V(0,0,0).
 local impact_vector is V(0,0,0).
-local escape_bear is 0.
-local old_mode_str is "".
-local gcas_vel_vec is V(0,0,0).
+local gcas_escape_pitch is 0.0.
 
-function ap_aero_rot_gcas {
+local function gcas_check {
     // ground collision avoidance system
     local escape_pitch is 10+max(0,vel_pitch).
+    local escape_bear is vel_bear.
     local react_time is 1.0.
 
     if not GEAR and not SAS {
@@ -335,9 +336,9 @@ function ap_aero_rot_gcas {
 
         if not GCAS_ARMED {
             if gcas_vector_impact(straight_vector) {
-                util_hud_push_right("NAV_GCAS", "GCAS").
-                print "GCAS armed".
                 set GCAS_ARMED to true.
+                util_hud_push_right("AERO_ROT_GCAS", "GCAS").
+                print "GCAS armed".
             }
         } else if GCAS_ARMED {
             local impact_condition is false.
@@ -348,42 +349,41 @@ function ap_aero_rot_gcas {
             if not GCAS_ACTIVE and impact_condition {
                 // GCAS is active here, will put in NAV mode after setting headings etc
                 set GCAS_ACTIVE to true.
-                util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"ACTIVE").
+                util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"ACTIVE").
                 print "GCAS ACTIVE".
-                set old_mode_str to ap_mode_get_str().
                 set escape_bear to vel_bear.
-                ap_mode_set("NAV").
 
             } else if GCAS_ACTIVE and not impact_condition {
-                ap_mode_set(old_mode_str).
                 print "GCAS INACTIVE".
-                util_hud_push_right("NAV_GCAS", "GCAS").
+                util_hud_push_right("AERO_ROT_GCAS", "GCAS").
                 set GCAS_ACTIVE to false.
             }
 
             if GCAS_ACTIVE {
-                ap_nav_overwrite_vel(GCAS_SPEED*heading(escape_bear,escape_pitch):vector).
-
+                set gcas_escape_pitch to escape_pitch.
                 if (ship:altitude - GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
                 {
                     print "GCAS FLOOR BREACHED".
-                    util_hud_push_right("NAV_GCAS", "GCAS"+char(10)+"BREACHED").
+                    util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"BREACHED").
                 }
             }
 
             if not GCAS_ACTIVE and not gcas_vector_impact(straight_vector) {
-                util_hud_pop_right("NAV_GCAS").
+                util_hud_pop_right("AERO_ROT_GCAS").
                 print "GCAS disarmed".
                 set GCAS_ARMED to false.
             }
         }
     } else if GCAS_ARMED or GCAS_ACTIVE {
         // if GEAR or SAS, undo everything
-        ap_mode_set(old_mode_str).
-        util_hud_pop_right("NAV_GCAS").
+        util_hud_pop_right("AERO_ROT_GCAS").
         set GCAS_ARMED to false.
         set GCAS_ACTIVE to false.
     }
+    return GCAS_ACTIVE.
+}
+
+function ap_aero_rot_gcas_check {
     return GCAS_ACTIVE.
 }
 
@@ -423,7 +423,7 @@ function ap_aero_rot_nav_do {
         wrap_angle(target_pro:yaw-cur_pro:yaw),
         0 ).
 
-    local WGM is 1.0/kuniverse:timewarp:rate*(choose GCAS_GAIN_MULTIPLIER if GCAS_ACTIVE else 1.0).
+    local WGM is 1.0/kuniverse:timewarp:rate.
 
     // omega applied by us
     local w_us is wff + WGM*K_PITCH*ship_frame_error:x*ship:facing:starvector +
@@ -473,7 +473,7 @@ function ap_aero_rot_status_string {
         }
     }
 
-    if ( true) { // pitch debug
+    if ( false) { // pitch debug
     set hud_str to hud_str+
         char(10) + "ppid" + " " + round_dec(PR_KP,2) + " " + round_dec(PR_KI,2) + " " + round_dec(PR_KD,2) +
         char(10) + "pmax" + " " + round_dec(RAD2DEG*prate_max,1) +
@@ -500,7 +500,7 @@ function ap_aero_rot_status_string {
         char(10) + "yerr" + " " + round_dec(RAD2DEG*yratePID:ERROR,1).
     }
 
-    if ( true) { // q debug
+    if ( false) { // q debug
     set hud_str to hud_str+
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF2G " + round_dec(LF2G,3) +

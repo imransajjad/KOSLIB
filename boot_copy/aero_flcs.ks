@@ -25,7 +25,7 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/resource/blank.png","blank_tex").
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
 
-    COPYPATH("0:/koslib/ap/engines.ks","ap_engines").
+    COPYPATH("0:/koslib/ap/aero_engines.ks","ap_aero_engines").
     COPYPATH("0:/koslib/ap/aero_rot.ks","ap_aero_rot").
     COPYPATH("0:/koslib/ap/nav_srf.ks","ap_nav_srf").
     COPYPATH("0:/koslib/ap/nav_orb.ks","ap_nav_orb").
@@ -40,11 +40,6 @@ global SHIP_TAG_IN_PARAMS is
 spin_if_not_us().
 
 // Global plane data
-
-LOCK pilot_input_u0 TO SHIP:CONTROL:PILOTMAINTHROTTLE.
-LOCK pilot_input_u1 TO sat(3.0*SHIP:CONTROL:PILOTPITCH, 1.0).
-LOCK pilot_input_u2 TO sat(3.0*SHIP:CONTROL:PILOTYAW, 1.0).
-LOCK pilot_input_u3 TO sat(3.0*SHIP:CONTROL:PILOTROLL, 1.0).
 
 LOCK DELTA_FACE_UP TO R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
 LOCK pitch TO (mod(DELTA_FACE_UP:pitch+90,180)-90).
@@ -67,7 +62,7 @@ run once "util_shbus".
 
 run once "util_hud".
 
-run once "ap_engines".
+run once "ap_aero_engines".
 run once "ap_aero_rot".
 run once "ap_nav_srf".
 run once "ap_nav_orb".
@@ -89,11 +84,11 @@ UNTIL false {
     ap_nav_display().
 
     if AP_MODE_PILOT {
-        ap_engine_throttle_map().
-        ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
+        ap_aero_engine_throttle_map().
+        ap_aero_rot_do().
     } else if AP_MODE_VEL {
-        ap_engine_throttle_auto(ap_nav_get_vel()).
-        ap_aero_rot_do(pilot_input_u1, pilot_input_u2, pilot_input_u3).
+        ap_aero_engine_throttle_auto(ap_nav_get_vel()).
+        ap_aero_rot_do().
     } else if AP_MODE_NAV {
         ap_nav_do().
     } else {

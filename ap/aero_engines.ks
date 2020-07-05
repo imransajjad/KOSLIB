@@ -1,8 +1,8 @@
 
-GLOBAL AP_ENGINES_ENABLED IS true.
+GLOBAL AP_AERO_ENGINES_ENABLED IS true.
 
 
-local PARAM is readJson("1:/param.json")["AP_ENGINES"].
+local PARAM is readJson("1:/param.json")["AP_AERO_ENGINES"].
 
 local TOGGLE_X is get_param(PARAM,"TOGGLE_X", 0).
 local TOGGLE_Y is get_param(PARAM,"TOGGLE_Y", 0).
@@ -13,6 +13,8 @@ local V_PID_KD is get_param(PARAM,"V_PID_KD", 0).
 local AUTO_BRAKES is get_param(PARAM,"AUTO_BRAKES", false).
 local MAIN_ENGINE_NAME is get_param(PARAM,"MAIN_ENGINE_NAME", "").
 
+local USE_GCAS is get_param(PARAM, "USE_GCAS", false).
+local GCAS_SPEED is get_param(PARAM, "GCAS_SPEED", 200).
 
 local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
@@ -27,7 +29,7 @@ if MAIN_ENGINE_NAME = "turboJet" {
     set common_func to turbofan_common@.
 }
 
-local lock MAX_TMR TO ap_engines_get_total_thrust()/SHIP:MASS.
+local lock MAX_TMR TO ap_aero_engines_get_total_thrust()/SHIP:MASS.
 
 local lock vel to ship:airspeed.
 
@@ -41,7 +43,7 @@ local vpid is PIDLOOP(
 
 
 
-function ap_engines_get_total_thrust {
+function ap_aero_engines_get_total_thrust {
     local total_thrust is 0.
     for e in MAIN_ENGINES {
         set total_thrust to total_thrust+e:MAXTHRUST.
@@ -154,20 +156,26 @@ local function turbofan_common {
     }
 }
 
-function ap_engine_throttle_auto {
+function ap_aero_engine_throttle_auto {
     parameter vel_r is V(0,0,0).
     parameter acc_r is -1.
     parameter head_r is -1.
     // this function depends on AP_NAV_ENABLED
-    SET SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag).
+    if USE_GCAS and (ap_aero_rot_gcas_check()) {
+        set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(GCAS_SPEED).
+    } else {
+        set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag).
+    }
     apply_auto_brakes(vel_r:mag).
     common_func().
 }
 
-function ap_engine_throttle_map {
-    parameter input_throttle is pilot_input_u0.
-    SET SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
+function ap_aero_engine_throttle_map {
+    parameter input_throttle is SHIP:CONTROL:PILOTMAINTHROTTLE.
+    if USE_GCAS and (ap_aero_rot_gcas_check()) {
+        set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(GCAS_SPEED).
+    } else {
+        set SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).
+    }
     common_func().
 }
-
-

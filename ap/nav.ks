@@ -21,12 +21,7 @@ local SRF_ENABLED is false.
 local ORB_ENABLED is false.
 local TAR_ENABLED is false.
 
-LOCK pilot_input_v1 TO sat(1.0*SHIP:CONTROL:PILOTFORE, 1.0).
-LOCK pilot_input_v2 TO sat(1.0*SHIP:CONTROL:PILOTTOP, 1.0).
-LOCK pilot_input_v3 TO sat(1.0*SHIP:CONTROL:PILOTSTARBOARD, 1.0).
-
-
-local debug_vectors is true.
+local debug_vectors is false.
 if (debug_vectors) { // debug
     clearvecdraws().
     local vec_width is 1.0.
@@ -188,7 +183,7 @@ function ap_nav_display {
         }
     } else {
         if SRF_ENABLED and in_surface {
-            ap_nav_srf_stick(pilot_input_u0,pilot_input_u1,pilot_input_u2,pilot_input_u3).
+            ap_nav_srf_stick().
         }
         if ORB_ENABLED and in_orbit {
             local nav_data is ap_nav_orb_stick().
@@ -202,7 +197,7 @@ function ap_nav_display {
     }
     set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
-    // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
+    // AP_NAV_VEL, AP_NAV_ACC, AP_NAV_ATT
 }
 
 function ap_nav_get_direction {
@@ -246,8 +241,8 @@ function ap_nav_do {
         if defined AP_AERO_ROT_ENABLED {
             ap_aero_rot_nav_do(AP_NAV_VEL,AP_NAV_ACC,AP_NAV_ATT).
         }
-        if defined AP_ENGINES_ENABLED {
-            ap_engine_throttle_auto(AP_NAV_VEL).
+        if defined AP_AERO_ENGINES_ENABLED {
+            ap_aero_engine_throttle_auto(AP_NAV_VEL).
         }
     } else if ORB_ENABLED and (in_orbit or (not SRF_ENABLED and in_surface)) {
         if defined AP_ORB_ENABLED {

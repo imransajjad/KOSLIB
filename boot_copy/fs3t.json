@@ -5,6 +5,7 @@
         "AP_AERO_ROT",
         {
             "entries": [
+                "STICK_GAIN", 3.0,
                 "GLIM_VERT", 12,
                 "GLIM_LAT",  4,
                 "GLIM_LONG", 5,
@@ -28,14 +29,13 @@
                 "K_PITCH", 0.5,
                 "K_YAW", 0.5,
                 "K_ROLL", 2.0,
-                "GCAS_ENABLED", true,
+                "USE_GCAS", true,
                 "GCAS_MARGIN", 15,
-                "GCAS_SPEED", 350,
-                "GCAS_GAIN_MULTIPLIER", 4.0
+                "GCAS_GAIN_MULTIPLIER", 2.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
-        "AP_ENGINES",
+        "AP_AERO_ENGINES",
         {
             "entries": [
                 "TOGGLE_X", 0.80,
@@ -45,7 +45,9 @@
                 "V_PID_KI", 0.01,
                 "V_PID_KD", 0.0,
                 "AUTO_BRAKES", true,
-                "MAIN_ENGINE_NAME", "turboJet"
+                "MAIN_ENGINE_NAME", "turboJet",
+                "USE_GCAS", true,
+                "GCAS_SPEED", 350
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

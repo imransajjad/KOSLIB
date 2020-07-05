@@ -29,7 +29,9 @@ local GCAS_ALTITUDE is 0.0.
 
 if PARAM:haskey("AP_NAV") {
     set NOM_NAV_G to get_param(PARAM["AP_NAV"], "ROT_GNOM_VERT", NOM_NAV_G).
-    set GCAS_ALTITUDE to get_param(PARAM["AP_NAV"], "GCAS_MARGIN", GCAS_ALTITUDE).
+}
+if PARAM:haskey("AP_AERO_ROT") and get_param(PARAM["AP_AERO_ROT"], "USE_GCAS", false) {
+    set GCAS_ALTITUDE to get_param(PARAM["AP_AERO_ROT"], "GCAS_MARGIN", GCAS_ALTITUDE).
 }
 
 local wp_queue is LIST().
@@ -221,14 +223,20 @@ local function generate_landing_seq {
     list(alt_stp + flare_h +distance*tan(GSlope)/2, speed, p4[0], p4[1],-GSlope,runway_angle),
     list(alt_stp + flare_h +distance*tan(GSlope)/10, speed, p3[0], p3[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
-    list("g"),
     list(alt_stp , flare_sd*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
     list(alt_stp-1.0, 0, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
     list("b")). // brakes
 
-    if flare_h < GCAS_ALTITUDE {
-        landing_sequence:remove(4).
-        landing_sequence:insert(3, list("g")).
+    local gcas_gear_wp is -1.
+    local i is landing_sequence:iterator.
+    until not i:next {
+        if (i:value[0] < alt_stp + GCAS_ALTITUDE ) {
+            set gcas_gear_wp to i:index.
+            break.
+        }
+    }
+    if gcas_gear_wp > -1 {
+        landing_sequence:insert(gcas_gear_wp, list("g")).
     }
 
     return landing_sequence.
