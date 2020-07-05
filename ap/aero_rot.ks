@@ -337,7 +337,7 @@ local function gcas_check {
         if not GCAS_ARMED {
             if gcas_vector_impact(straight_vector) {
                 set GCAS_ARMED to true.
-                util_hud_push_right("AERO_ROT_GCAS", "GCAS").
+                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS").}
                 print "GCAS armed".
             }
         } else if GCAS_ARMED {
@@ -349,13 +349,13 @@ local function gcas_check {
             if not GCAS_ACTIVE and impact_condition {
                 // GCAS is active here, will put in NAV mode after setting headings etc
                 set GCAS_ACTIVE to true.
-                util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"ACTIVE").
+                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"ACTIVE").}
                 print "GCAS ACTIVE".
                 set escape_bear to vel_bear.
 
             } else if GCAS_ACTIVE and not impact_condition {
                 print "GCAS INACTIVE".
-                util_hud_push_right("AERO_ROT_GCAS", "GCAS").
+                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS").}
                 set GCAS_ACTIVE to false.
             }
 
@@ -364,19 +364,19 @@ local function gcas_check {
                 if (ship:altitude - GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
                 {
                     print "GCAS FLOOR BREACHED".
-                    util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"BREACHED").
+                    if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"BREACHED").}
                 }
             }
 
             if not GCAS_ACTIVE and not gcas_vector_impact(straight_vector) {
-                util_hud_pop_right("AERO_ROT_GCAS").
+                if defined UTIL_HUD_ENABLED { util_hud_pop_right("AERO_ROT_GCAS").}
                 print "GCAS disarmed".
                 set GCAS_ARMED to false.
             }
         }
     } else if GCAS_ARMED or GCAS_ACTIVE {
         // if GEAR or SAS, undo everything
-        util_hud_pop_right("AERO_ROT_GCAS").
+        if defined UTIL_HUD_ENABLED { util_hud_pop_right("AERO_ROT_GCAS").}
         set GCAS_ARMED to false.
         set GCAS_ACTIVE to false.
     }

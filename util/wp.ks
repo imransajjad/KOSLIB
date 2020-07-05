@@ -228,15 +228,19 @@ local function generate_landing_seq {
     list("b")). // brakes
 
     local gcas_gear_wp is -1.
-    local i is landing_sequence:iterator.
-    until not i:next {
-        if (i:value[0] < alt_stp + GCAS_ALTITUDE ) {
-            set gcas_gear_wp to i:index.
-            break.
+    if GCAS_ALTITUDE > 0 {
+        local i is landing_sequence:iterator.
+        until not i:next {
+            if (i:value[0] < alt_stp + GCAS_ALTITUDE ) {
+                set gcas_gear_wp to i:index.
+                break.
+            }
         }
     }
     if gcas_gear_wp > -1 {
         landing_sequence:insert(gcas_gear_wp, list("g")).
+    } else {
+        landing_sequence:insert(4, list("g")).
     }
 
     return landing_sequence.
