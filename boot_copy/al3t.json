@@ -76,6 +76,8 @@
         {
             "entries": [
                 "ON_START", true,
+                "LADDER_START", true,
+                "NAV_START", true,
                 "CAMERA_HEIGHT", 1.2,
                 "CAMERA_RIGHT", -0.4,
                 

@@ -21,6 +21,7 @@ local Q_SAFE is get_param(PARAM, "Q_SAFE", 0).
 local qsafe_last is true.
 
 local MIN_SEPARATION is get_param(PARAM, "MIN_SEPARATION", 3).
+local TARGET_CACHING is get_param(PARAM, "TARGET_CACHING", true).
 
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is "".
@@ -162,6 +163,21 @@ local function get_another_ship {
     //}
 }
 
+local target_vessel is -1.
+local function cache_target {
+    if TARGET_CACHING and is_active_vessel() and HASTARGET and not (target_vessel = TARGET){
+        set target_vessel to TARGET.
+        print "shsys target cached: "+ target_vessel:NAME.
+    } else if TARGET_CACHING and is_active_vessel() and not HASTARGET and not (target_vessel = -1) {
+        set target_vessel to -1.
+        print "shsys target uncached".
+    }
+}
+
+function util_shsys_get_target {
+    return target_vessel.
+}
+
 // main function for ship systems
 // returns true if sys is not blocked.
 function util_shsys_check {
@@ -227,6 +243,9 @@ function util_shsys_check {
                 set bays to false.
             }
         }
+    }
+    if TARGET_CACHING {
+        cache_target().
     }
 
     iterate_spacecraft_system_state().
@@ -362,6 +381,9 @@ function util_shsys_status_string {
     }
     if LIGHTS {
         stat_list:add("L").
+    }
+    if RCS {
+        stat_list:add("R").
     }
     return stat_list:join("").
 }

@@ -26,6 +26,16 @@ local exclude_host_key is "".
 local SEP is "+".
 local lock my_fullname to ship:name+SEP+core:tag.
 
+local function print_hosts {
+    local i is 0.
+    for key in tx_hosts:keys {
+
+        print ""+i + (choose " (X) " if (key = exclude_host_key) else 
+            (choose " (*) " if (key = single_host_key) else " ") ) + key.
+        set i to i+1.
+    }
+}
+
 // terminal compatible functions
 function util_shbus_get_help_str {
     return list(
@@ -91,13 +101,7 @@ function util_shbus_parse_command {
             }
         }
     } else if commtext:STARTSWITH("listhosts") {
-        local i is 0.
-        for key in tx_hosts:keys {
-
-            print ""+i + (choose " (X) " if (key = exclude_host_key) else 
-                (choose " (*) " if (key = single_host_key) else " ") ) + key.
-            set i to i+1.
-        }
+        print_hosts().
     } else if commtext:startswith("onlyhost") {
         if args = -1 {
             set single_host_key to "".
@@ -110,6 +114,7 @@ function util_shbus_parse_command {
                 set single_host_key to args.
             }
         }
+        print_hosts().
     } else if commtext:startswith("exclhost") {
         if args = -1 {
             print "removing exclhost".
@@ -123,6 +128,7 @@ function util_shbus_parse_command {
                 set exclude_host_key to args.
             }
         }
+        print_hosts().
     } else if commtext:STARTSWITH("unask") {
         if args = -1 {
             print "unask expected string arg".
@@ -137,6 +143,7 @@ function util_shbus_parse_command {
                 print "did not find host " + args.
             }
         }
+        print_hosts().
     } else if commtext:STARTSWITH("flush"){
         until not util_shbus_rx_msg() { }
     } else if commtext:STARTSWITH("inv"){

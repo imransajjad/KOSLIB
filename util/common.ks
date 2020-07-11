@@ -2,6 +2,8 @@
 
 // a set of common utilities 
 
+GLOBAL UTIL_COMMON_ENABLED is true.
+
 set pi to 3.14159265359.
 set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.

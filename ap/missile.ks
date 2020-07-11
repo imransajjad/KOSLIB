@@ -4,10 +4,6 @@ local Ts is 0.04.
 local minimum_intercept is 100.
 local parent is ship.
 
-local lock DELTA_TARGET TO R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
-local lock target_pitch TO (mod(DELTA_TARGET:pitch+90,180)-90).
-local lock target_bear TO (360-DELTA_TARGET:yaw).
-
 local lock DELTA_ALPHA to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE)*(ship:FACING).
 local lock alpha to -(mod(DELTA_ALPHA:pitch+180,360)-180).
 local lock beta to  (mod(DELTA_ALPHA:yaw+180,360)-180).
@@ -38,12 +34,12 @@ local function get_true_intercept_error {
     }
 }
 
-local target_vessel is -1.
+// local target_vessel is -1.
 function ap_missile_cache_target {
-    if is_active_vessel() and HASTARGET {
-        set target_vessel to TARGET.
-        print "target locked: "+ target_vessel:NAME.
-    }
+//     if is_active_vessel() and HASTARGET {
+//         set target_vessel to TARGET.
+//         print "target locked: "+ target_vessel:NAME.
+//     }
 }
 
 function ap_missile_setup_separate {
@@ -89,6 +85,7 @@ function ap_missile_guide {
 
     lock throttle to my_throttle.
     set my_throttle to 1.0.
+    local target_vessel is util_shsys_get_target().
     if target_vessel = -1 {
         print "trying for 30 sec eta apoapsis".
         set yaw_init to yaw.
@@ -109,6 +106,10 @@ function ap_missile_guide {
         }
 
     } else {
+        set DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
+        set target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
+        set target_bear to (360-DELTA_TARGET:yaw).
+
         print "entering guidance loop 1".
         lock steering TO heading(target_bear,30,0).
         until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) 

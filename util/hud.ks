@@ -10,6 +10,9 @@ local USE_UTIL_WP is false.
 local USE_UTIL_SHSYS is false.
 
 local ON_START is get_param(PARAM, "ON_START", false).
+local LADDER_START is get_param(PARAM, "LADDER_START", false).
+local NAV_START is get_param(PARAM, "NAV_START", false).
+
 local CAMERA_HEIGHT is get_param(PARAM, "CAMERA_HEIGHT", 0).
 local CAMERA_RIGHT is get_param(PARAM, "CAMERA_RIGHT", 0).
 
@@ -23,7 +26,7 @@ local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
 local hud_setting_dict is lexicon("on", ON_START,
-        "ladder", true, "align", false, "nav", true,
+        "ladder", LADDER_START, "align", false, "nav", NAV_START,
         "movable", false).
 
 local hud_far is 30.0.
@@ -49,7 +52,7 @@ local function nav_vecdraw {
     local guide_size is guide_far*sin(0.5).
 
     if not nav_init_draw {
-        IF not USE_AP_NAV {
+        if not (defined AP_NAV_ENABLED) {
             return.
         }
 
@@ -72,10 +75,15 @@ local function nav_vecdraw {
         set guide_tri_tr:wiping to false.
 
     }
+    local nav_vel is ap_nav_get_vel().
+    if is_active_vessel() and (NAVMODE = "TARGET") and HASTARGET {
+        set nav_vel to nav_vel-ap_nav_get_vessel_vel(TARGET).
+    }
     if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel() and not MAPVIEW and 
-       (( USE_UTIL_WP and util_wp_queue_length() > 0 ) or (AP_MODE_NAV)){
+       (( USE_UTIL_WP and util_wp_queue_length() > 0 ) or (AP_MODE_NAV)) and nav_vel:mag > 0.3 {
 
-        local nav_heading is ap_nav_get_direction().
+        local py_temp is pitch_yaw_from_dir(nav_vel:direction).
+        local nav_heading is heading(py_temp[1],py_temp[0]).
         local nav_vel_error is sat(ap_nav_get_vel_err_mag(),10)/10.
         local camera_offset is camera_offset_vec.
 
@@ -329,7 +337,8 @@ local function lr_text_info {
             ( choose ap_mode_get_str()+char(10) if USE_AP_MODE else "") +
             vel_type+"> " + round(vel_displayed) +
             ( choose ap_nav_status_string()+char(10) if USE_AP_NAV else "" ) +
-            ( choose ap_AERO_rot_status_string()+char(10) if USE_AP_AERO_ROT else "") +
+            ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
+            ( choose ap_aero_rot_status_string()+char(10) if USE_AP_AERO_ROT else "") +
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +

@@ -172,7 +172,7 @@ function ap_aero_engine_throttle_auto {
 
 function ap_aero_engine_throttle_map {
     parameter input_throttle is SHIP:CONTROL:PILOTMAINTHROTTLE.
-    if USE_GCAS and (ap_aero_rot_gcas_check()) {
+    if USE_GCAS and (ap_gcas_check()) {
         set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(GCAS_SPEED).
     } else {
         set SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func:call(input_throttle).

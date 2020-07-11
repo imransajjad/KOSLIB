@@ -24,7 +24,7 @@ local TAR_ENABLED is false.
 local debug_vectors is false.
 if (debug_vectors) { // debug
     clearvecdraws().
-    local vec_width is 1.0.
+    local vec_width is 0.5.
     local vec_scale is 1.0.
     set nav_debug_vec0 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),
                 "", vec_scale, true, vec_width, true ).
@@ -70,11 +70,8 @@ function ap_nav_align {
         if (farness-2*sin(head_have[1]) >= 0) {
             set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
                 / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
-            // util_hud_push_right("nav_srf", "asin()").
-            
         } else {
             set alpha_x to head_have[1].
-            // util_hud_push_right("nav_srf", "false head").
         }
     }
 
@@ -115,7 +112,7 @@ function ap_nav_check_done {
     parameter radius. // a turning radius.
 
     local time_dir is frame_vel*vec_final:normalized.
-    local time_to is vec_final:mag/(frame_vel:mag).
+    local time_to is vec_final:mag/max(frame_vel:mag,0.0001).
 
     if (time_to < 3) {
         local angle_to is vectorangle(vec_final,frame_vel).
@@ -123,13 +120,7 @@ function ap_nav_check_done {
         if ( angle_to > 30) or
             (angle_to > 12.5 and time_to < 2) or 
             ( time_to < 1) {
-            local wp_reached_str is  "Reached Waypoint " + (util_wp_queue_length()-1) +
-                char(10)+"(" + round_dec(ship:altitude,2) + "," +
-                round_dec(ship:airspeed,2) + "," +
-                round_dec(ship:geoposition:lat,4) + "," +
-                round_dec(ship:geoposition:lng,4) + "," +
-                round_dec(vel_pitch,2) + "," +
-                round_dec(vel_bear,2) + ")".
+            local wp_reached_str is  "Reached Waypoint " + (util_wp_queue_length()-1).
             print wp_reached_str.
             if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event(wp_reached_str).
@@ -167,15 +158,20 @@ function ap_nav_display {
                 set nav_debug_vec1:vec to AP_NAV_ACC.
             }
         } else if ORB_ENABLED and cur_wayp["mode"] = "orb" {
-            ap_nav_orb_wp_guide(cur_wayp).
+            local nav_data is ap_nav_orb_wp_guide(cur_wayp).
+            set AP_NAV_VEL to nav_data[0].
+            set AP_NAV_ACC to nav_data[1].
+            set AP_NAV_ATT to nav_data[2].
         } else if TAR_ENABLED and cur_wayp["mode"] = "tar" {
             local nav_data is ap_nav_tar_wp_guide(cur_wayp).
             set AP_NAV_VEL to nav_data[0].
             set AP_NAV_ACC to nav_data[1].
             set AP_NAV_ATT to nav_data[2].
             if (debug_vectors) {
-                set nav_debug_vec0:vec to AP_NAV_VEL.
-                set nav_debug_vec1:vec to 10*(AP_NAV_VEL-ship:velocity:orbit).
+                set nav_debug_vec0:vec to 30*(AP_NAV_VEL-ship:velocity:orbit).
+                if hasTarget {
+                    set nav_debug_vec1:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel(TARGET)).
+                }
             }
         } else {
             print "got unsupported wp, marking it done".

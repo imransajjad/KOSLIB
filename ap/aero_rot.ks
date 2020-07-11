@@ -3,7 +3,8 @@ GLOBAL AP_AERO_ROT_ENABLED IS true.
 
 local PARAM is readJson("param.json")["AP_AERO_ROT"].
 
-local STICK_GAIN is get_param(PARAM, "STICK_GAIN", 3.0).
+local STICK_GAIN_NOM is get_param(PARAM, "STICK_GAIN", 3.0).
+local lock STICK_GAIN to STICK_GAIN_NOM*(choose 0.25 if AG else 1.0).
 
 // glimits
 local GLIM_VERT is get_param(PARAM,"GLIM_VERT", 5).
@@ -384,6 +385,11 @@ local function gcas_check {
 }
 
 function ap_aero_rot_gcas_check {
+    return GCAS_ACTIVE.
+}
+
+// define the same function in a non name specific manner
+function ap_gcas_check {
     return GCAS_ACTIVE.
 }
 

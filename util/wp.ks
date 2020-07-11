@@ -334,9 +334,13 @@ function util_wp_parse_command {
         waypoints_purge().
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
     } else if commtext:startswith("wptest") {
-                insert_waypoint(-1,
-            construct_incomplete_waypoint(list(3000,230,0.5,
-                -74,0,270), "srf") ).
+            //     insert_waypoint(-1,
+            // construct_incomplete_waypoint(list(3000,230,0.5,
+            //     -74,0,270), "srf") ).
+        insert_waypoint(-1,
+            construct_incomplete_waypoint(list(0.4,10,0,0,-5), "tar") ).
+        insert_waypoint(-1,
+            construct_incomplete_waypoint(list(0.2,10,0,0,-1.0), "tar") ).
     } else {
         return false.
     }
