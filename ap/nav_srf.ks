@@ -12,9 +12,6 @@ local TAIL_STRIKE is get_param(PARAM,"TAIL_STRIKE").
 local VSET_MAX is get_param(PARAM,"VSET_MAX").
 local GEAR_HEIGHT is get_param(PARAM,"GEAR_HEIGHT").
 
-local GOT_USE_UTIL_WP is false.
-local USE_UTIL_WP is false.
-
 // local lock AG to AG3.
 
 local VSET_MAN is FALSE.
@@ -61,6 +58,8 @@ function ap_nav_srf_wp_guide {
     set AP_NAV_ATT to ship:facing.
 }
 
+local stick_heading is vel_bear.
+local stick_pitch is vel_pitch.
 function ap_nav_srf_stick {
     parameter u0 is SHIP:CONTROL:PILOTMAINTHROTTLE. // throttle input
     parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch input
@@ -68,8 +67,14 @@ function ap_nav_srf_stick {
     parameter u3 is SHIP:CONTROL:PILOTROLL. // roll input
     local increment is 0.0.
 
+
+    if not (defined AP_MODE_ENABLED) {
+        return.
+    }
     if AP_MODE_PILOT {
         set AP_NAV_VEL to ship:velocity:surface.
+        set stick_heading to vel_bear.
+        set stick_pitch to vel_pitch.
         set VSET_MAN to false.
     } else if AP_MODE_VEL {
         // set AP_NAV_VEL to ship:velocity:surface.
@@ -78,10 +83,16 @@ function ap_nav_srf_stick {
         set increment to 2.0*deadzone(u1,0.25).
         if increment <> 0 {
             set AP_NAV_VEL to ANGLEAXIS(-increment,ship:facing:starvector)*AP_NAV_VEL.
+            local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
+            set stick_pitch to py_temp[0].
+            set stick_heading to py_temp[1].
         }
         set increment to 2.0*deadzone(u3,0.25).
         if increment <> 0 {
             set AP_NAV_VEL to ANGLEAXIS(increment,ship:facing:topvector)*AP_NAV_VEL.
+            local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
+            set stick_pitch to py_temp[0].
+            set stick_heading to py_temp[1].
             // if increment > 0 and wrap_angle(AP_NAV_H_SET - vel_bear) > 175 {
             // } else if increment < 0 and wrap_angle(AP_NAV_H_SET - vel_bear) < -175 {
             // } else {
@@ -97,6 +108,7 @@ function ap_nav_srf_stick {
         }
         set V_SET_DELTA to increment.
     }
+    set AP_NAV_VEL to AP_NAV_VEL:mag*heading(stick_heading, stick_pitch):vector.
 }
 
 local V_SET_DELTA is 0.
@@ -108,12 +120,8 @@ function ap_nav_srf_status_string {
     local AP_NAV_H_SET is py_temp[1].
     local AP_NAV_V_SET is AP_NAV_VEL:mag.
 
-    if not GOT_USE_UTIL_WP {
-        set USE_UTIL_WP to (defined UTIL_WP_ENABLED).
-        set GOT_USE_UTIL_WP to true.
-    }
-
-    if AP_MODE_NAV or AP_MODE_VEL or (USE_UTIL_WP and (util_wp_queue_length() > 0)) {
+    if (defined AP_MODE_ENABLED and (AP_MODE_NAV or AP_MODE_VEL)) or
+        (defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0)) {
         set dstr to "/"+round_dec(AP_NAV_V_SET,0).
         if (V_SET_DELTA > 0){
             set dstr to dstr + "+".

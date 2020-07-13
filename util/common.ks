@@ -38,6 +38,13 @@ function round_dec {
     return ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
 }
 
+function round_fig {
+    parameter NUM.
+    parameter FIG.
+    local FRAD_DIG is max(0,FIG-floor(log10(max(0.00001,abs(num))))-1).
+    return ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
+}
+
 function list_print {
     parameter arg_in.
     LOCAL TOTAL_STRING is "".

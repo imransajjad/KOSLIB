@@ -43,7 +43,9 @@ function ap_nav_align {
     parameter frame_vel. // a velocity vector in this frame
     parameter radius. // a turning radius.
 
-    set nav_debug_vec3:vec to vec_final.
+    if debug_vectors {
+        set nav_debug_vec3:vec to vec_final.
+    }
 
     set FOLLOW_MODES["A"] to true.
     local alpha_x is 0.
@@ -108,7 +110,6 @@ function ap_nav_q_target {
 
     local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),elev).
     set elev_diff to arctan2(2*tan(elev_diff),1).
-    util_hud_push_right("ap_nav_q_target", "" + round_dec(elev_diff,2) + "/" + round_dec(target_heading,2)).
     return list(heading(target_heading+elev_diff,elev):vector, V(0,0,0)).
 }
 

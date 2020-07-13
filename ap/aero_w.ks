@@ -467,8 +467,10 @@ function ap_aero_w_status_string {
     local hud_str is "".
 
     if (ship:q > MIN_AERO_Q) {
-        set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
-        char(10) + char(945) + " " + round_dec(alpha,1).
+        set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +
+        round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
+        char(10) + (choose "" if STICK_GAIN = STICK_GAIN_NOM else "S") +
+        char(945) + " " + round_dec(alpha,1).
         if defined UTIL_FLDR_ENABLED {
             if abs(alpha) > 45 and not departure {
                 util_fldr_send_event("aero_w departure").
