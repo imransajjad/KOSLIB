@@ -37,10 +37,10 @@ function ap_nav_srf_wp_guide {
         local wp_vec is
             latlng(wp["lat"],wp["lng"]):altitudeposition(wp["alt"]+
             (choose GEAR_HEIGHT if GEAR else 0)).
-        set AP_NAV_TIME_TO_WP to
-            (ship:body:radius+ship:altitude)*DEG2RAD*
-            haversine(ship:geoposition:lat,ship:geoposition:lng, wp["lat"],wp["lng"])[1]
-            /max(1,ship:airspeed).
+
+        local geo_distance is (ship:body:radius+ship:altitude)*DEG2RAD*
+            haversine(ship:geoposition:lat,ship:geoposition:lng, wp["lat"],wp["lng"])[1].
+        set AP_NAV_TIME_TO_WP to geo_distance/max(1,ship:airspeed).
         
         if wp:haskey("elev") and (wp_vec:mag < 9*final_radius) { 
             // do final alignment
@@ -49,14 +49,16 @@ function ap_nav_srf_wp_guide {
         } else {
             // do q_follow for height and wp heading
             ap_nav_check_done(wp_vec, ship:facing, ship:velocity:surface, final_radius).
-            set align_data to ap_nav_q_target(wp["alt"],wp["vel"],latlng(wp["lat"],wp["lng"]):heading).
+            set align_data to ap_nav_q_target(wp["alt"],wp["vel"],latlng(wp["lat"],wp["lng"]):heading, geo_distance, final_radius).
         }
     } else {
         // do q_follow for height and current heading
         set align_data to ap_nav_q_target(wp["alt"],wp["vel"],vel_bear).
         set AP_NAV_TIME_TO_WP to 0.
     }
-    return list(max(MIN_NAV_SRF_VEL,wp["vel"])*align_data[0], align_data[1], ship:facing).
+    set AP_NAV_VEL to max(MIN_NAV_SRF_VEL,wp["vel"])*align_data[0].
+    set AP_NAV_ACC to align_data[1].
+    set AP_NAV_ATT to ship:facing.
 }
 
 function ap_nav_srf_stick {

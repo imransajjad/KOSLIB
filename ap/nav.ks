@@ -4,22 +4,17 @@ local PARAM is readJson("1:/param.json")["AP_NAV"].
 
 local K_Q is get_param(PARAM,"K_Q").
 
+// NAV GLOBALS
 global AP_NAV_TIME_TO_WP is 0.
 
 global AP_NAV_VEL is V(0,0,0).
 global AP_NAV_ACC is V(0,0,0).
 global AP_NAV_ATT is R(0,0,0).
 
-global lock in_orbit to (ship:apoapsis > 20000).
-global lock in_surface to (ship:altitude < 36000).
-global lock in_docking to false. //(HASTARGET and target:distance < DOCK_DISTANCE).
+global AP_NAV_IN_ORBIT is (ship:apoapsis > 20000).
+global AP_NAV_IN_SURFACE is (ship:altitude < 36000).
 
 local FOLLOW_MODES is lexicon("F",false,"A",false,"Q",false).
-
-local USE_UTIL_WP is false.
-local SRF_ENABLED is false.
-local ORB_ENABLED is false.
-local TAR_ENABLED is false.
 
 local debug_vectors is false.
 if (debug_vectors) { // debug
@@ -29,6 +24,10 @@ if (debug_vectors) { // debug
     set nav_debug_vec0 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),
                 "", vec_scale, true, vec_width, true ).
     set nav_debug_vec1 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,1),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec2 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,0),
+                "", vec_scale, true, vec_width, true ).
+    set nav_debug_vec3 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,1,1),
                 "", vec_scale, true, vec_width, true ).
 }
 
@@ -43,6 +42,8 @@ function ap_nav_align {
     parameter head_final. // desired heading upon approach
     parameter frame_vel. // a velocity vector in this frame
     parameter radius. // a turning radius.
+
+    set nav_debug_vec3:vec to vec_final.
 
     set FOLLOW_MODES["A"] to true.
     local alpha_x is 0.
@@ -91,6 +92,8 @@ function ap_nav_q_target {
     parameter target_altitude.
     parameter target_vel.
     parameter target_heading.
+    parameter target_distance is 99999999999. // assume target is far away
+    parameter radius is 0. // a turning radius.
 
     set FOLLOW_MODES["Q"] to true.
 
@@ -102,7 +105,11 @@ function ap_nav_q_target {
 
     local elev is arcsin(sat(-K_Q*(qtar-q_simp), sin_max_vangle)).
     set elev to max(elev, -arcsin(min(1.0,ship:altitude/ship:airspeed/5))).
-    return list(heading(target_heading,elev):vector, V(0,0,0)).
+
+    local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),elev).
+    set elev_diff to arctan2(2*tan(elev_diff),1).
+    util_hud_push_right("ap_nav_q_target", "" + round_dec(elev_diff,2) + "/" + round_dec(target_heading,2)).
+    return list(heading(target_heading+elev_diff,elev):vector, V(0,0,0)).
 }
 
 function ap_nav_check_done {
@@ -131,65 +138,40 @@ function ap_nav_check_done {
     }
 }
 
-local flags_updated is false.
-local function update_flags {
-    if not flags_updated {
-        set SRF_ENABLED to defined AP_NAV_SRF_ENABLED.
-        set ORB_ENABLED to defined AP_NAV_ORB_ENABLED.
-        set TAR_ENABLED to defined AP_NAV_TAR_ENABLED.
-        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
-        set flags_updated to true.
-    }
-}
-
 function ap_nav_display {
 
-    update_flags().
+    set AP_NAV_IN_ORBIT to (ship:apoapsis > 20000).
+    set AP_NAV_IN_SURFACE to (ship:altitude < 36000).
 
-    if USE_UTIL_WP and (util_wp_queue_length() > 0) {
+    if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
         local cur_wayp is util_wp_queue_first().
-        if SRF_ENABLED and cur_wayp["mode"] = "srf" {
-            local nav_data is ap_nav_srf_wp_guide(cur_wayp).
-            set AP_NAV_VEL to nav_data[0].
-            set AP_NAV_ACC to nav_data[1].
-            set AP_NAV_ATT to nav_data[2].
+        if defined AP_NAV_SRF_ENABLED and cur_wayp["mode"] = "srf" {
+            ap_nav_srf_wp_guide(cur_wayp).
             if (debug_vectors) {
                 set nav_debug_vec0:vec to AP_NAV_VEL.
                 set nav_debug_vec1:vec to AP_NAV_ACC.
+                set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
             }
-        } else if ORB_ENABLED and cur_wayp["mode"] = "orb" {
-            local nav_data is ap_nav_orb_wp_guide(cur_wayp).
-            set AP_NAV_VEL to nav_data[0].
-            set AP_NAV_ACC to nav_data[1].
-            set AP_NAV_ATT to nav_data[2].
-        } else if TAR_ENABLED and cur_wayp["mode"] = "tar" {
-            local nav_data is ap_nav_tar_wp_guide(cur_wayp).
-            set AP_NAV_VEL to nav_data[0].
-            set AP_NAV_ACC to nav_data[1].
-            set AP_NAV_ATT to nav_data[2].
+        } else if defined AP_NAV_ORB_ENABLED and cur_wayp["mode"] = "orb" {
+            ap_nav_orb_wp_guide(cur_wayp).
+        } else if defined AP_NAV_TAR_ENABLED and cur_wayp["mode"] = "tar" {
+            ap_nav_tar_wp_guide(cur_wayp).
             if (debug_vectors) {
-                set nav_debug_vec0:vec to 30*(AP_NAV_VEL-ship:velocity:orbit).
-                if hasTarget {
-                    set nav_debug_vec1:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel(TARGET)).
+                if HASTARGET {
+                    set nav_debug_vec0:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel(TARGET)).
                 }
+                set nav_debug_vec1:vec to AP_NAV_ACC.
+                set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
             }
         } else {
             print "got unsupported wp, marking it done".
             util_wp_done().
         }
+    } else if defined AP_NAV_SRF_ENABLED and AP_NAV_IN_SURFACE {
+        ap_nav_srf_stick().
+    } else if defined AP_NAV_ORB_ENABLED and AP_NAV_IN_ORBIT {
+        ap_nav_orb_stick().
     } else {
-        if SRF_ENABLED and in_surface {
-            ap_nav_srf_stick().
-        }
-        if ORB_ENABLED and in_orbit {
-            local nav_data is ap_nav_orb_stick().
-            set AP_NAV_VEL to nav_data[0].
-            set AP_NAV_ACC to nav_data[1].
-            set AP_NAV_ATT to nav_data[2].
-        }
-        // if TAR_ENABLED and in_docking {
-        //     ap_nav_tar_stick().
-        // }
     }
     set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
@@ -230,32 +212,15 @@ function ap_nav_get_time_to_wp {
     return round(min(9999,AP_NAV_TIME_TO_WP)).
 }
 
-function ap_nav_do {
-    // NAV_V, NAV_PRO, NAV_FACE, NAV_A, NAV_W_PRO, NAV_W_FACE
-    // are used by these functions
-    if SRF_ENABLED and (in_surface or (not ORB_ENABLED and in_orbit)) {
-        if defined AP_AERO_ROT_ENABLED {
-            ap_aero_rot_nav_do(AP_NAV_VEL,AP_NAV_ACC,AP_NAV_ATT).
-        }
-        if defined AP_AERO_ENGINES_ENABLED {
-            ap_aero_engine_throttle_auto(AP_NAV_VEL).
-        }
-    } else if ORB_ENABLED and (in_orbit or (not SRF_ENABLED and in_surface)) {
-        if defined AP_ORB_ENABLED {
-            ap_orb_nav_do(AP_NAV_VEL,AP_NAV_ACC,AP_NAV_ATT).
-        }
-    }
-}
-
 function ap_nav_status_string {
     local dstr is "".
-    if SRF_ENABLED and in_surface {
+    if defined AP_NAV_SRF_ENABLED and AP_NAV_IN_SURFACE {
         set dstr to dstr+ap_nav_srf_status_string().
     }
-    if ORB_ENABLED and in_orbit {
+    if defined AP_NAV_ORB_ENABLED and AP_NAV_IN_ORBIT {
         set dstr to dstr+ap_nav_orb_status_string().
     }
-    if TAR_ENABLED and in_docking {
+    if defined AP_NAV_TAR_ENABLED {
         set dstr to dstr+ap_nav_tar_status_string().
     }
 
@@ -270,6 +235,8 @@ function ap_nav_status_string {
     if (debug_vectors) {
         set nav_debug_vec0:show to true.
         set nav_debug_vec1:show to true.
+        set nav_debug_vec2:show to true.
+        set nav_debug_vec3:show to true.
     }
 
     return dstr.

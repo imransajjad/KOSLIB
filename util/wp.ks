@@ -30,8 +30,8 @@ local GCAS_ALTITUDE is 0.0.
 if PARAM:haskey("AP_NAV") {
     set NOM_NAV_G to get_param(PARAM["AP_NAV"], "ROT_GNOM_VERT", NOM_NAV_G).
 }
-if PARAM:haskey("AP_AERO_ROT") and get_param(PARAM["AP_AERO_ROT"], "USE_GCAS", false) {
-    set GCAS_ALTITUDE to get_param(PARAM["AP_AERO_ROT"], "GCAS_MARGIN", GCAS_ALTITUDE).
+if PARAM:haskey("AP_AERO_W") and get_param(PARAM["AP_AERO_W"], "USE_GCAS", false) {
+    set GCAS_ALTITUDE to get_param(PARAM["AP_AERO_W"], "GCAS_MARGIN", GCAS_ALTITUDE).
 }
 
 local wp_queue is LIST().
@@ -484,7 +484,7 @@ function util_wp_queue_first {
 }
 
 function util_wp_status_string {
-    local time_to_wp is (choose ap_nav_get_time_to_wp() if USE_AP_NAV else 0).
+    local time_to_wp is (choose ap_nav_get_time_to_wp() if defined AP_NAV_ENABLED else 0).
     if wp_queue:length > 0 {
         return "WP" + (wp_queue:length-1) +
             (choose char(10)+time_to_wp+"s" if time_to_wp>0 else "").

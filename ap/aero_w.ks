@@ -1,7 +1,7 @@
 
-GLOBAL AP_AERO_ROT_ENABLED IS true.
+GLOBAL AP_AERO_W_ENABLED IS true.
 
-local PARAM is readJson("param.json")["AP_AERO_ROT"].
+local PARAM is readJson("param.json")["AP_AERO_W"].
 
 local STICK_GAIN_NOM is get_param(PARAM, "STICK_GAIN", 3.0).
 local lock STICK_GAIN to STICK_GAIN_NOM*(choose 0.25 if AG else 1.0).
@@ -52,7 +52,7 @@ local K_ROLL is get_param(PARAM,"K_ROLL").
 
 local lock AG to AG6.
 
-// AERO ROT PID STUFF
+// AERO W PID STUFF
 
 local lock vel to ship:airspeed.
 
@@ -212,7 +212,7 @@ local function display_land_stats {
                 "  pitch "+ round_dec(pitch,2) + char(10) +
                 "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
             if defined UTIL_HUD_ENABLED {
-                util_hud_push_left("AERO_ROT_LAND_STATS" , land_stats ).
+                util_hud_push_left("AERO_W_LAND_STATS" , land_stats ).
             }
             if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event(land_stats).
@@ -220,7 +220,7 @@ local function display_land_stats {
             print land_stats.
         } else if SHIP:STATUS = "FLYING" {
             if defined UTIL_HUD_ENABLED {
-                util_hud_pop_left("AERO_ROT_LAND_STATS").
+                util_hud_pop_left("AERO_W_LAND_STATS").
             }
         }
         set prev_land to SHIP:STATUS.
@@ -232,7 +232,7 @@ local function display_land_stats {
 
 
 local aero_active is true.
-function ap_aero_rot_do {
+function ap_aero_w_do {
     parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch
     parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw
     parameter u3 is SHIP:CONTROL:PILOTROLL. // roll in radians/sec
@@ -338,7 +338,7 @@ local function gcas_check {
         if not GCAS_ARMED {
             if gcas_vector_impact(straight_vector) {
                 set GCAS_ARMED to true.
-                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS").}
+                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_W_GCAS", "GCAS").}
                 print "GCAS armed".
             }
         } else if GCAS_ARMED {
@@ -350,13 +350,13 @@ local function gcas_check {
             if not GCAS_ACTIVE and impact_condition {
                 // GCAS is active here, will put in NAV mode after setting headings etc
                 set GCAS_ACTIVE to true.
-                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"ACTIVE").}
+                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_W_GCAS", "GCAS"+char(10)+"ACTIVE").}
                 print "GCAS ACTIVE".
                 set escape_bear to vel_bear.
 
             } else if GCAS_ACTIVE and not impact_condition {
                 print "GCAS INACTIVE".
-                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS").}
+                if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_W_GCAS", "GCAS").}
                 set GCAS_ACTIVE to false.
             }
 
@@ -365,26 +365,26 @@ local function gcas_check {
                 if (ship:altitude - GCAS_MARGIN < max(ship:geoposition:terrainheight,0))
                 {
                     print "GCAS FLOOR BREACHED".
-                    if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_ROT_GCAS", "GCAS"+char(10)+"BREACHED").}
+                    if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_W_GCAS", "GCAS"+char(10)+"BREACHED").}
                 }
             }
 
             if not GCAS_ACTIVE and not gcas_vector_impact(straight_vector) {
-                if defined UTIL_HUD_ENABLED { util_hud_pop_right("AERO_ROT_GCAS").}
+                if defined UTIL_HUD_ENABLED { util_hud_pop_right("AERO_W_GCAS").}
                 print "GCAS disarmed".
                 set GCAS_ARMED to false.
             }
         }
     } else if GCAS_ARMED or GCAS_ACTIVE {
         // if GEAR or SAS, undo everything
-        if defined UTIL_HUD_ENABLED { util_hud_pop_right("AERO_ROT_GCAS").}
+        if defined UTIL_HUD_ENABLED { util_hud_pop_right("AERO_W_GCAS").}
         set GCAS_ARMED to false.
         set GCAS_ACTIVE to false.
     }
     return GCAS_ACTIVE.
 }
 
-function ap_aero_rot_gcas_check {
+function ap_aero_w_gcas_check {
     return GCAS_ACTIVE.
 }
 
@@ -396,10 +396,10 @@ function ap_gcas_check {
 // this function takes the desired NAV direction and finds
 // an angular velocity to supply to the flcs. 
 //  mostly it's just omega = K(NAV_DIR - prograde) + omega_ff 
-function ap_aero_rot_nav_do {
-    parameter vel_vec.
-    parameter acc_vec.
-    parameter head_dir.
+function ap_aero_w_nav_do {
+    parameter vel_vec is AP_NAV_VEL. // defaults are globals defined in AP_NAV
+    parameter acc_vec is AP_NAV_ACC.
+    parameter head_dir is AP_NAV_ATT.
 
     // a roll command is found as follows:
     // pitch errors and yaw errors are found in the ship frame
@@ -458,11 +458,11 @@ function ap_aero_rot_nav_do {
     //                             char(10)+round_dec(w_us*ship:facing:forevector,3) +
     //                             char(10)+"rt:"+round_dec(have_roll_pre[0],1)).
 
-    ap_aero_rot_do(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
+    ap_aero_w_do(DEG2RAD*p_rot, DEG2RAD*y_rot, DEG2RAD*r_rot ,true).
 }
 
 local departure is false.
-function ap_aero_rot_status_string {
+function ap_aero_w_status_string {
 
     local hud_str is "".
 
@@ -471,7 +471,7 @@ function ap_aero_rot_status_string {
         char(10) + char(945) + " " + round_dec(alpha,1).
         if defined UTIL_FLDR_ENABLED {
             if abs(alpha) > 45 and not departure {
-                util_fldr_send_event("aero_rot departure").
+                util_fldr_send_event("aero_w departure").
                 set departure to true.
             } else if abs(alpha) < 20 and departure {
                 set departure to false.

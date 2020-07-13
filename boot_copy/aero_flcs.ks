@@ -26,7 +26,7 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
 
     COPYPATH("0:/koslib/ap/aero_engines.ks","ap_aero_engines").
-    COPYPATH("0:/koslib/ap/aero_rot.ks","ap_aero_rot").
+    COPYPATH("0:/koslib/ap/aero_w.ks","ap_aero_w").
     COPYPATH("0:/koslib/ap/nav_srf.ks","ap_nav_srf").
     COPYPATH("0:/koslib/ap/nav_orb.ks","ap_nav_orb").
     COPYPATH("0:/koslib/ap/nav_tar.ks","ap_nav_tar").
@@ -63,7 +63,7 @@ run once "util_shbus".
 run once "util_hud".
 
 run once "ap_aero_engines".
-run once "ap_aero_rot".
+run once "ap_aero_w".
 run once "ap_nav_srf".
 run once "ap_nav_orb".
 run once "ap_nav_tar".
@@ -71,8 +71,6 @@ run once "ap_nav".
 run once "ap_mode".
 
 GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
-
-util_hud_init().
 
 // main loop
 UNTIL false {
@@ -85,12 +83,13 @@ UNTIL false {
 
     if AP_MODE_PILOT {
         ap_aero_engine_throttle_map().
-        ap_aero_rot_do().
+        ap_aero_w_do().
     } else if AP_MODE_VEL {
-        ap_aero_engine_throttle_auto(ap_nav_get_vel()).
-        ap_aero_rot_do().
+        ap_aero_engine_throttle_auto().
+        ap_aero_w_do().
     } else if AP_MODE_NAV {
-        ap_nav_do().
+        ap_aero_engine_throttle_auto().
+        ap_aero_w_nav_do().
     } else {
         unlock THROTTLE.
         unlock STEERTING.

@@ -71,7 +71,7 @@ until false {
     }
 
     if AP_MODE_NAV {
-        ap_nav_do().
+        ap_orb_nav_do().
     } else {
         unlock THROTTLE.
         unlock STEERING.

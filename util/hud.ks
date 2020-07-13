@@ -3,12 +3,6 @@ GLOBAL UTIL_HUD_ENABLED IS true.
 
 local PARAM is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
 
-local USE_AP_AERO_ROT is false.
-local USE_AP_NAV is false.
-local USE_AP_MODE is false.
-local USE_UTIL_WP is false.
-local USE_UTIL_SHSYS is false.
-
 local ON_START is get_param(PARAM, "ON_START", false).
 local LADDER_START is get_param(PARAM, "LADDER_START", false).
 local NAV_START is get_param(PARAM, "NAV_START", false).
@@ -19,6 +13,13 @@ local CAMERA_RIGHT is get_param(PARAM, "CAMERA_RIGHT", 0).
 local PITCH_DIV is get_param(PARAM, "PITCH_DIV", 5).
 local FLARE_ALT is get_param(PARAM, "FLARE_ALT", 20).
 local SHIP_HEIGHT is get_param(PARAM, "SHIP_HEIGHT", 2).
+
+local PARAM_NAV is get_param(readJson("param.json"),"AP_NAV", lexicon()).
+if PARAM_NAV:haskey("GEAR_HEIGHT") {
+    set SHIP_HEIGHT to get_param(PARAM_NAV, "GEAR_HEIGHT", 2).
+}
+
+local PARAM is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
 
 CLEARVECDRAWS().
 
@@ -79,8 +80,10 @@ local function nav_vecdraw {
     if is_active_vessel() and (NAVMODE = "TARGET") and HASTARGET {
         set nav_vel to nav_vel-ap_nav_get_vessel_vel(TARGET).
     }
-    if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel() and not MAPVIEW and 
-       (( USE_UTIL_WP and util_wp_queue_length() > 0 ) or (AP_MODE_NAV)) and nav_vel:mag > 0.3 {
+    if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel()
+        and not MAPVIEW and nav_vel:mag > 0.3 and 
+        ( (defined UTIL_WP_ENABLED and util_wp_queue_length() > 0) or 
+         (defined AP_MODE_ENABLED and AP_MODE_NAV) ) {
 
         local py_temp is pitch_yaw_from_dir(nav_vel:direction).
         local nav_heading is heading(py_temp[1],py_temp[0]).
@@ -334,19 +337,23 @@ local function lr_text_info {
         // no status string should have a char(10) or newline as the first
         // or last character
         set hud_left_label:text to ""+
-            ( choose ap_mode_get_str()+char(10) if USE_AP_MODE else "") +
+            ( choose ap_mode_get_str()+char(10) if defined AP_MODE_ENABLED else "") +
             vel_type+"> " + round(vel_displayed) +
-            ( choose ap_nav_status_string()+char(10) if USE_AP_NAV else "" ) +
+            ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
-            ( choose ap_aero_rot_status_string()+char(10) if USE_AP_AERO_ROT else "") +
+            ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
+
+        local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
+        local alt_str is (choose round_dec(ground_alt,1) +" ^_"
+                    if (ground_alt < FLARE_ALT ) else round_dec(SHIP:ALTITUDE,0)+" <|" ).
 
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
-            ( choose util_shsys_status_string()+char(10) if USE_UTIL_SHSYS else "") +
-            round_dec(SHIP:ALTITUDE,0) +" <| " + char(10) +
+            ( choose util_shsys_status_string()+char(10) if defined UTIL_SHSYS_ENABLED else "") +
+            alt_str + char(10) +
             round_dec(vel_bear,0) +" -O " + char(10) +
-            ( choose util_wp_status_string()+char(10) if USE_UTIL_WP else "") +
+            ( choose util_wp_status_string()+char(10) if defined UTIL_WP_ENABLED else "") +
             hud_text_dict_right:values:join(char(10)).
 
         set hud_left_label:style:textcolor to hud_color.
@@ -382,27 +389,9 @@ local function control_part_vec_draw {
     }
 }
 
-local got_hud_enabled_flags is false.
-local function get_hud_enabled_flags {
-    if not got_hud_enabled_flags {
-        set USE_AP_AERO_ROT to defined AP_AERO_ROT_ENABLED.
-        set USE_AP_NAV to defined AP_NAV_ENABLED.
-        set USE_AP_MODE to defined AP_MODE_ENABLED.
-        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
-        set USE_UTIL_SHSYS to defined UTIL_SHSYS_ENABLED.
-        set got_hud_enabled_flags to true.
-    }
-}
-
-// main function of HUD
-function util_hud_init {
-    get_hud_enabled_flags().
-}
-
 local hud_interval is 2.
 local hud_i is 0.
 function util_hud_info {
-    get_hud_enabled_flags().
     set hud_i to hud_i+1.
     if hud_i = hud_interval {
         set hud_i to 0.

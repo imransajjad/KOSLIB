@@ -52,9 +52,9 @@ local BURNvec to V(1,0,0).
 local RCSon to false.
 
 function ap_orb_nav_do {
-    parameter vel_vec.
-    parameter acc_vec.
-    parameter head_dir.
+    parameter vel_vec is AP_NAV_VEL. // defaults are globals defined in AP_NAV
+    parameter acc_vec is AP_NAV_ACC.
+    parameter head_dir is AP_NAV_ATT.
     
     set delta_v to (vel_vec - ship:velocity:orbit).
 
@@ -95,20 +95,20 @@ function ap_orb_nav_do {
         }
         if USE_RCS and throttle = 0.0 {
 
-            set translation_control to V(
+            local translation_control is V(
                 K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR,
                 K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR,
                 K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR).
             local translation_on is V(
-                10*(ship:facing:starvector*delta_v:normalized),
-                10*(ship:facing:topvector*delta_v:normalized),
-                1*(ship:facing:forevector*delta_v:normalized)).
+                10*(ship:facing:starvector*delta_v),
+                10*(ship:facing:topvector*delta_v),
+                1*(ship:facing:forevector*delta_v)).
 
             if USE_RW and (total_head_align < RCS_MIN_ALIGN)  or (delta_v:mag > RCS_MAX_DV) {
                 set ship:control:translation to V(0,0,0).
                 set RCSon to false.
                 set RCS to false.
-            } else if not RCSon and ((delta_v:mag > RCS_MIN_DV) or STEER_RCS) {
+            } else if not RCSon and ((translation_control:normalized*delta_v > RCS_MIN_DV) or STEER_RCS) {
                 set ship:control:translation to translation_control.
                 set RCSvec to delta_v:normalized.
                 set RCS to true.

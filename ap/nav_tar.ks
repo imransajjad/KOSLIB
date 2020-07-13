@@ -25,7 +25,10 @@ function ap_nav_tar_wp_guide {
 
         if position:mag > INTERCEPT_DISTANCE {
             // do nothing
-            return list(current_nav_velocity,V(0,0,0),ship:facing).
+            set AP_NAV_VEL to current_nav_velocity.
+            set AP_NAV_ACC to V(0,0,0).
+            set AP_NAV_ATT to ship:facing.
+            return.
         }
 
         if approach_speed > MAX_STATION_KEEP_SPEED {
@@ -42,20 +45,16 @@ function ap_nav_tar_wp_guide {
         }
 
         local align_data is ap_nav_align(position, final_head, relative_velocity, radius).
-        return list(approach_speed*align_data[0]+target_nav_velocity, align_data[1], final_head).
-        // return list(approach_speed*position:normalized+target_nav_velocity ,V(0,0,0), final_head).
+
+        set AP_NAV_VEL to approach_speed*align_data[0]+target_nav_velocity.
+        set AP_NAV_ACC to align_data[1].
+        set AP_NAV_ATT to final_head.
     } else {
         // do nothing
+        set AP_NAV_VEL to current_nav_velocity.
+        set AP_NAV_ACC to V(0,0,0).
+        set AP_NAV_ATT to ship:facing.
     }
-    return list(current_nav_velocity,V(0,0,0),ship:facing).
-}
-
-function ap_nav_tar_stick {
-    
-}
-
-function ap_nav_tar_do {
-
 }
 
 function ap_nav_tar_status_string {
