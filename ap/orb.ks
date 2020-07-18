@@ -95,27 +95,35 @@ function ap_orb_nav_do {
         }
         if USE_RCS and throttle = 0.0 {
 
-            local translation_control is V(
-                K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR,
-                K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR,
-                K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR).
+
             local translation_on is V(
                 10*(ship:facing:starvector*delta_v),
                 10*(ship:facing:topvector*delta_v),
                 1*(ship:facing:forevector*delta_v)).
+            // set RCSvec to delta_v:normalized.
 
-            if USE_RW and (total_head_align < RCS_MIN_ALIGN)  or (delta_v:mag > RCS_MAX_DV) {
-                set ship:control:translation to V(0,0,0).
+            if (USE_RW and total_head_align < RCS_MIN_ALIGN)  or (delta_v:mag > RCS_MAX_DV) {
+                // set ship:control:translation to V(0,0,0).
                 set RCSon to false.
                 set RCS to false.
-            } else if not RCSon and ((translation_control:normalized*delta_v > RCS_MIN_DV) or STEER_RCS) {
-                set ship:control:translation to translation_control.
+            } else if not RCSon and (( delta_v:mag > RCS_MIN_DV) or STEER_RCS) {
+                // set ship:control:translation to translation_control.
                 set RCSvec to delta_v:normalized.
                 set RCS to true.
                 set RCSon to true.
+                print "RCS on".
             } else if RCSon and (delta_v*RCSvec <= 0 and not STEER_RCS) {
                 set RCS to false.
                 set RCSon to false.
+                print "RCS off".
+            }
+
+            if RCSon {
+            set ship:control:translation to V(
+                K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR,
+                K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR,
+                K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR).
+            } else {
                 set ship:control:translation to V(0,0,0).
             }
         }

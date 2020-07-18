@@ -73,7 +73,7 @@ local function generic_common {
 local auto_brakes_used is false.
 local function apply_auto_brakes {
     parameter v_set.
-    if AUTO_BRAKES and not GEAR {
+    if AUTO_BRAKES and not (GEAR and ship:status = "flying") {
         set auto_brakes_used to true.
         if BRAKES {
             set BRAKES to ( vpid:output < 0.05  ) and 

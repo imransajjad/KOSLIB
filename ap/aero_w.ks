@@ -313,6 +313,7 @@ local n_impact_pts is 5.
 local straight_vector is V(0,0,0).
 local impact_vector is V(0,0,0).
 local gcas_escape_pitch is 0.0.
+local gcas_minimum is 10000.
 
 local function gcas_check {
     // ground collision avoidance system
@@ -320,7 +321,7 @@ local function gcas_check {
     local escape_bear is vel_bear.
     local react_time is 1.0.
 
-    if not GEAR and not SAS {
+    if not SAS {
         local gcas_prate to max(RAD2DEG*prate_max/1.0,1.0).
         local gcas_yrate to max(RAD2DEG*yrate_max,1.0).
         local gcas_rrate to max(RAD2DEG*rrate_max/6.0,1.0).
@@ -347,15 +348,19 @@ local function gcas_check {
                 set impact_condition to impact_condition or gcas_vector_impact(((i+1)/n_impact_pts)*impact_vector).
             }
 
-            if not GCAS_ACTIVE and impact_condition {
+            if not GEAR and not GCAS_ACTIVE and impact_condition {
                 // GCAS is active here, will put in NAV mode after setting headings etc
                 set GCAS_ACTIVE to true.
                 if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_W_GCAS", "GCAS"+char(10)+"ACTIVE").}
                 print "GCAS ACTIVE".
                 set escape_bear to vel_bear.
+                if ship:altitude < gcas_minimum {
+                    set gcas_minimum to ship:altitude.
+                }
 
-            } else if GCAS_ACTIVE and not impact_condition {
-                print "GCAS INACTIVE".
+            } else if GCAS_ACTIVE and (not impact_condition or GEAR) {
+                print "GCAS INACTIVE: " + char(10) + round_fig(gcas_minimum,1).
+                set gcas_minimum to 10000.
                 if defined UTIL_HUD_ENABLED { util_hud_push_right("AERO_W_GCAS", "GCAS").}
                 set GCAS_ACTIVE to false.
             }

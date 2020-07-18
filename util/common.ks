@@ -143,6 +143,24 @@ function dir_haversine {
     // return R(0,0,have_list[0])*R(have_list[1],0,0).
 }
 
+function haversine_vec {
+    parameter frame.
+    parameter v.
+
+    local dir_temp is (R(90,0,0)*(-frame)*v):direction.
+    local total is wrap_angle(90-dir_temp:pitch).
+    local roll is dir_temp:roll.
+    local eject is wrap_angle(-dir_temp:yaw).
+    return list( eject, total ).
+}
+
+function vec_haversine {
+    parameter frame.
+    parameter have_list. // eject, total
+
+    return frame*R(90,0,0)*R(0,have_list[0]-180,0)*R(have_list[1],0,0)*V(0,1,0).
+}
+
 function pitch_yaw_from_dir {
     parameter dir.
     local guide_dir_py to R(90,0,0)*(-SHIP:UP)*dir.
@@ -264,6 +282,15 @@ function simple_q {
     parameter velocity.
 
     return 0.00000840159*constant:e^(-height/5000)*velocity^2.
+}
+
+function simple_q_root {
+    // returns a non accurate dynamic pressure-like reading
+    // that can be used for some contol purposes
+    parameter height.
+    parameter velocity.
+
+    return 0.0028985496*constant:e^(-height/5000/2)*velocity.
 }
 
 // requires a global called SHIP_TAG_IN_PARAMS

@@ -28,7 +28,13 @@ if (debug_vectors) { // debug
     set nav_debug_vec2 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,0),
                 "", vec_scale, true, vec_width, true ).
     set nav_debug_vec3 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,1,1),
-                "", vec_scale, true, vec_width, true ).
+                "", vec_scale, true, 0.25*vec_width, true ).
+    set nav_debug_vec4 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,0,1),
+                "", vec_scale, true, 0.25*vec_width, true ).
+    set nav_debug_vec5 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,1),
+                "", vec_scale, true, 0.25*vec_width, true ).
+    set nav_debug_vec6 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
+                "", vec_scale, true, 0.25*vec_width, true ).
 }
 
 // helper functions for other NAV files
@@ -43,16 +49,11 @@ function ap_nav_align {
     parameter frame_vel. // a velocity vector in this frame
     parameter radius. // a turning radius.
 
-    if debug_vectors {
-        set nav_debug_vec3:vec to vec_final.
-    }
-
     set FOLLOW_MODES["A"] to true.
     local alpha_x is 0.
-    local head_have is haversine_dir((-head_final)*vec_final:direction).
+    local head_have is haversine_vec(head_final,vec_final).
 
-    local center_vec is radius*
-        (head_final*dir_haversine(list(head_have[0],-90,head_have[2]))):vector.
+    local center_vec is radius*vec_haversine(head_final,list(head_have[0],-90)).
 
     local farness is vec_final:mag/radius.
     local to_circ is (vec_final+center_vec):normalized*frame_vel:normalized.
@@ -67,7 +68,6 @@ function ap_nav_align {
     if on_circ_feedforward {
         set FOLLOW_MODES["F"] to true.
         set alpha_x to head_have[1].
-        // util_hud_push_right("nav_srf", "head_have[1]").
     } else {
         set FOLLOW_MODES["F"] to false.
         if (farness-2*sin(head_have[1]) >= 0) {
@@ -78,15 +78,43 @@ function ap_nav_align {
         }
     }
 
-    set new_have to list(head_have[0],head_have[1]+alpha_x, head_have[2]).
-    set c_have to list(head_have[0],head_have[1]+alpha_x-90, head_have[2]).
+    set new_have to list(head_have[0],head_have[1]+alpha_x).
+    set c_have to list(head_have[0],head_have[1]+alpha_x-90).
 
-    local new_arc_direction is head_final*dir_haversine(new_have).
-    local centripetal_vector is head_final*dir_haversine(c_have):vector.
+
+    local new_arc_vector is vec_haversine(head_final,new_have).
+    local centripetal_vector is vec_haversine(head_final,c_have).
 
     local acc_mag is choose frame_vel:mag^2/radius if FOLLOW_MODES["F"] else 0.
     
-    return list(new_arc_direction:vector, acc_mag*centripetal_vector).
+    set AP_NAV_TIME_TO_WP to vec_final:mag/max(1,frame_vel:mag).
+
+
+    if debug_vectors {
+
+        local new_have_list is haversine_vec(head_final,new_arc_vector).
+
+        set nav_debug_vec3:start to vec_final.
+        set nav_debug_vec3:vec to 10*head_final:vector.
+        set nav_debug_vec4:start to vec_final.
+        set nav_debug_vec4:vec to 10*head_final:starvector.
+        
+        // set nav_debug_vec5:start to vec_final.
+        // set nav_debug_vec5:vec to center_vec.
+
+        set nav_debug_vec5:start to V(0,0,0).
+        set nav_debug_vec5:vec to 10*new_arc_vector.
+
+        set nav_debug_vec6:start to V(0,0,0).
+        set nav_debug_vec6:vec to vec_final.
+        util_hud_push_right("ap_nav_align", "e:"+round_fig(head_have[0],1) + 
+            char(10) + "t:"+round_fig(head_have[1],1) +
+            char(10) + "ne:"+round_fig(new_have_list[0],1) + 
+            char(10) + "nt:"+round_fig(new_have_list[1],1) +
+            char(10) + "ax:"+round_fig(alpha_x,1)).
+    }
+
+    return list(new_arc_vector, acc_mag*centripetal_vector).
 }
 
 
@@ -102,13 +130,14 @@ function ap_nav_q_target {
     local sin_max_vangle is 0.5. // sin(30).
     local qtar is simple_q(target_altitude,target_vel).
     local q_simp is simple_q(ship:altitude,ship:airspeed).
-
+    
+    set AP_NAV_TIME_TO_WP to target_distance/max(1,ship:airspeed).
     // util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).
 
     local elev is arcsin(sat(-K_Q*(qtar-q_simp), sin_max_vangle)).
     set elev to max(elev, -arcsin(min(1.0,ship:altitude/ship:airspeed/5))).
 
-    local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),elev).
+    local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),abs(elev)).
     set elev_diff to arctan2(2*tan(elev_diff),1).
     return list(heading(target_heading+elev_diff,elev):vector, V(0,0,0)).
 }
@@ -134,6 +163,11 @@ function ap_nav_check_done {
                 util_fldr_send_event(wp_reached_str).
             }
             util_wp_done().
+            if util_wp_queue_length() = 0 {
+                set AP_NAV_VEL to ap_nav_get_vessel_vel().
+                set AP_NAV_ACC to V(0,0,0).
+                set AP_NAV_ATT to ship:facing.
+            }
             set AP_NAV_TIME_TO_WP to 0.
         }
     }
@@ -173,6 +207,9 @@ function ap_nav_display {
     } else if defined AP_NAV_ORB_ENABLED and AP_NAV_IN_ORBIT {
         ap_nav_orb_stick().
     } else {
+        set AP_NAV_VEL to ap_nav_get_vessel_vel().
+        set AP_NAV_ACC to V(0,0,0).
+        set AP_NAV_ATT to ship:facing.
     }
     set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
@@ -202,7 +239,7 @@ function ap_nav_get_vessel_vel {
     if not this_vessel:hassuffix("velocity") {
         set this_vessel to this_vessel:ship.
     }
-    if (ship:altitude < 36000) {
+    if AP_NAV_IN_SURFACE {
         return this_vessel:velocity:surface.
     } else {
         return this_vessel:velocity:orbit.
@@ -238,6 +275,9 @@ function ap_nav_status_string {
         set nav_debug_vec1:show to true.
         set nav_debug_vec2:show to true.
         set nav_debug_vec3:show to true.
+        set nav_debug_vec4:show to true.
+        set nav_debug_vec5:show to true.
+        set nav_debug_vec6:show to true.
     }
 
     return dstr.

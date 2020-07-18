@@ -52,7 +52,7 @@ local cur_mode is "srf".
 // five messages
 
 // this function will be used by shbus_tx
-local function construct_incomplete_waypoint {
+local function wp_arg_lex {
     parameter wp_args. // has to be a list of numbers
     parameter wp_mode is "srf".
 
@@ -121,12 +121,6 @@ local function insert_waypoint {
 local function remove_waypoint {
     parameter remindex.
     util_shbus_tx_msg("REM_WP", list(remindex)).
-}
-local function waypoints_print {
-    util_shbus_tx_msg("WP_PRINT").
-}
-local function waypoints_purge {
-    util_shbus_tx_msg("WP_PURGE").
 }
 
 function util_wp_get_help_str {
@@ -224,8 +218,7 @@ local function generate_landing_seq {
     list(alt_stp + flare_h +distance*tan(GSlope)/10, speed, p3[0], p3[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list(alt_stp , flare_sd*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
-    list(alt_stp-1.0, 0, lat_stp, lng_stp, -LSlope,runway_angle,flare_g),
-    list("b")). // brakes
+    list(alt_stp-1.0, 0, lat_stp, lng_stp, -0,runway_angle,flare_g)).
 
     local gcas_gear_wp is -1.
     if GCAS_ALTITUDE > 0 {
@@ -264,17 +257,15 @@ function util_wp_parse_command {
     local brackets is commtext:contains("(") and commtext:contains(")").
 
     if commtext:startswith("wpo") {
-        overwrite_waypoint(-args[0]-1,
-            construct_incomplete_waypoint(args:sublist(1,args:length-1), cur_mode) ).
+        overwrite_waypoint(-args[0]-1, wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
     } else if commtext:startswith("wpi") {
-        insert_waypoint(-args[0]-2,
-            construct_incomplete_waypoint(args:sublist(1,args:length-1), cur_mode) ).
+        insert_waypoint(-args[0]-2, wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
     } else if commtext:startswith("wpr") {
         remove_waypoint(-args[0]-1).
     } else if commtext = "wpqp" {
-        waypoints_print().
+        util_shbus_tx_msg("WP_PRINT").
     } else if commtext = "wpqd" {
-        waypoints_purge().
+        util_shbus_tx_msg("WP_PURGE").
     } else if commtext:startswith("wpmd") {
         if not brackets and ((args = "act") or (args = "srf") or (args = "snv") or (args = "tar")){
             set cur_mode to args.
@@ -284,24 +275,20 @@ function util_wp_parse_command {
     } else if commtext = "wpd" { 
         remove_waypoint(0).
     } else if commtext:startswith("wpf") { 
-        insert_waypoint(0,
-            construct_incomplete_waypoint(args, cur_mode) ).
+        insert_waypoint(0, wp_arg_lex(args, cur_mode) ).
     } else if commtext:startswith("wpa") { 
-        insert_waypoint(-1,
-            construct_incomplete_waypoint(args, cur_mode) ).
+        insert_waypoint(-1, wp_arg_lex(args, cur_mode) ).
     } else if commtext:startswith("wpu") {
-        overwrite_waypoint(0,
-            construct_incomplete_waypoint(args, cur_mode) ).
+        overwrite_waypoint(0, wp_arg_lex(args, cur_mode) ).
     } else if commtext:startswith("wpn") {
-        overwrite_waypoint(1,
-            construct_incomplete_waypoint(args, cur_mode) ).
+        overwrite_waypoint(1, wp_arg_lex(args, cur_mode) ).
     } else if commtext:startswith("wpw") and args:length = 2  {
         if is_active_vessel() {
             FOR WP_TAR IN ALLWAYPOINTS() {
                 if (WP_TAR:ISSELECTED) {
                     print "Found navigation waypoint".
                     insert_waypoint(-1,
-                    construct_incomplete_waypoint(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
+                    wp_arg_lex(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
                         WP_TAR:GEOPOSITION:LNG), cur_mode) ).
                     return true.
                 }
@@ -312,7 +299,7 @@ function util_wp_parse_command {
         if is_active_vessel() and HASTARGET {
             print "Found Target.".
                 insert_waypoint(-1,
-                construct_incomplete_waypoint(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
+                wp_arg_lex(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
                     TARGET:GEOPOSITION:LNG), cur_mode) ).
             return true.
         } else {
@@ -320,27 +307,13 @@ function util_wp_parse_command {
         }
     } else if commtext:startswith("wpk(") and args:length = 2 {
         insert_waypoint(-1,
-            construct_incomplete_waypoint(list(args[0],args[1],-0.048,
+            wp_arg_lex(list(args[0],args[1],-0.048,
                 -74.69), cur_mode) ).
-    } else if commtext:startswith("wpl(") and 
-    (args:length = 3 or args:length = 4) {
-        if args:length = 3 { args:insert(3,90.4 +
-                (choose 180 if ship:geoposition:lng > -74.69 else 0) ). }
-        for wp_seq_i in generate_landing_seq(args[0],args[1],args[2],args[3]) {
-            insert_waypoint(-1,
-                construct_incomplete_waypoint(wp_seq_i, "srf") ).
-        }
+    } else if commtext:startswith("wpl(") and (args:length = 3 or args:length = 4) {
+        util_shbus_tx_msg("WP_LAND", args). // special command for landing
     } else if commtext:startswith("wpto(") and (args:length = 1 or args:length = 2) {
-        waypoints_purge().
+        util_shbus_tx_msg("WP_PURGE").
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
-    } else if commtext:startswith("wptest") {
-            //     insert_waypoint(-1,
-            // construct_incomplete_waypoint(list(3000,230,0.5,
-            //     -74,0,270), "srf") ).
-        insert_waypoint(-1,
-            construct_incomplete_waypoint(list(0.4,10,0,0,-5), "tar") ).
-        insert_waypoint(-1,
-            construct_incomplete_waypoint(list(0.2,10,0,0,-1.0), "tar") ).
     } else {
         return false.
     }
@@ -525,6 +498,14 @@ function util_wp_decode_rx_msg {
     } else if opcode = "WP_PURGE"{
         waypoint_queue_purge().
         util_shbus_ack("waypoint queue purged", sender).
+    } else if opcode = "WP_LAND" {
+        if data:length = 3 {
+            data:insert(3,90.4+(choose 180 if ship:geoposition:lng > -74.69 else 0) ).
+        }
+        for wp_seq_i in generate_landing_seq(data[0],data[1],data[2],data[3]) {
+            waypoint_add(-1,
+                wp_arg_lex(wp_seq_i, "srf") ).
+        }
     } else if opcode = "WP_TAKEOFF"{
         // have to generate takoff sequence on receiving end
         if (data:length = 1) {
@@ -532,7 +513,7 @@ function util_wp_decode_rx_msg {
             data:insert(1,start_head).
         }
         for wp_seq_i in generate_takeoff_seq(data[0],data[1]) {
-            waypoint_add(-1, construct_incomplete_waypoint(wp_seq_i, "srf")).
+            waypoint_add(-1, wp_arg_lex(wp_seq_i, "srf")).
         }
 
     } else {

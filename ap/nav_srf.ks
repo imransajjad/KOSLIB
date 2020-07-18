@@ -37,7 +37,6 @@ function ap_nav_srf_wp_guide {
 
         local geo_distance is (ship:body:radius+ship:altitude)*DEG2RAD*
             haversine(ship:geoposition:lat,ship:geoposition:lng, wp["lat"],wp["lng"])[1].
-        set AP_NAV_TIME_TO_WP to geo_distance/max(1,ship:airspeed).
         
         if wp:haskey("elev") and (wp_vec:mag < 9*final_radius) { 
             // do final alignment
@@ -51,11 +50,12 @@ function ap_nav_srf_wp_guide {
     } else {
         // do q_follow for height and current heading
         set align_data to ap_nav_q_target(wp["alt"],wp["vel"],vel_bear).
-        set AP_NAV_TIME_TO_WP to 0.
     }
     set AP_NAV_VEL to max(MIN_NAV_SRF_VEL,wp["vel"])*align_data[0].
     set AP_NAV_ACC to align_data[1].
     set AP_NAV_ATT to ship:facing.
+    set stick_heading to vel_bear.
+    set stick_pitch to vel_pitch.
 }
 
 local stick_heading is vel_bear.

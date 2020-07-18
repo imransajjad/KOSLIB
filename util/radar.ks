@@ -7,13 +7,13 @@ local PARAM is get_param(readJson("param.json"), "UTIL_RADAR", lexicon())..
 local max_range is get_param(PARAM, "MAX_RANGE", 100000).
 local max_angle is get_param(PARAM, "MAX_ANGLE", 20).
 
+local LOOKUP_VECTOR is R(-get_param(PARAM, "LOOKUP_ANGLE", 0),0,0):vector.
+
 local Ts is get_param(PARAM, "DISPLAY_UPDATE_PERIOD", 1.0).
 local scan_timeout_per_target is get_param(PARAM, "TARGET_SCAN_TIMEOUT", 5).
 
 lock AG to AG1.
 local prev_AG is AG.
-
-local lock line_of_sight to ship:facing.
 
 local next_lock_index is 0.
 local scan_timeout is 0.
@@ -118,7 +118,7 @@ local function do_scan {
     local ti is target_list:iterator.
     until not ti:next {
         if (ti:value:distance > max_range) or 
-        (vectorangle(ti:value:position,line_of_sight:vector) > max_angle) {
+        (vectorangle(ti:value:position, ship:facing*LOOKUP_VECTOR) > max_angle) {
             removal_list:add(ti:index).
         }
     }
