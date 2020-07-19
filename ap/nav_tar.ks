@@ -42,13 +42,13 @@ function ap_nav_tar_wp_guide {
 
         if approach_speed > MAX_STATION_KEEP_SPEED {
             ap_nav_check_done(position, ship:facing, relative_velocity, radius).
-        } else if approach_speed >= 0 {
+        } else {
             set approach_speed to sat(position:mag/radius, 1)*abs(approach_speed).
         }
 
         local align_data is ap_nav_align(position, final_head, relative_velocity, radius).
 
-        set AP_NAV_VEL to approach_speed*align_data[0]+ap_nav_get_vessel_vel(TARGET).
+        set AP_NAV_VEL to approach_speed*align_data[0]+ap_nav_get_vessel_vel(target_ship).
         set AP_NAV_ACC to align_data[1].
         set AP_NAV_ATT to final_head.
     } else {
