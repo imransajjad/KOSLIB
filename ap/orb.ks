@@ -16,9 +16,10 @@ local K_RCS_TOP is get_param(PARAM, "K_RCS_TOP",1.0).
 local K_RCS_FORE is get_param(PARAM, "K_RCS_FORE",1.0).
 local K_ORB_ENGINE_FORE is get_param(PARAM, "K_ORB_ENGINE_FORE",0.5).
 
+local ENGINE_VEC is get_param(PARAM, "ENGINE_VEC", V(0,0,1)).
+
 local RCS_MAX_DV is get_param(PARAM, "RCS_MAX_DV", 10.0).
 local RCS_MIN_DV is get_param(PARAM, "RCS_MIN_DV", 0.05).
-local RCS_MIN_U is get_param(PARAM, "RCS_MIN_U", 0.05).
 local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 local RCS_THRUST is get_param(PARAM, "RCS_THRUST", 1.0).
 
@@ -40,7 +41,6 @@ if USE_STEERMAN {
 }
 
 local orb_steer_direction is ship:facing.
-local orb_rcs_vector is V(0,0,0).
 local orb_throttle is 0.0.
 local STEER_RCS is false.
 local BURN_ACTIVE is false.
@@ -63,9 +63,13 @@ function ap_orb_nav_do {
     
     if not SAS {
         if USE_ORB_ENGINE {
-            set orb_throttle to (choose K_ORB_ENGINE_FORE*ship:facing:forevector*delta_v if 
-            BURN_ACTIVE and ship:facing:forevector*delta_v:normalized > 0.99 else 0).
-            if not BURN_ACTIVE and ((USE_RCS and delta_v:mag > RCS_MAX_DV) or (not USE_RCS and delta_v:mag > 0.05)) {
+            if BURN_ACTIVE and (ship:facing*ENGINE_VEC)*delta_v:normalized > 0.99{
+                set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
+            } else {
+                set orb_throttle to 0.0.
+            }
+            if not BURN_ACTIVE and ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
+                (not USE_RCS and delta_v:mag > 0.05)) {
                 lock throttle to orb_throttle.
                 set BURNvec to delta_v:normalized.
                 set BURN_ACTIVE to true.

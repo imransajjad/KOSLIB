@@ -202,10 +202,10 @@ function ap_nav_display {
             print "got unsupported wp, marking it done".
             util_wp_done().
         }
-    } else if defined AP_NAV_SRF_ENABLED and AP_NAV_IN_SURFACE {
-        ap_nav_srf_stick().
     } else if defined AP_NAV_ORB_ENABLED and AP_NAV_IN_ORBIT {
         ap_nav_orb_stick().
+    } else if defined AP_NAV_SRF_ENABLED and AP_NAV_IN_SURFACE {
+        ap_nav_srf_stick().
     } else {
         set AP_NAV_VEL to ap_nav_get_vessel_vel().
         set AP_NAV_ACC to V(0,0,0).
@@ -250,6 +250,7 @@ function ap_nav_get_time_to_wp {
     return round(min(9999,AP_NAV_TIME_TO_WP)).
 }
 
+local vel_displayed is 0.
 function ap_nav_status_string {
     local dstr is "".
     if defined AP_NAV_SRF_ENABLED and AP_NAV_IN_SURFACE {

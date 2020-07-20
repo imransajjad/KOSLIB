@@ -338,7 +338,7 @@ local function lr_text_info {
         // or last character
         set hud_left_label:text to ""+
             ( choose ap_mode_get_str()+char(10) if defined AP_MODE_ENABLED else "") +
-            vel_type+"> " + round(vel_displayed) +
+            vel_type+"> " + round_dec(round_fig(vel_displayed,2),2) +
             ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
             ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +

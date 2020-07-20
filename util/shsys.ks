@@ -10,11 +10,11 @@ local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
 local AUX_ANTENNAS_NAME is get_param(PARAM, "AUX_ANTENNAS_NAME", "").
 local ARM_RLAUNCH_STATUS is get_param(PARAM, "ARM_RLAUNCH_STATUS", "").
 
-local ATMOS_ESCAPE_STAGE is get_param(PARAM, "ATMOS_ESCAPE_STAGE", "").
-local ATMOS_ESCAPE_ALT is get_param(PARAM, "ATMOS_ESCAPE_ALT", "").
+local ATMOS_ESCAPE_STAGE is get_param(PARAM, "ATMOS_ESCAPE_STAGE", 99999).
+local ATMOS_ESCAPE_ALT is get_param(PARAM, "ATMOS_ESCAPE_ALT", 70000).
 
-local REENTRY_STAGE is get_param(PARAM, "REENTRY_STAGE", -1).
-local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", -1).
+local REENTRY_STAGE is get_param(PARAM, "REENTRY_STAGE", 99999).
+local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", 70000).
 local PARACHUTE_ALT is get_param(PARAM, "PARACHUTE_ALT", 1000).
 
 local Q_SAFE is get_param(PARAM, "Q_SAFE", 0).
@@ -37,9 +37,6 @@ if main_engines:length = 0 {
     if (stage_engine = -1) { get_child_with_module("ModuleEnginesFX"). }
     if not (stage_engine = -1) { main_engines:add(stage_engine). }
 }
-
-local main_antennas is get_parts_tagged(MAIN_ANTENNAS_NAME).
-local aux_antennas is get_parts_tagged(AUX_ANTENNAS_NAME).
 
 local connected_to_decoupler is -1.
 local connected_to_decoupler_children_length is -1.
@@ -112,10 +109,10 @@ local function iterate_spacecraft_system_state {
             }
 
             set PANELS to true.
-            for a in main_antennas {
+            for a in get_parts_tagged(MAIN_ANTENNAS_NAME) {
                 a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
             }
-            for a in aux_antennas {
+            for a in get_parts_tagged(AUX_ANTENNAS_NAME) {
                 a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
             }
         }
@@ -131,10 +128,10 @@ local function iterate_spacecraft_system_state {
             }
 
             set PANELS to false.
-            for a in main_antennas {
+            for a in get_parts_tagged(MAIN_ANTENNAS_NAME) {
                 a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
             }
-            for a in aux_antennas {
+            for a in get_parts_tagged(AUX_ANTENNAS_NAME) {
                 a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
             }
         }

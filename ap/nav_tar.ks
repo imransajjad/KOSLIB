@@ -62,11 +62,18 @@ function ap_nav_tar_wp_guide {
 
 function ap_nav_tar_status_string {
     local hud_str is "".
+
+    local AP_NAV_V_SET is AP_NAV_VEL:mag.
+
     if target_wp_on {
-        set hud_str to hud_str + char(10) + "a>" + round_fig(approach_speed,1) + char(10)+
+        set hud_str to hud_str + "/"+round_fig(approach_speed,2).
+        
+        if (false) {
+            set hud_str to hud_str + char(10)+
                 "("+round_fig(position*final_head:starvector,2) + "," +
                 round_fig(position*final_head:topvector,2) + "," +
                 round_fig(position*final_head:forevector,2) + ")".
+        }
     }
     set target_wp_on to false.
     return hud_str.

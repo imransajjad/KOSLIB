@@ -14,7 +14,7 @@ local GEAR_HEIGHT is get_param(PARAM,"GEAR_HEIGHT").
 
 // local lock AG to AG3.
 
-local VSET_MAN is FALSE.
+local nav_srf_on is false.
 local MIN_NAV_SRF_VEL is 0.01.
 
 
@@ -56,6 +56,7 @@ function ap_nav_srf_wp_guide {
     set AP_NAV_ATT to ship:facing.
     set stick_heading to vel_bear.
     set stick_pitch to vel_pitch.
+    set nav_srf_on to true.
 }
 
 local stick_heading is vel_bear.
@@ -66,7 +67,7 @@ function ap_nav_srf_stick {
     parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw input
     parameter u3 is SHIP:CONTROL:PILOTROLL. // roll input
     local increment is 0.0.
-
+    local VSET_MAN is FALSE.
 
     if not (defined AP_MODE_ENABLED) {
         return.
@@ -109,6 +110,7 @@ function ap_nav_srf_stick {
         set V_SET_DELTA to increment.
     }
     set AP_NAV_VEL to AP_NAV_VEL:mag*heading(stick_heading, stick_pitch):vector.
+    set nav_srf_on to (defined AP_MODE_ENABLED and (AP_MODE_NAV or AP_MODE_VEL)).
 }
 
 local V_SET_DELTA is 0.
@@ -120,8 +122,7 @@ function ap_nav_srf_status_string {
     local AP_NAV_H_SET is py_temp[1].
     local AP_NAV_V_SET is AP_NAV_VEL:mag.
 
-    if (defined AP_MODE_ENABLED and (AP_MODE_NAV or AP_MODE_VEL)) or
-        (defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0)) {
+    if nav_srf_on {
         set dstr to "/"+round_dec(AP_NAV_V_SET,0).
         if (V_SET_DELTA > 0){
             set dstr to dstr + "+".
@@ -130,6 +131,7 @@ function ap_nav_srf_status_string {
         }
         set V_SET_DELTA to 0.
         set dstr to dstr+char(10)+"("+round_dec(AP_NAV_E_SET,2)+","+round(AP_NAV_H_SET)+")".
+        set nav_srf_on to false.
     }
     return dstr.
 }
