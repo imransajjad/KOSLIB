@@ -188,6 +188,12 @@ function util_shbus_reconnect {
     }
 }
 
+function util_shbus_disconnect {
+    for key in tx_hosts:keys {
+        util_shbus_tx_msg("UNASKHOST", list(my_fullname), list(key)).       
+    }
+}
+
 // TX SECTION END
 
 

@@ -293,6 +293,15 @@ function simple_q_root {
     return 0.0028985496*constant:e^(-height/5000/2)*velocity.
 }
 
+function simple_E {
+    // returns a non accurate dynamic pressure-like reading
+    // that can be used for some contol purposes
+    parameter height.
+    parameter velocity.
+
+    return 0.5*velocity^2 - ship:body:mu/(height + ship:body:radius).
+}
+
 // requires a global called SHIP_TAG_IN_PARAMS
 function spin_if_not_us {
     until (SHIP_TAG_IN_PARAMS = string_acro(ship:name) ) {

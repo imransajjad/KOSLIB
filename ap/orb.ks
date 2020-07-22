@@ -25,6 +25,8 @@ local RCS_THRUST is get_param(PARAM, "RCS_THRUST", 1.0).
 
 local lock MTR to 0*ship:mass/(2*RCS_THRUST).
 
+local lock omega to RAD2DEG*ship:angularVel.
+
 if USE_STEERMAN {
     set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
     set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
@@ -58,9 +60,6 @@ function ap_orb_nav_do {
     
     set delta_v to (vel_vec - ship:velocity:orbit).
 
-
-    local delta_v_mag is abs(delta_v*head_dir:starvector + delta_v*head_dir:topvector + delta_v*1*head_dir:topvector).
-    
     if not SAS {
         if USE_ORB_ENGINE {
             if BURN_ACTIVE and (ship:facing*ENGINE_VEC)*delta_v:normalized > 0.99{
@@ -68,7 +67,8 @@ function ap_orb_nav_do {
             } else {
                 set orb_throttle to 0.0.
             }
-            if not BURN_ACTIVE and ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
+            if not BURN_ACTIVE and omega:mag < 1.0 and
+                ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
                 (not USE_RCS and delta_v:mag > 0.05)) {
                 lock throttle to orb_throttle.
                 set BURNvec to delta_v:normalized.
@@ -77,6 +77,7 @@ function ap_orb_nav_do {
                 set orb_throttle to 0.0.
                 set BURN_ACTIVE to false.
                 unlock throttle.
+                print BURNvec*delta_v.
             }
         }
 
@@ -84,7 +85,7 @@ function ap_orb_nav_do {
             if not BURN_ACTIVE {
                 set orb_steer_direction to head_dir.
             } else {
-                set orb_steer_direction to BURNvec:direction.
+                set orb_steer_direction to delta_v:direction.
             }
             local head_error is (-ship:facing)*orb_steer_direction.
             set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
@@ -97,36 +98,27 @@ function ap_orb_nav_do {
             }
              
         }
-        if USE_RCS and throttle = 0.0 {
-
-
-            local translation_on is V(
-                10*(ship:facing:starvector*delta_v),
-                10*(ship:facing:topvector*delta_v),
-                1*(ship:facing:forevector*delta_v)).
-            // set RCSvec to delta_v:normalized.
-
-            if (USE_RW and total_head_align < RCS_MIN_ALIGN)  or (delta_v:mag > RCS_MAX_DV) {
-                // set ship:control:translation to V(0,0,0).
-                set RCSon to false.
+        if USE_RCS {
+            if throttle > 0.0 or 
+                (USE_RW and total_head_align < RCS_MIN_ALIGN) or 
+                (delta_v:mag > RCS_MAX_DV and not STEER_RCS) or 
+                (RCSon and delta_v*RCSvec <= 0 and not STEER_RCS) {
                 set RCS to false.
+                set RCSon to false.
+                print "RCS off".
             } else if not RCSon and (( delta_v:mag > RCS_MIN_DV) or STEER_RCS) {
                 // set ship:control:translation to translation_control.
                 set RCSvec to delta_v:normalized.
                 set RCS to true.
                 set RCSon to true.
                 print "RCS on".
-            } else if RCSon and (delta_v*RCSvec <= 0 and not STEER_RCS) {
-                set RCS to false.
-                set RCSon to false.
-                print "RCS off".
             }
 
-            if RCSon {
-            set ship:control:translation to V(
-                K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR,
-                K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR,
-                K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR).
+            if RCSon and (total_head_align >= RCS_MIN_ALIGN) {
+                set ship:control:translation to V(
+                    K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR,
+                    K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR,
+                    K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR).
             } else {
                 set ship:control:translation to V(0,0,0).
             }

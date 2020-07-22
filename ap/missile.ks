@@ -4,9 +4,9 @@ local Ts is 0.04.
 local minimum_intercept is 100.
 local parent is ship.
 
-local lock DELTA_ALPHA to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE)*(ship:FACING).
-local lock alpha to -(mod(DELTA_ALPHA:pitch+180,360)-180).
-local lock beta to  (mod(DELTA_ALPHA:yaw+180,360)-180).
+local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
+local lock alpha to wrap_angle(ship_vel:pitch).
+local lock beta to wrap_angle(-ship_vel:yaw).
 
 local function get_true_intercept_error {
     parameter cur_target.
@@ -82,6 +82,21 @@ local my_throttle is 0.0.
 function ap_missile_guide {
 
     sas off.
+    local PARAM is lexicon().
+    if true {
+    set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
+    set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
+    set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
+
+    set STEERINGMANAGER:YAWPID:KP to get_param(PARAM, "Y_KP", 8.0).
+    set STEERINGMANAGER:YAWPID:KI to get_param(PARAM, "Y_KI", 8.0).
+    set STEERINGMANAGER:YAWPID:KD to get_param(PARAM, "Y_KD", 12.0).
+
+    set STEERINGMANAGER:ROLLPID:KP to get_param(PARAM, "R_KP", 8.0).
+    set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
+    set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
+    print "got gains".
+}
 
     lock throttle to my_throttle.
     set my_throttle to 1.0.
@@ -106,9 +121,9 @@ function ap_missile_guide {
         }
 
     } else {
-        set DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
-        set target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
-        set target_bear to (360-DELTA_TARGET:yaw).
+        local lock DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
+        local lock target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
+        local lock target_bear to (360-DELTA_TARGET:yaw).
 
         print "entering guidance loop 1".
         lock steering TO heading(target_bear,30,0).
@@ -133,6 +148,9 @@ function ap_missile_guide {
         }
 
         print "entering terminal guidance".
+        // unlock throttle.
+        // unlock steering.
+        // return.
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
         set my_throttle to 1.0.

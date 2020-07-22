@@ -22,11 +22,11 @@ function ap_nav_orb_status_string {
             if ship:orbit:trueanomaly >= 90 and ship:orbit:trueanomaly < 270{
                 local time_hud is eta:apoapsis - (choose 0 if ship:orbit:trueanomaly < 180 else ship:orbit:period).
                 set dstr to dstr+char(10)+"Ap "+round(ship:orbit:apoapsis) +
-                    char(10)+ " T" + round_fig(-time_hud,1)+"s".
+                    char(10)+ " T " + round_fig(-time_hud,1)+"s".
             } else {
                 local time_hud is eta:periapsis - (choose 0 if ship:orbit:trueanomaly > 180 else ship:orbit:period).
                 set dstr to dstr+char(10)+"Pe "+round(ship:orbit:periapsis) +
-                    char(10)+ "T" + round_fig(-time_hud,1)+"s".
+                    char(10)+ " T " + round_fig(-time_hud,1)+"s".
             }
         } else {
             if ship:orbit:hasnextpatch and ship:orbit:trueanomaly >= 0 {
@@ -34,7 +34,7 @@ function ap_nav_orb_status_string {
                     char(10)+ " T " + round(ship:orbit:nextpatcheta)+"s".
             } else{
                 set dstr to dstr+char(10)+"Pe "+round(ship:orbit:periapsis) +
-                    char(10)+ "T " + round(eta:periapsis)+"s".
+                    char(10)+ " T " + round(eta:periapsis)+"s".
             }
         }
         set nav_orb_on to false.

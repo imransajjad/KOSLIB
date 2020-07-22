@@ -3,6 +3,7 @@ GLOBAL AP_NAV_ENABLED IS TRUE.
 local PARAM is readJson("1:/param.json")["AP_NAV"].
 
 local K_Q is get_param(PARAM,"K_Q").
+local K_E is get_param(PARAM,"K_E").
 
 // NAV GLOBALS
 global AP_NAV_TIME_TO_WP is 0.
@@ -130,6 +131,9 @@ function ap_nav_q_target {
     local sin_max_vangle is 0.5. // sin(30).
     local qtar is simple_q(target_altitude,target_vel).
     local q_simp is simple_q(ship:altitude,ship:airspeed).
+
+    local etar is simple_E(target_altitude,target_vel).
+    local e_simp is simple_E(ship:altitude,ship:airspeed).
     
     set AP_NAV_TIME_TO_WP to target_distance/max(1,ship:airspeed).
     // util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).

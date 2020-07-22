@@ -23,6 +23,8 @@ local qsafe_last is true.
 local MIN_SEPARATION is get_param(PARAM, "MIN_SEPARATION", 3).
 local TARGET_CACHING is get_param(PARAM, "TARGET_CACHING", true).
 
+local dockingports is get_parts_tagged(get_param(PARAM, "DOCKING_PORT_NAME", "")).
+
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is "".
 if PARAM:haskey("AP_AERO_ENGINES") {
@@ -38,27 +40,6 @@ if main_engines:length = 0 {
     if not (stage_engine = -1) { main_engines:add(stage_engine). }
 }
 
-local connected_to_decoupler is -1.
-local connected_to_decoupler_children_length is -1.
-
-set connected_to_decoupler to get_ancestor_with_module("ModuleDecouple", true).
-if (connected_to_decoupler = -1) {
-    // in most cases core-> ... -> connected_to_decoupler -> decoupler
-    set connected_to_decoupler to get_child_with_module("ModuleDecouple", true).
-    if not (connected_to_decoupler = -1) {
-        set connected_to_decoupler_children_length to connected_to_decoupler:children:length.
-    }
-}
-
-local decoupler is -1.
-set decoupler to get_ancestor_with_module("ModuleDecouple").
-if (decoupler = -1) { get_child_with_module("ModuleDecouple"). }
-
-local reaction_wheels is -1.
-set reaction_wheels to get_ancestor_with_module("ModuleReactionWheel").
-if (reaction_wheels = -1) { get_child_with_module("ModuleReactionWheel"). }
-
-
 local prev_status is "NA".
 local arm_panels_and_antennas is false.
 local arm_for_reentry is false.
@@ -68,6 +49,7 @@ local initial_ship is ship.
 
 local SPIN_ON_ENGINE is false.
 local SPIN_ON_DECOUPLER is false.
+local SPIN_ON_DOCKINGPORT is false.
 local SPIN_ON_FARING is false.
 local SPIN_ON_SEPARATION is false.
 
@@ -178,21 +160,33 @@ function util_shsys_get_target {
 // main function for ship systems
 // returns true if sys is not blocked.
 function util_shsys_check {
+    parameter CLEANUP is false.
 
     // check for fakely staged parts
     if SPIN_ON_ENGINE {
-        set SPIN_ON_ENGINE to not main_engines[0]:ignition.
+        if main_engines:length > 0 {
+            set SPIN_ON_ENGINE to not main_engines[0]:ignition.
+        } else {
+            set SPIN_ON_ENGINE to false.
+        }
     }
     if SPIN_ON_DECOUPLER {
-        if connected_to_decoupler = -1 {
-            set SPIN_ON_DECOUPLER to false.
-        } else if connected_to_decoupler_children_length >= 0 {
-            set SPIN_ON_DECOUPLER to not 
-                (connected_to_decoupler:children:length = connected_to_decoupler_children_length) .
+        local decoupler is core:part:decoupler.
+        if not (decoupler = "None") {
+            set SPIN_ON_DECOUPLER to decoupler:hasparent and decoupler:children:length > 0.
         } else {
-            set SPIN_ON_DECOUPLER to connected_to_decoupler:hasparent.
+            set SPIN_ON_DECOUPLER to false.
         }
-        if not SPIN_ON_DECOUPLER { print "unspin on decoupler"+connected_to_decoupler+connected_to_decoupler_children_length.}
+        if not SPIN_ON_DECOUPLER { print "unspin on decoupler".}
+    }
+    if SPIN_ON_DOCKINGPORT {
+        if dockingports:length > 0 {
+            set SPIN_ON_DOCKINGPORT to 
+                dockingports[0]:state:contains("Docked") or 
+                dockingports[0]:state:contains("PreAttached").
+        } else {
+            set SPIN_ON_DOCKINGPORT to false.
+        }
     }
     if SPIN_ON_FARING {
         set SPIN_ON_FARING to false. // not implemented yet
@@ -202,11 +196,17 @@ function util_shsys_check {
             set SPIN_ON_SEPARATION to false.
         }
     }
-    local do_spin is ( SPIN_ON_ENGINE or SPIN_ON_DECOUPLER or SPIN_ON_FARING or SPIN_ON_SEPARATION).
+    local do_spin is ( SPIN_ON_ENGINE or SPIN_ON_DECOUPLER or SPIN_ON_DOCKINGPORT or SPIN_ON_FARING or SPIN_ON_SEPARATION).
 
     // send any safety messages to hud
     if Q_SAFE > 0 {
-        if qsafe_last and (ship:q > Q_SAFE){
+        if CLEANUP {
+            if defined UTIL_HUD_ENABLED {
+                util_hud_pop_left("shsys_q").
+            } else if defined UTIL_SHBUS_ENABLED {
+                util_shbus_tx_msg("HUD_POPL", list(core:tag+"shsys_q")).
+            }
+        } else if qsafe_last and (ship:q > Q_SAFE){
             print "Q unsafe".
             set qsafe_last to false.
             if defined UTIL_HUD_ENABLED {
@@ -214,7 +214,7 @@ function util_shsys_check {
             } else if defined UTIL_SHBUS_ENABLED {
                 util_shbus_tx_msg("HUD_PUSHL", list(core:tag+"shsys_q", core:tag:split(" ")[0]+"nQS")).
             }
-        } else if (not qsafe_last and (ship:q <= Q_SAFE)) or not do_spin {
+        } else if (not qsafe_last and (ship:q <= Q_SAFE)) {
             print "Q safe".
             set qsafe_last to true.
             if defined UTIL_HUD_ENABLED {
@@ -246,6 +246,13 @@ function util_shsys_check {
     }
 
     iterate_spacecraft_system_state().
+
+    if CLEANUP {
+        if defined UTTL_SHBUS_ENABLED {
+            util_shbus_disconnect().
+        }
+        print "util_shsys_check cleanup".
+    }
     return not do_spin.
 }
 
@@ -273,9 +280,19 @@ function util_shsys_decode_rx_msg {
         set bays to false.
     } else if opcode = "SYS_PL_AWAY" {
         wait 0.1.
-        get_another_ship(ship:name+" Probe").
+        get_another_ship(data[0]).
     } else if opcode = "SYS_DO_ACTION" {
-        util_shsys_do_action(data[0]).
+        if data:length = 1 {
+            util_shsys_do_action(data[0]).
+        } else {
+            print "usage util_shsys_do_action(action)".
+        }
+    } else if opcode = "SYS_SET_SPIN" {
+        if data:length = 2 {
+            util_shsys_set_spin(data[0],data[1]).
+        } else {
+            print "usage util_shsys_set_spin(part_name, set_state)".
+        }
     } else {
         util_shbus_ack("could not decode shsys rx msg", sender).
         print "could not decode shsys rx msg".
@@ -333,31 +350,47 @@ function util_shsys_do_action {
         for i in main_engines {
             set i:thrustlimit to 0.
         }
-    } else if action_in = "decouple" and not (decoupler = -1) {
-        decoupler:getmodule("ModuleDecouple"):doevent("Decouple").
-        set decoupler to -1.
-    } else if action_in = "faring" {
-        set SPIN_ON_FARING to false.
+    } else if action_in = "decouple" {
+        local decoupler is core:part:decoupler.
+        if not (decoupler = "None") {
+            decoupler:getmodule("ModuleDecouple"):doevent("Decouple").
+        }
     } else if action_in = "reaction_wheels_activate" {
+        local reaction_wheels is -1.
+        set reaction_wheels to get_ancestor_with_module("ModuleReactionWheel").
+        if (reaction_wheels = -1) { get_child_with_module("ModuleReactionWheel"). }
         reaction_wheels:getmodule("ModuleReactionWheel"):doaction("activate wheel", true).
-    } else if action_in = "spinon_engine" {
-        set SPIN_ON_ENGINE to true.
-    } else if action_in = "spinon_decouple" {
-        set SPIN_ON_DECOUPLER to true.
-    } else if action_in = "spinon_faring" {
-        set SPIN_ON_FARING to true.
-    } else if action_in = "spinon_separate" {
-        set SPIN_ON_SEPARATION to true.
-    } else if action_in = "unspin_engine" {
-        set SPIN_ON_ENGINE to false.
-    } else if action_in = "unspin_decouple" {
-        set SPIN_ON_DECOUPLER to false.
-    } else if action_in = "unspin_faring" {
-        set SPIN_ON_FARING to false.
-    } else if action_in = "unspin_separate" {
-        set SPIN_ON_SEPARATION to false.
     } else {
         print "could not do action " + action_in.
+        return false.
+    }
+    return true.
+}
+
+function util_shsys_set_spin {
+    parameter part_name.
+    parameter set_state.
+
+    if set_state = "true" {
+        set set_state to true.
+    } else if set_state = "false" {
+        set set_state to false.
+    } else {
+        print "set_state not valid".
+        return true.
+    }
+    if part_name = "engine" {
+        set SPIN_ON_ENGINE to set_state.
+    } else if part_name = "decoupler" {
+        set SPIN_ON_DECOUPLER to set_state.
+    } else if part_name = "faring" {
+        set SPIN_ON_FARING to set_state.
+    } else if part_name = "separate" {
+        set SPIN_ON_SEPARATION to set_state.
+    } else if part_name = "dock" {
+        set SPIN_ON_DOCKINGPORT to set_state.
+    } else {
+        print "could not find " + part_name.
         return false.
     }
     return true.
