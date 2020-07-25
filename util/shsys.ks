@@ -159,9 +159,23 @@ function util_shsys_get_target {
 
 // main function for ship systems
 // returns true if sys is not blocked.
-function util_shsys_check {
+local function shsys_check {
     parameter CLEANUP is false.
 
+    local cur_wayp is -1.
+    local try_wp is false.
+    if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
+        set cur_wayp to util_wp_queue_first().
+        set try_wp to true.
+    }
+    if try_wp and cur_wayp["mode"] = "act" {
+            util_shsys_do_action(cur_wayp["do_action"]).
+            util_wp_done().
+    } else if try_wp and cur_wayp["mode"] = "spin" {
+            util_shsys_set_spin(cur_wayp["spin_part"], cur_wayp["spin_state"]).
+            util_wp_done().
+    }
+    
     // check for fakely staged parts
     if SPIN_ON_ENGINE {
         if main_engines:length > 0 {
@@ -251,16 +265,21 @@ function util_shsys_check {
         if defined UTTL_SHBUS_ENABLED {
             util_shbus_disconnect().
         }
-        print "util_shsys_check cleanup".
+        print "shsys_check cleanup".
     }
     return not do_spin.
 }
 
-function util_shsys_spin {
-    until util_shsys_check()  {
+function util_shsys_spin_check {
+    until shsys_check()  {
         if defined UTIL_SHBUS_ENABLED { util_shbus_rx_msg(). }
         wait 0.02.
     }
+}
+
+function util_shsys_cleanup {
+    print "shsys_check cleanup".
+    shsys_check(true).
 }
 
 function util_shsys_decode_rx_msg {

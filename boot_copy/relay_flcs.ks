@@ -32,10 +32,6 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
 }
-run once "util_common".
-global SHIP_TAG_IN_PARAMS is
-        get_param( readJson("1:/param.json"), "control_tag", string_acro(ship:name)).
-spin_if_not_us().
 
 LOCK vel TO (choose SHIP:AIRSPEED if ship:altitude < 36000 else SHIP:VELOCITY:ORBIT:mag).
 
@@ -59,9 +55,8 @@ run once "ap_nav".
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.
 
 until false {
-    util_shsys_spin().
+    util_shsys_spin_check().
     util_shbus_rx_msg().
-    util_shsys_check().
 
     ap_mode_update().
     ap_nav_display().

@@ -302,34 +302,6 @@ function simple_E {
     return 0.5*velocity^2 - ship:body:mu/(height + ship:body:radius).
 }
 
-// requires a global called SHIP_TAG_IN_PARAMS
-function spin_if_not_us {
-    until (SHIP_TAG_IN_PARAMS = string_acro(ship:name) ) {
-        wait 1.0.
-    }
-}
-
-// requires a global called SHIP_TAG_IN_PARAMS
-function spin_if_not_core {
-    until (SHIP_TAG_IN_PARAMS = core:tag ) {
-        wait 0.01.
-    }
-}
-
-// try to get param file in decreasing order of specificity
-// if ship:name = "SHIP 1A X" and core:tag = "special alpha"
-//   s1xspecial.json > special.json > s1x.json
-function get_param_file {
-    local core_first_word is core:tag:split(" ")[0].
-    if exists("0:/param/"+string_acro(ship:name)+core_first_word+".json") {
-        copypath("0:/param/"+string_acro(ship:name)+core_first_word+".json","param.json").
-    } else if exists("0:/param/"+core_first_word+".json") {
-        copypath("0:/param/"+core_first_word+".json","param.json").
-    } else if exists("0:/param/"+string_acro(ship:name)+".json") {
-        copypath("0:/param/"+string_acro(ship:name)+".json","param.json").
-    }
-}
-
 // try to get param file for this ship
 function get_ship_param_file {
     if exists("0:/param/"+string_acro(ship:name)+".json") {

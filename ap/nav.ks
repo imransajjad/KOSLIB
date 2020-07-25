@@ -15,7 +15,9 @@ global AP_NAV_ATT is R(0,0,0).
 global AP_NAV_IN_ORBIT is (ship:apoapsis > 20000).
 global AP_NAV_IN_SURFACE is (ship:altitude < 36000).
 
-local FOLLOW_MODES is lexicon("F",false,"A",false,"Q",false).
+local FOLLOW_MODE_F is false.
+local FOLLOW_MODE_A is false.
+local FOLLOW_MODE_Q is false.
 
 local debug_vectors is false.
 if (debug_vectors) { // debug
@@ -50,7 +52,7 @@ function ap_nav_align {
     parameter frame_vel. // a velocity vector in this frame
     parameter radius. // a turning radius.
 
-    set FOLLOW_MODES["A"] to true.
+    set FOLLOW_MODE_A to true.
     local alpha_x is 0.
     local head_have is haversine_vec(head_final,vec_final).
 
@@ -67,10 +69,10 @@ function ap_nav_align {
     }
 
     if on_circ_feedforward {
-        set FOLLOW_MODES["F"] to true.
+        set FOLLOW_MODE_F to true.
         set alpha_x to head_have[1].
     } else {
-        set FOLLOW_MODES["F"] to false.
+        set FOLLOW_MODE_F to false.
         if (farness-2*sin(head_have[1]) >= 0) {
             set alpha_x to arcsin(((farness-sin(head_have[1])) - farness*cos(head_have[1])*sqrt(1-2/farness*sin(head_have[1])))
                 / ( farness^2 -2*farness*sin(head_have[1]) + 1)).
@@ -86,7 +88,7 @@ function ap_nav_align {
     local new_arc_vector is vec_haversine(head_final,new_have).
     local centripetal_vector is vec_haversine(head_final,c_have).
 
-    local acc_mag is choose frame_vel:mag^2/radius if FOLLOW_MODES["F"] else 0.
+    local acc_mag is choose frame_vel:mag^2/radius if FOLLOW_MODE_F else 0.
     
     set AP_NAV_TIME_TO_WP to vec_final:mag/max(1,frame_vel:mag).
 
@@ -126,7 +128,7 @@ function ap_nav_q_target {
     parameter target_distance is 99999999999. // assume target is far away
     parameter radius is 0. // a turning radius.
 
-    set FOLLOW_MODES["Q"] to true.
+    set FOLLOW_MODE_Q to true.
 
     local sin_max_vangle is 0.5. // sin(30).
     local qtar is simple_q(target_altitude,target_vel).
@@ -182,29 +184,30 @@ function ap_nav_display {
     set AP_NAV_IN_ORBIT to (ship:apoapsis > 20000).
     set AP_NAV_IN_SURFACE to (ship:altitude < 36000).
 
+    local cur_wayp is -1.
+    local try_wp is false.
     if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
-        local cur_wayp is util_wp_queue_first().
-        if defined AP_NAV_SRF_ENABLED and cur_wayp["mode"] = "srf" {
-            ap_nav_srf_wp_guide(cur_wayp).
-            if (debug_vectors) {
-                set nav_debug_vec0:vec to AP_NAV_VEL.
-                set nav_debug_vec1:vec to AP_NAV_ACC.
-                set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
+        set cur_wayp to util_wp_queue_first().
+        set try_wp to true.
+    }
+
+    if defined AP_NAV_SRF_ENABLED and try_wp and cur_wayp["mode"] = "srf" {
+        ap_nav_srf_wp_guide(cur_wayp).
+        if (debug_vectors) {
+            set nav_debug_vec0:vec to AP_NAV_VEL.
+            set nav_debug_vec1:vec to AP_NAV_ACC.
+            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
+        }
+    } else if defined AP_NAV_ORB_ENABLED and try_wp and cur_wayp["mode"] = "orb" {
+        ap_nav_orb_wp_guide(cur_wayp).
+    } else if defined AP_NAV_TAR_ENABLED and try_wp and cur_wayp["mode"] = "tar" {
+        ap_nav_tar_wp_guide(cur_wayp).
+        if (debug_vectors) {
+            if HASTARGET {
+                set nav_debug_vec0:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel(TARGET)).
             }
-        } else if defined AP_NAV_ORB_ENABLED and cur_wayp["mode"] = "orb" {
-            ap_nav_orb_wp_guide(cur_wayp).
-        } else if defined AP_NAV_TAR_ENABLED and cur_wayp["mode"] = "tar" {
-            ap_nav_tar_wp_guide(cur_wayp).
-            if (debug_vectors) {
-                if HASTARGET {
-                    set nav_debug_vec0:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel(TARGET)).
-                }
-                set nav_debug_vec1:vec to AP_NAV_ACC.
-                set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
-            }
-        } else {
-            print "got unsupported wp, marking it done".
-            util_wp_done().
+            set nav_debug_vec1:vec to AP_NAV_ACC.
+            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
         }
     } else if defined AP_NAV_ORB_ENABLED and AP_NAV_IN_ORBIT {
         ap_nav_orb_stick().
@@ -267,13 +270,14 @@ function ap_nav_status_string {
         set dstr to dstr+ap_nav_tar_status_string().
     }
 
-    local mode_str is "".
-    for k in FOLLOW_MODES:keys {
-        if FOLLOW_MODES[k] {
-            set mode_str to mode_str+k.
-            set FOLLOW_MODES[k] to false.
-        }
-    }
+    local mode_str is "" + 
+    (choose "F" if FOLLOW_MODE_F else "") +
+    (choose "A" if FOLLOW_MODE_A else "") +
+    (choose "Q" if FOLLOW_MODE_Q else "").
+    set FOLLOW_MODE_F to false.
+    set FOLLOW_MODE_A to false.
+    set FOLLOW_MODE_Q to false.
+    
     set dstr to dstr + (choose "" if mode_str = "" else char(10)+mode_str).
     if (debug_vectors) {
         set nav_debug_vec0:show to true.

@@ -25,10 +25,6 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/term.ks","util_term").
     print "loaded resources from base".
 }
-run once "util_common".
-global SHIP_TAG_IN_PARAMS is
-        get_param( readJson("1:/param.json"), "control_tag", string_acro(ship:name)).
-spin_if_not_us().
 
 wait 0.04.
 wait 0.04.
@@ -46,7 +42,6 @@ GLOBAL BOOT_FLCOM_ENABLED IS true.
 
 util_term_do_startup().
 
-UNTIL FALSE {
-    spin_if_not_us().
+until false {
     util_term_get_input().
 }

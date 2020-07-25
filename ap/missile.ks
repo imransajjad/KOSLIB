@@ -153,9 +153,10 @@ function ap_missile_guide {
         // return.
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
-        set my_throttle to 1.0.
+        
 
         until FALSE{
+            set my_throttle to (choose 1.0 if ship:q < 0.7 else 0.0).
             wait Ts.
         }
     }

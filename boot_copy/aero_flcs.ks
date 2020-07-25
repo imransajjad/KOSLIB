@@ -34,10 +34,6 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
 }
-run once "util_common".
-global SHIP_TAG_IN_PARAMS is
-        get_param( readJson("1:/param.json"), "control_tag", string_acro(ship:name)).
-spin_if_not_us().
 
 // Global plane data
 
@@ -72,9 +68,8 @@ GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
 
 // main loop
 UNTIL false {
-    spin_if_not_us().
     util_shbus_rx_msg().
-    util_shsys_check().
+    util_shsys_spin_check().
 
     ap_mode_update().
     ap_nav_display().

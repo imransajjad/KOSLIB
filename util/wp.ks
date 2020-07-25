@@ -368,26 +368,6 @@ local function waypoint_print_str {
     return "".
 }
 
-local function waypoint_do_leading_action {
-
-    
-    if wp_queue:length > 0 {
-        if wp_queue[0]["mode"] = "act" {
-            local action_code is wp_queue[0]["do_action"].
-            waypoint_remove(0).
-            print "doing action from waypoint".
-            writeJson(wp_queue, "wp_queue.json"). // and another place wp updated
-            if defined UTIL_SHSYS_ENABLED {
-                util_shsys_do_action(action_code).
-                return.
-            } else {
-                print "util_shsys required to do actions".
-            }
-            waypoint_do_leading_action().
-        }
-    }
-}
-
 local function waypoint_add {
     parameter pos.
     parameter new_wp.
@@ -438,13 +418,11 @@ local function waypoint_queue_purge {
 }
 
 function util_wp_done {
-    waypoint_do_leading_action().
     waypoint_remove(0).
     writeJson(wp_queue, "wp_queue.json"). // only other place wp updated
 }
 
 function util_wp_queue_length {
-    waypoint_do_leading_action().
     return wp_queue:length.
 }
 
