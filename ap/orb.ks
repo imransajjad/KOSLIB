@@ -5,7 +5,7 @@ local PARAM is readJson("param.json")["AP_ORB"].
 
 local USE_STEERMAN to get_param(PARAM, "USE_STEER_MAN", true).
 local USE_RCS to get_param(PARAM, "USE_RCS", true).
-local USE_RW to get_param(PARAM, "USE_RW", true).
+local USE_RCS_STEER to get_param(PARAM, "USE_RCS_STEER", false).
 
 local MIN_ALIGN is cos(get_param(PARAM, "STEER_MAX_ANGLE", 1.0)).
 
@@ -45,7 +45,7 @@ if USE_STEERMAN {
 local orb_steer_direction is ship:facing.
 local orb_throttle is 0.0.
 local STEER_RCS is false.
-local BURN_ACTIVE is false.
+local DO_BURN is false.
 
 local delta_v is V(0,0,0).
 local total_head_align is 0.
@@ -62,47 +62,45 @@ function ap_orb_nav_do {
 
     if not SAS {
         if USE_ORB_ENGINE {
-            if BURN_ACTIVE and (ship:facing*ENGINE_VEC)*delta_v:normalized > 0.99{
+            if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.995 and omega:mag < 1.0 {
                 set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
             } else {
                 set orb_throttle to 0.0.
             }
-            if not BURN_ACTIVE and omega:mag < 1.0 and
-                ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
+            if not DO_BURN and ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
                 (not USE_RCS and delta_v:mag > 0.05)) {
-                lock throttle to orb_throttle.
                 set BURNvec to delta_v:normalized.
-                set BURN_ACTIVE to true.
-            } else if BURN_ACTIVE and (BURNvec*delta_v < 0.05) {
+                lock throttle to orb_throttle.
+                set DO_BURN to true.
+            } else if DO_BURN and (BURNvec*delta_v < 0.05) {
                 set orb_throttle to 0.0.
-                set BURN_ACTIVE to false.
                 unlock throttle.
-                print BURNvec*delta_v.
+                set DO_BURN to false.
             }
         }
 
        if USE_STEERMAN {
-            if not BURN_ACTIVE {
+            if not DO_BURN {
                 set orb_steer_direction to head_dir.
             } else {
-                set orb_steer_direction to delta_v:direction.
+                set orb_steer_direction to BURNvec:direction.
             }
             local head_error is (-ship:facing)*orb_steer_direction.
             set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
             if total_head_align < MIN_ALIGN {
                 lock steering to orb_steer_direction.
-                if (not USE_RW) { set STEER_RCS to true. }
+                if (USE_RCS_STEER) { set STEER_RCS to true. }
             } else {
                 unlock steering.
-                if (not USE_RW) { set STEER_RCS to false. }
+                if (USE_RCS_STEER) { set STEER_RCS to false. }
             }
              
         }
         if USE_RCS {
-            if throttle > 0.0 or 
-                (USE_RW and total_head_align < RCS_MIN_ALIGN) or 
-                (delta_v:mag > RCS_MAX_DV and not STEER_RCS) or 
-                (RCSon and delta_v*RCSvec <= 0 and not STEER_RCS) {
+            if throttle > 0.0 or (not STEER_RCS and
+                ((total_head_align < RCS_MIN_ALIGN) or 
+                (delta_v:mag > RCS_MAX_DV ) or 
+                (RCSon and delta_v*RCSvec <= 0 )) ) {
                 set RCS to false.
                 set RCSon to false.
                 print "RCS off".
@@ -134,8 +132,9 @@ function ap_orb_status_string {
 
     if (true) { // debug
         set hud_str to hud_str + "Othr " + round_dec(orb_throttle,1) +
+            (choose char(10) + "RCSon" if RCSon else "") +
             (choose char(10) + "StRCS" if STEER_RCS else "") +
-            (choose char(10) + "BURN " if BURN_ACTIVE else "").
+            (choose char(10) + "BURN " if DO_BURN else "").
     }
 
     if (true) {

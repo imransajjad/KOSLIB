@@ -17,7 +17,7 @@ global DEV_FLAG is true.
 if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/common.ks","util_common").
     run once "util_common".
-    get_param_file().
+    get_ship_param_file().
     
     COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
     COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
