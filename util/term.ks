@@ -24,95 +24,70 @@ local startup_command is get_param(PARAM, "STARTUP_COMMAND","").
 local lock H to terminal:height.
 local lock W to terminal:width.
 
-local HELP_LIST is LIST(
-" ",
-core:tag + " terminal",
-ship:name,
-"command syntax:",
-"...",
-"help        help page 0",
-"help(n)     help page n",
-"comm        run command",
-"comm(1,2)   run with args",
-"comm str    arg is str",
-"com1;com2   chain commands",
-"rst         reboot all cpus",
-"run [file]  of commands from base",
-"neu         neutralize controls",
-"K       single char is same key"
-).
-
-local HELP_LIST_UPDATED is false.
-local function update_help_list {
-    if HELP_LIST_UPDATED {
-        return.
-    }
-    if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
-        local newlist is util_shbus_get_help_str().
-        for i in range(0,newlist:length) {
-            HELP_LIST:add(newlist[i]).
-        }
-        set HELP_LIST_UPDATED to true.
-    }
-    if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED {
-        local newlist is util_wp_get_help_str().
-        for i in range(0,newlist:length) {
-            HELP_LIST:add(newlist[i]).
-        }
-        set HELP_LIST_UPDATED to true.
-    }
-    if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED {
-        local newlist is util_fldr_get_help_str().
-        for i in range(0,newlist:length) {
-            HELP_LIST:add(newlist[i]).
-        }
-        set HELP_LIST_UPDATED to true.
-    }
-    if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED {
-        local newlist is util_hud_get_help_str().
-        for i in range(0,newlist:length) {
-            HELP_LIST:add(newlist[i]).
-        }
-        set HELP_LIST_UPDATED to true.
-    }
-    if (defined UTIL_RADAR_ENABLED) and UTIL_RADAR_ENABLED {
-        local newlist is util_radar_get_help_str().
-        for i in range(0,newlist:length) {
-            HELP_LIST:add(newlist[i]).
-        }
-        set HELP_LIST_UPDATED to true.
-    }
-}
-
-local function print_help_page_by_index {
-    parameter start_line.
-    local page_size is H-4.
-
-    for i in range(start_line, start_line+page_size ) {
-        if i < HELP_LIST:length {
-            print "  "+HELP_LIST[i].
-        }
-    }
+local function util_term_get_help_str {
+    return list(
+        core:tag + " terminal",
+        ship:name,
+        "command syntax:",
+        "...",
+        "help        help page 0",
+        "help tags   list modules",
+        "help [tag]  module help",
+        "comm        run command",
+        "comm(1,2)   run with args",
+        "comm str    arg is str",
+        "com1;com2   chain commands",
+        "rst         reboot all cpus",
+        "run [file]  of commands from base",
+        "neu         neutralize controls",
+        "K       single char is same key"
+        ).
 }
 
 local function print_help_page {
-    parameter page.
-    local page_size is H-4.
-    update_help_list().
-    print_help_page_by_index(page_size*page).
-}
+    parameter help_str.
+    local page_size is terminal:height-2.
+    local char_in is -1.
+    local offset is 0.
+    local prespacer is "  ".
 
-local function print_help_by_tag {
-    parameter tag.
-    update_help_list().
-    local hi is HELP_LIST:iterator.
-    until not hi:next {
-        if (hi:value:startswith(tag) ){
-            print_help_page_by_index(hi:index).
-            return.
+    local dis_str is list().
+    local twidth is terminal:width-prespacer:length.
+
+    for oneline in help_str {
+        local hline is oneline.
+        local nhline is ceiling(hline:length/twidth).
+        for i in range(0,nhline) {
+            dis_str:add(hline:substring(0,min(hline:length,twidth))).
+            set hline to hline:remove(0,min(hline:length,twidth)).
         }
     }
-    print "tag not found".
+    if dis_str:length > page_size {
+        // do a scrolling print if help will not fit screen                
+        until false {
+            CLEARSCREEN.
+            print_help_page(dis_str:sublist(offset,page_size)).
+            if offset = dis_str:length-page_size {
+                print "---q/"+char(8629)+"---".
+            } else {
+                print "---" +char(8593)+"/"++char(8595)+"---".
+            }
+            set char_in to TERMINAL:INPUT:getchar().
+            
+            if char_in = terminal:input:UPCURSORONE {
+                set offset to max(0,offset-1).
+            } else if char_in = terminal:input:DOWNCURSORONE {
+                set offset to min(dis_str:length-page_size,offset+1).
+            } else if char_in = terminal:input:ENTER or char_in = "q" {
+                break.
+            }
+        }
+    } else {
+        local i is dis_str:iterator.
+        until not i:next {
+            print prespacer + i:value.
+        }
+    }
 }
 
 local function do_action_group_or_key {
@@ -132,12 +107,26 @@ local function util_term_parse_command {
     parameter args is list().
 
     if commtext:startswith("help") {
-        if commtext:contains(" ") {
-            print_help_by_tag( (commtext:split(" ")[1]):replace(".", "") ).
-        } else if commtext:length > 5 {
-            print_help_page(args[0]).
+        local tags is list("TERM").
+        if commtext = "help" or commtext:contains("TERM") {
+            print_help_page(util_term_get_help_str()).
+        } else if defined UTIL_SHBUS_ENABLED and (tags:add("SHBUS") = 0) and commtext:contains("SHBUS") {
+            print_help_page(util_shbus_get_help_str()).
+        } else if defined UTIL_FLDR_ENABLED and (tags:add("FLDR") = 0) and commtext:contains("FLDR") {
+            print_help_page(util_fldr_get_help_str()).
+        } else if defined UTIL_WP_ENABLED and (tags:add("WP") = 0) and commtext:contains("WP") {
+            print_help_page(util_wp_get_help_str()).
+        } else if defined UTIL_HUD_ENABLED and (tags:add("HUD") = 0) and commtext:contains("HUD") {
+            print_help_page(util_hud_get_help_str()).
+        } else if defined UTIL_RADAR_ENABLED and (tags:add("RADAR") = 0) and commtext:contains("RADAR") {
+            print_help_page(util_radar_get_help_str()).
+        } else if defined UTIL_DEV_ENABLED and (tags:add("DEV") = 0) and commtext:contains("DEV") {
+            print_help_page(util_dev_get_help_str()).
+        } else if commtext:contains("tags") {
+            print "Available modules".
+            print_help_page(tags).
         } else {
-            print_help_page(0).
+            print "usage: help [tag]".
         }
     } else if commtext:length = 1 and do_action_group_or_key(commtext){
         print("key "+commtext).
@@ -217,15 +206,15 @@ local function parse_command {
 
         if util_term_parse_command(commtext,args) {
            print("terminal parsed").
-        } else if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED and util_shbus_parse_command(commtext,args) {
+        } else if defined UTIL_SHBUS_ENABLED and util_shbus_parse_command(commtext,args) {
            print("shbus parsed").
-        } else if (defined UTIL_FLDR_ENABLED) and UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext,args) {
+        } else if defined UTIL_FLDR_ENABLED and util_fldr_parse_command(commtext,args) {
             print("fldr parsed").
-        } else if (defined UTIL_WP_ENABLED) and UTIL_WP_ENABLED and util_wp_parse_command(commtext,args) {
+        } else if defined UTIL_WP_ENABLED and util_wp_parse_command(commtext,args) {
             print("wp parsed").
-        } else if (defined UTIL_HUD_ENABLED) and UTIL_HUD_ENABLED and util_hud_parse_command(commtext,args) {
+        } else if defined UTIL_HUD_ENABLED and util_hud_parse_command(commtext,args) {
             print("hud parsed").
-        } else if (defined UTIL_RADAR_ENABLED) and UTIL_RADAR_ENABLED and util_radar_parse_command(commtext,args) {
+        } else if defined UTIL_RADAR_ENABLED and util_radar_parse_command(commtext,args) {
             print("radar parsed").
         //} else if util_dev_parse_command(commtext,args) {
         //  print "dev parsed".

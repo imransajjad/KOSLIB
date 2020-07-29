@@ -210,7 +210,6 @@ local function check_for_stop_logging {
 
 function util_fldr_get_help_str {
     return list(
-        " ",
         "UTIL_FLDR running on "+core:tag,
         "logtime(T)   total log time=T",
         "logdt(dt)    log interval =dt",

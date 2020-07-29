@@ -39,7 +39,6 @@ local function print_hosts {
 // terminal compatible functions
 function util_shbus_get_help_str {
     return list(
-        " ",
         "UTIL_SHBUS  running on "+core:tag,
         "askhost ARG ask to send msgs",
         "unask   ARG stop send msgs",

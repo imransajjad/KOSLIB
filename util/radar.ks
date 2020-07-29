@@ -286,7 +286,6 @@ function util_radar_loop {
 // terminal compatible functions
 function util_radar_get_help_str {
     return list(
-        " ",
         "UTIL_RADAR  running on "+core:tag,
         "radar   turn on radar",
         "press AG twice to exit"

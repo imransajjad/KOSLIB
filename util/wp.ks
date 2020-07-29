@@ -125,7 +125,6 @@ local function remove_waypoint {
 
 function util_wp_get_help_str {
     return LIST(
-        " ",
         "UTIL_WP running on "+core:tag,
         "wpo(i,WP)   overwrite wp",
         "wpi(i,WP)   insert wp",

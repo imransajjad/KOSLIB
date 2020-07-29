@@ -446,7 +446,6 @@ function util_hud_pop_right {
 
 function util_hud_get_help_str {
     return list(
-        " ",
         "UTIL_HUD running on "+core:tag,
         "hudalign(elev,bear,roll) set align",
         "hudcolor(r,g,b) set hud_color",
