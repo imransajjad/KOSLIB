@@ -97,10 +97,10 @@ function ap_orb_nav_do {
              
         }
         if USE_RCS {
-            if throttle > 0.0 or (not STEER_RCS and
+            if RCSon and (throttle > 0.0 or (not STEER_RCS and
                 ((total_head_align < RCS_MIN_ALIGN) or 
                 (delta_v:mag > RCS_MAX_DV ) or 
-                (RCSon and delta_v*RCSvec <= 0 )) ) {
+                (RCSon and delta_v*RCSvec <= 0 )) ) ){
                 set RCS to false.
                 set RCSon to false.
                 print "RCS off".

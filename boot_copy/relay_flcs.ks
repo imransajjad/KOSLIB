@@ -25,9 +25,6 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
 
-    COPYPATH("0:/koslib/ap/orb.ks","ap_orb").
-    COPYPATH("0:/koslib/ap/nav_tar.ks","ap_nav_tar").
-    COPYPATH("0:/koslib/ap/nav_orb.ks","ap_nav_orb").
     COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
@@ -48,8 +45,6 @@ run once "util_wp".
 
 run once "ap_orb".
 run once "ap_mode".
-run once "ap_nav_tar".
-run once "ap_nav_orb".
 run once "ap_nav".
 
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.

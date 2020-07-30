@@ -27,9 +27,6 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
 
     COPYPATH("0:/koslib/ap/aero_engines.ks","ap_aero_engines").
     COPYPATH("0:/koslib/ap/aero_w.ks","ap_aero_w").
-    COPYPATH("0:/koslib/ap/nav_srf.ks","ap_nav_srf").
-    COPYPATH("0:/koslib/ap/nav_orb.ks","ap_nav_orb").
-    COPYPATH("0:/koslib/ap/nav_tar.ks","ap_nav_tar").
     COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
@@ -58,9 +55,6 @@ run once "util_hud".
 
 run once "ap_aero_engines".
 run once "ap_aero_w".
-run once "ap_nav_srf".
-run once "ap_nav_orb".
-run once "ap_nav_tar".
 run once "ap_nav".
 run once "ap_mode".
 
