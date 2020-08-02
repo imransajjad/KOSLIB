@@ -141,11 +141,11 @@ function util_wp_get_help_str {
         "wphome(alt,vel)   [wpk] go home (srf)",
         "wptakeoff(distance,heading) [wpto] takeoff (srf)",
         "wpland(distance,vel,GSlope,heading) [wpl] landing (srf)",
-        " in srf mode:",
+        "in srf mode:",
         "  WP = alt,vel",
         "  WP = alt,vel,lat,lng",
         "  WP = alt,vel,lat,lng,pitch,bear",
-        " in tar mode:",
+        "in tar mode:",
         "  WP = speed,radius",
         "  WP = speed,radius,offx,offy,offz",
         "depends on UTIL_SHBUS, is a way to schedule waypoints and actions.",
@@ -439,7 +439,7 @@ function util_wp_queue_first {
 }
 
 function util_wp_status_string {
-    local time_to_wp is (choose ap_nav_get_time_to_wp() if defined AP_NAV_ENABLED else 0).
+    local time_to_wp is (choose round(min(9999,AP_NAV_TIME_TO_WP)) if defined AP_NAV_ENABLED else 0).
     if wp_queue:length > 0 {
         return "WP" + (wp_queue:length-1) +
             (choose char(10)+time_to_wp+"s" if time_to_wp>0 else "").

@@ -76,14 +76,10 @@ local function nav_vecdraw {
         set guide_tri_tr:wiping to false.
 
     }
-    local nav_vel is ap_nav_get_vel().
-    if is_active_vessel() and (NAVMODE = "TARGET") and HASTARGET {
-        set nav_vel to nav_vel-ap_nav_get_vessel_vel(TARGET).
-    }
+    local nav_vel is ap_nav_get_hud_vel().
+
     if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel()
-        and not MAPVIEW and nav_vel:mag > 0.3 and 
-        ( (defined UTIL_WP_ENABLED and util_wp_queue_length() > 0) or 
-         (defined AP_MODE_ENABLED and AP_MODE_NAV) ) {
+        and not MAPVIEW and nav_vel:mag > 0.3  {
 
         local py_temp is pitch_yaw_from_dir(nav_vel:direction).
         local nav_heading is heading(py_temp[1],py_temp[0]).
@@ -313,17 +309,17 @@ local function lr_text_info {
         local vel_type is "  ".
         if (NAVMODE = "ORBIT") {
             set vel_displayed to ship:velocity:orbit:mag.
-            set vel_type to "  ".
+            set vel_type to " ".
         } else if (NAVMODE = "SURFACE") {
             set vel_displayed to ship:velocity:surface:mag.
-            set vel_type to " >".
+            set vel_type to ">".
         } else if (NAVMODE = "TARGET") and HASTARGET {
             local target_ship is TARGET.
             if not TARGET:hassuffix("velocity") {
                 set target_ship to TARGET:ship.
             }
             set vel_displayed to (target_ship:velocity:orbit-ship:velocity:orbit):mag.
-            set vel_type to " +".
+            set vel_type to "+".
         }
 
         if hud_setting_dict["movable"] {

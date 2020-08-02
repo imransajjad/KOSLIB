@@ -379,6 +379,10 @@ function util_shsys_do_action {
         set reaction_wheels to get_ancestor_with_module("ModuleReactionWheel").
         if (reaction_wheels = -1) { get_child_with_module("ModuleReactionWheel"). }
         reaction_wheels:getmodule("ModuleReactionWheel"):doaction("activate wheel", true).
+    } else if action_in = "lock_target" {
+        set TARGET_CACHING to false.
+    } else if action_in = "get_target" {
+        set TARGET_CACHING to true.
     } else {
         print "could not do action " + action_in.
         return false.

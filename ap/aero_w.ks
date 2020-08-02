@@ -418,12 +418,13 @@ function ap_aero_w_nav_do {
     // uses roll to minimze the bearing in the ship frame so that most omega is
     // applied by pitch and not by yaw
 
+    if not AP_NAV_IN_SURFACE {
+        return. // we don't want to do anything if we are in surface mode
+    }
     unlock steering. // steering manager needs to be disabled.
 
     local current_nav_velocity is ship:velocity:surface.
-    local w_g is vcrs(current_nav_velocity:normalized, ship:up:vector)*
-                (get_frame_accel_orbit()/max(1,vel)*RAD2DEG):mag.
-
+    
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
     local cur_pro is (-ship:facing)*current_nav_velocity:direction.
@@ -441,7 +442,7 @@ function ap_aero_w_nav_do {
                             -WGM*K_YAW*ship_frame_error:y*ship:facing:topvector.
     
     // omega applied by us including gravity for deciding roll
-    local w_us_w_g is w_us-w_g.
+    local w_us_w_g is w_us-RAD2DEG*wg.
     
     // util_hud_push_right("nav_w", "w_ff: (p,y): " + round_dec(wff*ship:facing:starvector,2) + "," + round_dec(-wff*ship:facing:topvector,2) +
     //     char(10)+ "w_g: (p,y): " + round_dec(w_g*ship:facing:starvector,2) + "," + round_dec(-w_g*ship:facing:topvector,2) +

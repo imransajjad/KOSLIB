@@ -9,6 +9,8 @@ set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
 
+global BODY_navball_change_alt is lexicon("Kerbin", 36000, "Mun", 4000).
+
 function sat {
     parameter X.
     parameter Lim is 1.0.
@@ -281,7 +283,7 @@ function simple_q {
     parameter height.
     parameter velocity.
 
-    return 0.00000840159*constant:e^(-height/5000)*velocity^2.
+    return 0.00000840159*max(constant:e^(-height/5000),10*constant:e^(-height/500))*velocity^2.
 }
 
 function simple_q_root {

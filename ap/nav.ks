@@ -5,15 +5,18 @@ local PARAM is readJson("1:/param.json")["AP_NAV"].
 local K_Q is get_param(PARAM,"K_Q").
 local K_E is get_param(PARAM,"K_E").
 
-// NAV GLOBALS
+// NAV GLOBALS (other files should read but not write to these)
 global AP_NAV_TIME_TO_WP is 0.
 
 global AP_NAV_VEL is V(0,0,0). // is surface if < 36000, else orbital
 global AP_NAV_ACC is V(0,0,0).
 global AP_NAV_ATT is R(0,0,0).
 
-global AP_NAV_IN_ORBIT is (ship:apoapsis > 20000).
-global AP_NAV_IN_SURFACE is (ship:altitude < 36000).
+global AP_NAV_IN_SURFACE is false. // use this global !!!
+global AP_NAV_IN_ORBIT is true.
+
+local previous_body is "Kerbin".
+local body_navchange_alt is 36000.
 
 local FOLLOW_MODE_F is false.
 local FOLLOW_MODE_A is false.
@@ -22,6 +25,8 @@ local FOLLOW_MODE_Q is false.
 local DISPLAY_SRF is false.
 local DISPLAY_ORB is false.
 local DISPLAY_TAR is false.
+
+local DISPLAY_HUD_VEL is false.
 
 local debug_vectors is false.
 if (debug_vectors) { // debug
@@ -45,6 +50,25 @@ if (debug_vectors) { // debug
 }
 
 // HELPER FUNCTIONS START
+
+// returns the nav velocity of a vessel in "our" frame
+local function get_vessel_vel {
+    parameter this_vessel is ship.
+    if not this_vessel:hassuffix("velocity") {
+        set this_vessel to this_vessel:ship.
+    }
+    if AP_NAV_IN_SURFACE {
+        return this_vessel:velocity:surface.
+    } else {
+        return this_vessel:velocity:orbit.
+    }
+}
+
+local function unset_nav {
+    set AP_NAV_VEL to get_vessel_vel().
+    set AP_NAV_ACC to V(0,0,0).
+    set AP_NAV_ATT to ship:facing.
+}
 
 // returns a unit vector for velocity direction
 // returns a vector for angular velocity in degrees per second
@@ -174,9 +198,7 @@ local function nav_check_done {
             }
             util_wp_done().
             if util_wp_queue_length() = 0 {
-                set AP_NAV_VEL to ap_nav_get_vessel_vel().
-                set AP_NAV_ACC to V(0,0,0).
-                set AP_NAV_ATT to ship:facing.
+                unset_nav().
             }
             set AP_NAV_TIME_TO_WP to 0.
         }
@@ -197,13 +219,16 @@ local TAIL_STRIKE is get_param(PARAM,"TAIL_STRIKE").
 local VSET_MAX is get_param(PARAM,"VSET_MAX").
 local GEAR_HEIGHT is get_param(PARAM,"GEAR_HEIGHT").
 
-local nav_srf_on is false.
 local MIN_NAV_SRF_VEL is 0.01.
 
 
 // handles a surface type waypoint
 local function srf_wp_guide {
     parameter wp.
+
+    if not (wp["mode"] = "srf") {
+        return false.
+    }
 
     local final_radius is 100.
     if wp:haskey("nomg") {
@@ -237,9 +262,11 @@ local function srf_wp_guide {
     set AP_NAV_VEL to max(MIN_NAV_SRF_VEL,wp["vel"])*align_data[0].
     set AP_NAV_ACC to align_data[1].
     set AP_NAV_ATT to ship:facing.
-    set stick_heading to vel_bear.
-    set stick_pitch to vel_pitch.
-    set DISPLAY_SRF to true.
+
+    set stick_heading to vel_bear. // remove these from here
+    set stick_pitch to vel_pitch. // somehow
+
+    return true.
 }
 
 local SRF_V_SET_DELTA is 0.
@@ -254,15 +281,13 @@ local function srf_stick {
     local VSET_MAN is FALSE.
 
     if not (defined AP_MODE_ENABLED) {
-        return.
+        return false.
     }
     if AP_MODE_PILOT {
-        set AP_NAV_VEL to ship:velocity:surface.
         set stick_heading to vel_bear.
         set stick_pitch to vel_pitch.
-        set VSET_MAN to false.
+        return false.
     } else if AP_MODE_VEL {
-        // set AP_NAV_VEL to ship:velocity:surface.
         set VSET_MAN to true.
     } else if AP_MODE_NAV {
         set increment to 2.0*deadzone(u1,0.25).
@@ -294,7 +319,8 @@ local function srf_stick {
         set SRF_V_SET_DELTA to increment.
     }
     set AP_NAV_VEL to AP_NAV_VEL:mag*heading(stick_heading, stick_pitch):vector.
-    set DISPLAY_SRF to (defined AP_MODE_ENABLED and (AP_MODE_NAV or AP_MODE_VEL)).
+    
+    return true.
 }
 
 // NAV SRF END
@@ -309,22 +335,22 @@ local function maneuver_time {
 
     list engines in engine_list.
 
-    local f is 0.  // engine thrust (kg * m/s²)
+    local f is 0.  // engine thrust (1000 kg * m/s²) (kN)
     local p is 0.  // inverse of engine isp (s)
 
     for e in engine_list {
         if e:ignition {
-            set f to f + e:maxthrust * 1000.
-            set p to p + 1.0/e:isp.
+            set f to f + e:availablethrust.
+            set p to p + e:availablethrust/e:isp.
         }
     }
-    set p to 1.0/p. // inverse inverse = true isp (s)
+    set p to f/p. // inverse inverse = true isp (s)
 
     local m is ship:mass * 1000.        // starting mass (kg)
     local e is constant():e.            // base of natural log
     local g is 9.80665.                 // gravitational acceleration constant (m/s²)
 
-    return g * m * p * (1 - e^(-dv:mag/(g*p))) / f.
+    return g * m * p * (1 - e^(-dv:mag/(g*p))) / (f*1000).
 }
 
 // function that is used when no wp is found,
@@ -348,13 +374,10 @@ local function orb_stick {
             print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3).
             REMOVE NEXTNODE.
         }
+        return true.
     } else {
-        set AP_NAV_VEL to ship:velocity:orbit.
-        set AP_NAV_ACC to V(0,0,0).
-        set AP_NAV_ATT to ship:facing.
+        return false.
     }
-    
-    set DISPLAY_ORB to true.// (in_mannode or ship:status = "FLYING" or ship:status = "SUB_ORBITAL").
 }
 
 // NAV ORB END
@@ -373,30 +396,32 @@ local relative_velocity is V(0,0,0).
 local function tar_wp_guide {
     parameter wp.
 
+    if not (wp["mode"] = "tar") {
+        return false.
+    }
+
     local radius is get_param(wp, "radius", 1.0).
     set approach_speed to get_param(wp, "speed", 3.0).
     local offsvec is get_param(wp, "offsvec", V(0,0,-abs(radius)) ).
 
-    local current_nav_velocity is ap_nav_get_vessel_vel().
+    local current_nav_velocity is get_vessel_vel().
 
-    local target_ship is util_shsys_get_target().
+    local target_ship is -1.
+    if defined UTIL_SHSYS_ENABLED {
+        set target_ship to util_shsys_get_target().
+    } else if HASTARGET {
+        set target_ship to TARGET.
+    }
 
     if not (target_ship = -1) {
-        local target_nav_velocity is ap_nav_get_vessel_vel(target_ship).
+        local target_nav_velocity is get_vessel_vel(target_ship).
         set relative_velocity to current_nav_velocity-target_nav_velocity.
         set final_head to target:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(0,180,0)).
         set position to target_ship:position + (final_head)*offsvec.
 
         if position:mag > INTERCEPT_DISTANCE {
-            // do nothing
-            set DISPLAY_TAR to false.
-            set AP_NAV_VEL to current_nav_velocity.
-            set AP_NAV_ACC to V(0,0,0).
-            set AP_NAV_ATT to ship:facing.
-            return.
+            return false. // do nothing
         }
-        set DISPLAY_TAR to true.
-
         if approach_speed > MAX_STATION_KEEP_SPEED {
             nav_check_done(position, ship:facing, relative_velocity, radius).
         } else {
@@ -405,15 +430,13 @@ local function tar_wp_guide {
 
         local align_data is nav_align(position, final_head, relative_velocity, radius).
 
-        set AP_NAV_VEL to approach_speed*align_data[0]+ap_nav_get_vessel_vel(target_ship).
+        set AP_NAV_VEL to approach_speed*align_data[0]+get_vessel_vel(target_ship).
         set AP_NAV_ACC to align_data[1].
         set AP_NAV_ATT to final_head.
+
+        return true.
     } else {
-        // do nothing
-        set DISPLAY_TAR to false.
-        set AP_NAV_VEL to current_nav_velocity.
-        set AP_NAV_ACC to V(0,0,0).
-        set AP_NAV_ATT to ship:facing.
+        return false.
     }
 }
 
@@ -421,8 +444,12 @@ local function tar_wp_guide {
 
 function ap_nav_display {
 
-    set AP_NAV_IN_ORBIT to (ship:apoapsis > 20000).
-    set AP_NAV_IN_SURFACE to (ship:altitude < 36000).
+    if not (previous_body = ship:body:name) {
+        set previous_body to ship:body:name.
+        set body_navchange_alt to get_param(BODY_navball_change_alt, previous_body, 36000).
+    }
+    set AP_NAV_IN_ORBIT to (ship:apoapsis > body_navchange_alt).
+    set AP_NAV_IN_SURFACE to (ship:altitude < body_navchange_alt).
 
     local cur_wayp is -1.
     local try_wp is false.
@@ -431,81 +458,64 @@ function ap_nav_display {
         set try_wp to true.
     }
 
-    if try_wp and cur_wayp["mode"] = "srf" {
-        srf_wp_guide(cur_wayp).
+    if try_wp and cur_wayp["mode"] = "srf" and srf_wp_guide(cur_wayp) {
+        set DISPLAY_SRF to true.
         if (debug_vectors) {
             set nav_debug_vec0:vec to AP_NAV_VEL.
             set nav_debug_vec1:vec to AP_NAV_ACC.
-            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
+            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
         }
-    } else if try_wp and cur_wayp["mode"] = "orb" {
-        orb_wp_guide(cur_wayp).
-    } else if try_wp and cur_wayp["mode"] = "tar" {
-        tar_wp_guide(cur_wayp).
+    } else if try_wp and cur_wayp["mode"] = "orb" and orb_wp_guide(cur_wayp) {
+        set DISPLAY_ORB to true.
+    } else if try_wp and cur_wayp["mode"] = "tar" and tar_wp_guide(cur_wayp) {
+        set DISPLAY_TAR to true.
         if (debug_vectors) {
             if HASTARGET {
-                set nav_debug_vec0:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel(TARGET)).
+                set nav_debug_vec0:vec to 30*(AP_NAV_VEL-get_vessel_vel(TARGET)).
             }
             set nav_debug_vec1:vec to AP_NAV_ACC.
-            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-ap_nav_get_vessel_vel()).
+            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
         }
-    } else if AP_NAV_IN_ORBIT {
-        orb_stick().
-    } else if AP_NAV_IN_SURFACE {
-        srf_stick().
+    } else if AP_NAV_IN_ORBIT and orb_stick() {
+        set DISPLAY_ORB to true.
+    } else if AP_NAV_IN_SURFACE and srf_stick() {
+        set DISPLAY_SRF to true.
     } else {
-        set AP_NAV_VEL to ap_nav_get_vessel_vel().
-        set AP_NAV_ACC to V(0,0,0).
-        set AP_NAV_ATT to ship:facing.
+        unset_nav().
     }
+    set DISPLAY_HUD_VEL to (DISPLAY_TAR or DISPLAY_SRF).
     set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
     // AP_NAV_VEL, AP_NAV_ACC, AP_NAV_ATT
 }
 
-function ap_nav_get_direction {
-    local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
-    return heading(py_temp[1],py_temp[0]).
-}
-
-function ap_nav_get_vel {
-    return AP_NAV_VEL.
-}
-
-function ap_nav_overwrite_vel {
-    parameter vec_in.
-    set AP_NAV_VEL to vec_in.
+function ap_nav_get_hud_vel {
+    if DISPLAY_HUD_VEL {
+        set DISPLAY_HUD_VEL to false.
+        if is_active_vessel() and NAVMODE = "TARGET" and HASTARGET {
+            return AP_NAV_VEL-get_vessel_vel(TARGET).
+        } else {
+            return AP_NAV_VEL.
+        }
+    }
+    return V(0,0,0).
 }
 
 function ap_nav_get_vel_err_mag {
-    return (AP_NAV_VEL:mag-ap_nav_get_vessel_vel():mag).
-}
-
-function ap_nav_get_vessel_vel {
-    parameter this_vessel is ship.
-    if not this_vessel:hassuffix("velocity") {
-        set this_vessel to this_vessel:ship.
-    }
-    if AP_NAV_IN_SURFACE {
-        return this_vessel:velocity:surface.
-    } else {
-        return this_vessel:velocity:orbit.
-    }
-}
-
-function ap_nav_get_time_to_wp {
-    return round(min(9999,AP_NAV_TIME_TO_WP)).
+    return (AP_NAV_VEL-get_vessel_vel())*AP_NAV_VEL:normalized.
 }
 
 function ap_nav_status_string {
     local dstr is "".
+    local mode_str is "".
+    local vel_mag is AP_NAV_VEL:mag.
+
     if DISPLAY_SRF {
         local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
         local AP_NAV_E_SET is py_temp[0].
         local AP_NAV_H_SET is py_temp[1].
-        local AP_NAV_V_SET is AP_NAV_VEL:mag.
 
-        set dstr to "/"+round_dec(AP_NAV_V_SET,0).
+        set dstr to "/"+round_dec(vel_mag,0).
         if (SRF_V_SET_DELTA > 0){
             set dstr to dstr + "+".
         } else if (SRF_V_SET_DELTA < 0){
@@ -514,6 +524,7 @@ function ap_nav_status_string {
         set SRF_V_SET_DELTA to 0.
         set dstr to dstr+char(10)+"("+round_dec(AP_NAV_E_SET,2)+","+round(AP_NAV_H_SET)+")".
         set DISPLAY_SRF to false.
+        set mode_str to mode_str + "s".
     }
 
     if DISPLAY_ORB {
@@ -538,21 +549,20 @@ function ap_nav_status_string {
             }
         }
         set DISPLAY_ORB to false.
+        set mode_str to mode_str + "o".
     }
 
     if DISPLAY_TAR {
-        set dstr to dstr + "/"+round_fig(approach_speed,2).
-        
-        if (false) {
-            set dstr to dstr + char(10)+
-                "("+round_fig(position*final_head:starvector,2) + "," +
-                round_fig(position*final_head:topvector,2) + "," +
-                round_fig(position*final_head:forevector,2) + ")".
+        if is_active_vessel() and NAVMODE = "TARGET" and HASTARGET {
+            set dstr to dstr + "/"+round_fig(approach_speed,2).
+        } else {
+            set dstr to dstr + "/"+round_fig(vel_mag,2).
         }
         set DISPLAY_TAR to false.
+        set mode_str to mode_str + "t".
     }
 
-    local mode_str is "" + 
+    set mode_str to mode_str + 
     (choose "F" if FOLLOW_MODE_F else "") +
     (choose "A" if FOLLOW_MODE_A else "") +
     (choose "Q" if FOLLOW_MODE_Q else "").
