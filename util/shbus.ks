@@ -45,16 +45,18 @@ function util_shbus_get_help_str {
         "askhost ARG ask to send msgs",
         "unask   ARG stop send msgs",
         "listhosts   list saved hosts",
-        "onlyhost ARG toggle only send to ",
-        "exclhost ARG toggle exclude this ",
+        "hosttags    get tags from hosts",
+        "onlyhost ARG toggle only send to (no ARG resets)",
+        "exclhost ARG toggle exclude this (no ARG resets)",
         "hello       hello to hosts",
-        "flush       clear message queues",
         "inv         invalid message",
         "shtx(OP,DATA)  custom command",
         " ARG=[core]            or",
         " ARG=target            or",
         " ARG=target [core]     or",
-        " ARG=(index) from listhosts"
+        " ARG=(index) from listhosts",
+        "This utlility is a way to setup communication between utilities running on other cores or ships.",
+        "Usual flow is askhost -> onlyhost(3) -> gettags -> do other commands -> unaskhost. For example, WP messages are sent by this utility and SHBUS on the receiving end dispatches them to WP."
         ).
 }
 
@@ -101,6 +103,8 @@ function util_shbus_parse_command {
                 util_shbus_tx_msg("ASKHOST", list(my_fullname), list(new_host_name)).
             }
         }
+    } else if commtext:STARTSWITH("hosttags") {
+        util_shbus_tx_msg("HOSTTAGS").
     } else if commtext:STARTSWITH("listhosts") {
         print_hosts().
     } else if commtext:startswith("onlyhost") {
@@ -189,7 +193,8 @@ function util_shbus_reconnect {
 
 function util_shbus_disconnect {
     for key in tx_hosts:keys {
-        util_shbus_tx_msg("UNASKHOST", list(my_fullname), list(key)).       
+        util_shbus_tx_msg("UNASKHOST", list(my_fullname), list(key)).
+        tx_hosts:remove(key).
     }
 }
 
@@ -291,6 +296,15 @@ local function util_shbus_decode_rx_msg {
             print "removing rx host " + host_asking + " " + tx_hosts[host_asking]:name.
             tx_hosts:remove(host_asking).
         }
+    } else if opcode = "HOSTTAGS" {
+        local tags is list("SHBUS").
+        if defined UTIL_TERM_ENABLED {(tags:add("TERM") = 0).}
+        if defined UTIL_FLDR_ENABLED {(tags:add("FLDR") = 0).}
+        if defined UTIL_WP_ENABLED {(tags:add("WP") = 0).}
+        if defined UTIL_HUD_ENABLED {(tags:add("HUD") = 0).}
+        if defined UTIL_RADAR_ENABLED {(tags:add("RADAR") = 0).}
+        if defined UTIL_DEV_ENABLED {(tags:add("DEV") = 0).}
+        util_shbus_ack("tags: " + char(10) + "  " + tags:join(char(10)+"  "), sender).
     } else {
         return false.
     }
@@ -361,6 +375,11 @@ local function rx_msg {
     } else {
         return false.
     }
+}
+
+function util_shbus_set_ship_router {
+    parameter is_ship_router.
+    set SHIP_ROUTER_CORE to is_ship_router.
 }
 
 // RX SECTION END

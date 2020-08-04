@@ -6,7 +6,6 @@
 global UTIL_FLDR_ENABLED is true.
 
 local lock AG to AG5.
-local PREV_AG is AG5.
 
 
 local Ts is 0.04.
@@ -33,12 +32,70 @@ for i in Slist {
     }
 }
 
+
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
         if PARAM:haskey("AP_ENGINES") and
         PARAM["AP_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
 
 local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
+
+// Locals for filenaming etc
+local filename is "".
+local core_is_logging is false.
+local sending_to_base is false.
+local starttime is 0.
+local PREV_AG is AG.
+
+// Local Locks for data recording
+
+local lock h to ship:ALTITUDE.
+local lock m to ship:MASS.
+
+local lock u0 to ship:control:mainthrottle.
+local lock u1 to ship:control:pitch.
+local lock u2 to ship:control:yaw.
+local lock u3 to ship:control:roll.
+
+local lock vel to ship:AIRSPEED.
+local lock pitch_rate to (-ship:ANGULARVEL*ship:FACING:STARVECTOR).
+local lock yaw_rate to (ship:ANGULARVEL*ship:FACING:TOPVECTOR).
+local lock roll_rate to (-ship:ANGULARVEL*ship:FACING:FOREVECTOR).
+
+local lock DELTA_FACE_UP to R(90,0,0)*(-ship:UP)*(ship:FACING).
+local lock pitch to DEG2RAD*(mod(DELTA_FACE_UP:pitch+90,180)-90).
+local lock yaw to DEG2RAD*(360-DELTA_FACE_UP:yaw).
+local lock roll to DEG2RAD*(180-DELTA_FACE_UP:roll).
+
+local lock DELTA_SRFPRO_UP to R(90,0,0)*(-ship:UP)*(ship:SRFPROGRADE).
+local lock vel_pitch to DEG2RAD*(mod(DELTA_SRFPRO_UP:pitch+90,180)-90).
+local lock vel_bear to DEG2RAD*(360-DELTA_SRFPRO_UP:yaw).
+
+local get_thrust is {
+    local total_thrust is 0.
+    for e in MAIN_ENGINES {
+        set total_thrust to total_thrust+e:MAXTHRUST.
+    }
+    return total_thrust.
+}.
+local lock thrust to get_thrust().
+local lock thrust_vector to (get_thrust()/ship:MASS)*ship:FACING:FOREVECTOR.
+
+local lock dynamic_pres to ship:DYNAMICPRESSURE.
+
+
+local lock ship_vel to (-SHIP:FACING)*ship:srfprograde.
+local lock alpha to DEG2RAD*wrap_angle(ship_vel:pitch).
+local lock beta to DEG2RAD*wrap_angle(-ship_vel:yaw).
+
+local lock VEL_FROM_FACE to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE).
+
+local Aup is 0.
+local Afore is 0.
+local Alat is 0.
+
+local lock lat to ship:GEOPOSITION:LAT.
+local lock lng to ship:GEOPOSITION:LNG.
 
 // TX SECTION
 
@@ -85,7 +142,7 @@ local function stash_last_log {
 }
 
 local function print_pos_info {
-    print "time " + round_dec(TIME:SECONDS,3).
+    print "time " + round_dec(time:seconds,3).
     print "dur " + round_dec(Tdur,3).
     print "dt  " + round_dec(Ts,3).
     print "lat  " + ship:GEOPOSITION:LAT.
@@ -96,74 +153,41 @@ local function print_pos_info {
     print "logtag " + logtag.
 }
 
-local function start_logging {
-    local lock h to ship:ALTITUDE.
-    local lock m to ship:MASS.
-
-    local lock u0 to ship:control:mainthrottle.
-    local lock u1 to ship:control:pitch.
-    local lock u2 to ship:control:yaw.
-    local lock u3 to ship:control:roll.
-
-    local lock vel to ship:AIRSPEED.
-    local lock pitch_rate to (-ship:ANGULARVEL*ship:FACING:STARVECTOR).
-    local lock yaw_rate to (ship:ANGULARVEL*ship:FACING:TOPVECTOR).
-    local lock roll_rate to (-ship:ANGULARVEL*ship:FACING:FOREVECTOR).
-
-    local lock DELTA_FACE_UP to R(90,0,0)*(-ship:UP)*(ship:FACING).
-    local lock pitch to DEG2RAD*(mod(DELTA_FACE_UP:pitch+90,180)-90).
-    local lock yaw to DEG2RAD*(360-DELTA_FACE_UP:yaw).
-    local lock roll to DEG2RAD*(180-DELTA_FACE_UP:roll).
-
-    local lock DELTA_SRFPRO_UP to R(90,0,0)*(-ship:UP)*(ship:SRFPROGRADE).
-    local lock vel_pitch to DEG2RAD*(mod(DELTA_SRFPRO_UP:pitch+90,180)-90).
-    local lock vel_bear to DEG2RAD*(360-DELTA_SRFPRO_UP:yaw).
-    
-    local get_thrust is {
-        local total_thrust is 0.
-        for e in MAIN_ENGINES {
-            set total_thrust to total_thrust+e:MAXTHRUST.
-        }
-        return total_thrust.
-    }.
-    local lock thrust to get_thrust().
-    local lock thrust_vector to (get_thrust()/ship:MASS)*ship:FACING:FOREVECTOR.
-
-    local lock dynamic_pres to ship:DYNAMICPRESSURE.
-
-
-    local lock ship_vel to (-SHIP:FACING)*ship:srfprograde.
-    local lock alpha to DEG2RAD*wrap_angle(ship_vel:pitch).
-    local lock beta to DEG2RAD*wrap_angle(-ship_vel:yaw).
-
-    local lock VEL_FROM_FACE to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE).
-
-    if (GRAV_enabled and ACC_enabled) {
-        print "Logging with ACC".
-        lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
-        lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
-        lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
-    } else {
-        print "No ACC data".
-        lock Aup to 0.
-        lock Afore to 0.
-        lock Alat to 0.
+local function log_one_step {
+    if sending_to_base <> has_connection_to_base() {
+        return.
     }
+    log time:seconds+","+u0+","+u1+","+u2+","+u3+
+        ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
+        ","+thrust+","+pitch+","+yaw+","+roll+
+        ","+vel_pitch+","+vel_bear+
+        ","+Afore+","+Aup+","+Alat+
+        ","+alpha+","+beta+
+        ","+h+","+m+","+dynamic_pres+
+        ","+lat+","+lng
+        to filename.
+    // also check for messages while logging.
+    // and record events sent by messages
+    if not (fldr_evt_data[1] = "")
+    {
+        log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to filename.
+        set fldr_evt_data[1] to "".
+    }
+}
 
-    local lock lat to ship:GEOPOSITION:LAT.
-    local lock lng to ship:GEOPOSITION:LNG.
-
+local function log_first_step {
     set filename to get_last_log_filename() + ".csv".
+
+    set sending_to_base to has_connection_to_base().
 
     if exists(filename) {
         deletepath(filename).
     }
 
-    set logdesc to "log_"+string_acro(ship:NAME)+"_"+TIME:CALENDAR:replace(":","")+
+    local logdesc is "log_"+string_acro(ship:NAME)+"_"+TIME:CALENDAR:replace(":","")+
             "_"+TIME:CLOCK:replace(":","")+"_"+logtag.
 
-    set logdesc to logdesc:replace(" ", "_").
-    set logdesc to logdesc:replace(",", "").
+    set logdesc to logdesc:replace(" ", "_"):replace(",", "").
     print "logging " + logdesc + " to " + filename.
 
     log logdesc to filename.
@@ -172,39 +196,25 @@ local function start_logging {
 
     set fldr_evt_data[1] to "".
 
-    set starttime to TIME:SECONDS.
-    until (TIME:SECONDS-starttime > Tdur) and (Tdur > 0) {
-        log TIME:SECONDS+","+u0+","+u1+","+u2+","+u3+
-            ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
-            ","+thrust+","+pitch+","+yaw+","+roll+
-            ","+vel_pitch+","+vel_bear+
-            ","+Afore+","+Aup+","+Alat+
-            ","+alpha+","+beta+
-            ","+h+","+m+","+dynamic_pres+
-            ","+lat+","+lng
-             to filename.
-        wait Ts.
-        if check_for_stop_logging() {
-            break.
-        }
-        // also check for messages while logging.
-        // and record events sent by messages
-        if not (fldr_evt_data[1] = "")
-        {
-            log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to filename.
-            set fldr_evt_data[1] to "".
-        }
-    }
+    set starttime to time:seconds.
 
-    print "log written to "+ filename.
+    if (GRAV_enabled and ACC_enabled) {
+        print "Logging with ACC".
+        lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
+        lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
+        lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
+    } else {
+        lock Aup to 0.
+        lock Afore to 0.
+        lock Alat to 0.
+        print "No ACC data".
+    }
 }
 
 local function check_for_stop_logging {
-     if AG <> PREV_AG {
-        set PREV_AG to AG.
-        return true.
-    }
-    return false.
+    return (AG <> PREV_AG) or
+        (sending_to_base <> has_connection_to_base()) or
+        (time:seconds-starttime > Tdur) and (Tdur > 0) or not core_is_logging.
 }
 
 function util_fldr_get_help_str {
@@ -213,7 +223,7 @@ function util_fldr_get_help_str {
         "logtime(T)   total log time=T",
         "logdt(dt)    log interval =dt",
         "logtag TAG   set log tag",
-        "log          start logging",
+        "log          start/stop logging",
         "testlog      start test, log",
         "listloginfo  list logs",
         "sendlogs     send logs",
@@ -224,7 +234,9 @@ function util_fldr_get_help_str {
         "logsu2(SEQ)  set yaw_seq(SEQ)",
         "logsu3(SEQ)  set roll_seq(SEQ)",
         "logsupr.  print test sequences",
-        "  SEQ = sequence of num"
+        "  SEQ = sequence of num",
+        "This utility records flight data on the this core",
+        "Logging can be stopped via the log command if logging with trigger (not default) or using the registered action group or if communication state changes"
         ).
 }
 
@@ -256,10 +268,14 @@ function util_fldr_parse_command {
             set logtag to "".
         }
     } else if commtext = "log" {
-        start_logging().
+        if not core_is_logging {
+            util_fldr_start_logging().
+        } else {
+            util_fldr_stop_logging().
+        }
     } else if commtext = "testlog" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
-        start_logging().
+        util_fldr_start_logging().
     } else if commtext:startswith("listloginfo") {
         print_pos_info().
         list_logs().
@@ -296,7 +312,9 @@ function util_fldr_parse_command {
 
 function util_fldr_send_event {
     parameter str_in.
-    if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
+    if core_is_logging {
+        set fldr_evt_data to list(time:seconds, str_in).
+    } else if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
         util_shbus_tx_msg("FLDR_EVENT", list(time:seconds, str_in)).
     }
 }
@@ -400,8 +418,40 @@ function util_fldr_decode_rx_msg {
 // log on action group use without shbus
 function util_fldr_log_on_ag {
     if AG <> PREV_AG {
-        set PREV_AG to AG.
-        start_logging().
+        util_fldr_start_logging().
     }
-    wait Ts.
+    wait 0.
+}
+
+function util_fldr_start_logging {
+    parameter LOG_IN_TRIGGER is false.
+    
+    set core_is_logging to true.
+    set PREV_AG to AG.
+
+    log_first_step().
+    if LOG_IN_TRIGGER {
+        local last_log_time is 0.
+        when time:seconds - last_log_time > Ts then {
+            if check_for_stop_logging() {
+                print "log written to "+ filename.
+                set core_is_logging to false.
+                return false.
+            } else {
+                log_one_step().
+                return true.
+            }
+        }
+    } else {
+        until check_for_stop_logging() {
+            log_one_step().
+            wait Ts.
+        }
+        print "log written to "+ filename.
+        set core_is_logging to false.
+    }
+}
+
+function util_fldr_stop_logging {
+    set core_is_logging to false.
 }

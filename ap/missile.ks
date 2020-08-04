@@ -103,18 +103,22 @@ function ap_missile_guide {
     local target_vessel is util_shsys_get_target().
     if target_vessel = -1 {
         print "trying for 30 sec eta apoapsis".
+        util_fldr_send_event("trying for 30 sec eta apoapsis").
         set yaw_init to yaw.
         lock steering TO heading(yaw_init,30,0).
         until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) {
             wait Ts.
         }
         print "eta Ap: "+eta:apoapsis.
+        util_fldr_send_event("eta Ap: "+eta:apoapsis).
         lock steering TO heading(vel_bear,vel_pitch,0).
         until (ship:liquidfuel <= 1) {
             wait Ts.
         }
         print "eta Ap: "+ eta:apoapsis.
+        util_fldr_send_event("eta Ap: "+ eta:apoapsis).
         print "Ap: "+ ship:ORBIT:apoapsis.
+        util_fldr_send_event("Ap: "+ ship:ORBIT:apoapsis).
 
         until false {
             wait Ts.
@@ -126,14 +130,17 @@ function ap_missile_guide {
         local lock target_bear to (360-DELTA_TARGET:yaw).
 
         print "entering guidance loop 1".
+        util_fldr_send_event("entering guidance loop 1").
         lock steering TO heading(target_bear,30,0).
         until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) 
         OR (get_true_intercept_error(target_vessel) < minimum_intercept) {
             wait Ts.
         }
         print "Intercept Error: "+get_true_intercept_error(target_vessel).
+        util_fldr_send_event("Intercept Error: "+get_true_intercept_error(target_vessel)).
 
         print "entering guidance loop 2".
+        util_fldr_send_event("entering guidance loop 2").
         lock steering TO heading(target_bear,vel_pitch,0).
         until (get_true_intercept_error(target_vessel) < minimum_intercept) {
             wait Ts.
@@ -141,6 +148,7 @@ function ap_missile_guide {
         set my_throttle to 0.0.
 
         print "entering guidance loop 3".
+        util_fldr_send_event("entering guidance loop 3").
         lock steering TO heading(target_bear,vel_pitch,0).
         until ((vectorangle(ship:facing:vector,target_vessel:DIRECTION:vector) < 5) OR
             (target_vessel:DISTANCE < 2500)) {
@@ -148,6 +156,7 @@ function ap_missile_guide {
         }
 
         print "entering terminal guidance".
+        util_fldr_send_event("entering terminal guidance").
         // unlock throttle.
         // unlock steering.
         // return.
