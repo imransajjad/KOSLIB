@@ -42,6 +42,7 @@ if USE_STEERMAN {
     print "got gains".
 }
 
+local orb_throttle is 0.0.
 local orb_steer_direction is ship:facing.
 local DO_BURN is false.
 
@@ -64,8 +65,6 @@ function ap_orb_nav_do {
 
     if not SAS {
         if USE_ORB_ENGINE {
-            local orb_throttle is 0.0.
-
             if not DO_BURN and ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
                 (not USE_RCS and delta_v:mag > 0.05)) {
                 set BURNvec to delta_v:normalized.
@@ -78,6 +77,8 @@ function ap_orb_nav_do {
             }
             if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.995 and omega:mag < 1.0 {
                 set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
+            } else {
+                set orb_throttle to 0.0.
             }
         }
 
@@ -130,7 +131,7 @@ function ap_orb_status_string {
     local hud_str is "".
 
     if (true) {
-        set hud_str to hud_str + char(10) + "align  " + round_dec(total_head_align,3) + char(10) + 
+        set hud_str to hud_str + "align  " + round_dec(total_head_align,3) + char(10) + 
             "dv "  + round_dec(delta_v:mag,3) + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
                 round_dec(ship:facing:topvector*delta_v,2) + "," +
                 round_dec(ship:facing:forevector*delta_v,2) +")".
