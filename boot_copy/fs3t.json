@@ -105,7 +105,8 @@
         "UTIL_SHBUS",
         {
             "entries": [
-                "FLCS_PROC_TAG", "flcs"
+                "FLCS_PROC_TAG", "flcs",
+                "RX_MSG_IN_TRIGGER", true
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

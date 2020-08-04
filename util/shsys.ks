@@ -170,9 +170,15 @@ local function shsys_check {
     }
     if try_wp and cur_wayp["mode"] = "act" {
             util_shsys_do_action(cur_wayp["do_action"]).
+            if defined UTIL_FLDR_ENABLED {
+                util_fldr_send_event("action waypoint " + (util_wp_queue_length()-1)).
+            }
             util_wp_done().
     } else if try_wp and cur_wayp["mode"] = "spin" {
             util_shsys_set_spin(cur_wayp["spin_part"], cur_wayp["spin_state"]).
+            if defined UTIL_FLDR_ENABLED {
+                util_fldr_send_event("action waypoint " + (util_wp_queue_length()-1)).
+            }
             util_wp_done().
     }
     
@@ -262,23 +268,18 @@ local function shsys_check {
     iterate_spacecraft_system_state().
 
     if CLEANUP {
-        if defined UTTL_SHBUS_ENABLED {
-            util_shbus_disconnect().
-        }
         print "shsys_check cleanup".
     }
     return not do_spin.
 }
 
 function util_shsys_spin_check {
-    until shsys_check()  {
-        if defined UTIL_SHBUS_ENABLED { util_shbus_rx_msg(). }
+    until shsys_check() {
         wait 0.02.
     }
 }
 
 function util_shsys_cleanup {
-    print "shsys_check cleanup".
     shsys_check(true).
 }
 
@@ -289,7 +290,7 @@ function util_shsys_decode_rx_msg {
     parameter data.
 
     if not opcode:startswith("SYS") {
-        return.
+        return false.
     }
 
     if opcode:startswith("SYS_CB_OPEN") {

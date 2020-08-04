@@ -43,30 +43,29 @@ if USE_STEERMAN {
 }
 
 local orb_steer_direction is ship:facing.
-local orb_throttle is 0.0.
-local STEER_RCS is false.
 local DO_BURN is false.
 
 local delta_v is V(0,0,0).
 local total_head_align is 0.
-local RCSvec to V(1,0,0).
-local BURNvec to V(1,0,0).
+local BURNvec to V(0,0,1).
 local RCSon to false.
 
 function ap_orb_nav_do {
     parameter vel_vec is AP_NAV_VEL. // defaults are globals defined in AP_NAV
     parameter acc_vec is AP_NAV_ACC.
     parameter head_dir is AP_NAV_ATT.
+
+    if AP_NAV_IN_SURFACE {
+        set delta_v to (vel_vec - ship:velocity:surface).
+    } else {
+        set delta_v to (vel_vec - ship:velocity:orbit).
+    }
     
-    set delta_v to (vel_vec - ship:velocity:orbit).
 
     if not SAS {
         if USE_ORB_ENGINE {
-            if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.995 and omega:mag < 1.0 {
-                set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
-            } else {
-                set orb_throttle to 0.0.
-            }
+            local orb_throttle is 0.0.
+
             if not DO_BURN and ((USE_RCS and delta_v:mag > RCS_MAX_DV) or
                 (not USE_RCS and delta_v:mag > 0.05)) {
                 set BURNvec to delta_v:normalized.
@@ -76,6 +75,9 @@ function ap_orb_nav_do {
                 set orb_throttle to 0.0.
                 unlock throttle.
                 set DO_BURN to false.
+            }
+            if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.995 and omega:mag < 1.0 {
+                set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
             }
         }
 
@@ -89,28 +91,25 @@ function ap_orb_nav_do {
             set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
             if total_head_align < MIN_ALIGN {
                 lock steering to orb_steer_direction.
-                if (USE_RCS_STEER) { set STEER_RCS to true. }
             } else {
                 unlock steering.
-                if (USE_RCS_STEER) { set STEER_RCS to false. }
             }
              
         }
         if USE_RCS {
-            if RCSon and (throttle > 0.0 or (not STEER_RCS and
-                ((total_head_align < RCS_MIN_ALIGN) or 
-                (delta_v:mag > RCS_MAX_DV ) or 
-                (RCSon and delta_v*RCSvec <= 0 )) ) ){
+            local STEER_RCS is false.
+            if (USE_RCS_STEER) {
+                set STEER_RCS to (total_head_align < MIN_ALIGN).
+            }
+            local MOVE_RCS is (total_head_align >= RCS_MIN_ALIGN and delta_v:mag < RCS_MAX_DV and delta_v:mag > RCS_MIN_DV ).
+            if RCSon and (throttle > 0.0 or not ( STEER_RCS or MOVE_RCS)) {
                 set RCS to false.
                 set RCSon to false.
-                print "RCS off".
-            } else if not RCSon and (( delta_v:mag > RCS_MIN_DV) or STEER_RCS) {
-                // set ship:control:translation to translation_control.
-                set RCSvec to delta_v:normalized.
+            } else if not RCSon and throttle = 0 and (MOVE_RCS or STEER_RCS) {
                 set RCS to true.
                 set RCSon to true.
-                print "RCS on".
             }
+            util_hud_push_left("ap_orb_nav_do", (choose "RCSon" if RCSon else "RCSoff") + (choose "B" if MOVE_RCS else "") + (choose "S" if STEER_RCS else "") ).
 
             if RCSon and (total_head_align >= RCS_MIN_ALIGN) {
                 set ship:control:translation to V(
@@ -130,16 +129,8 @@ function ap_orb_nav_do {
 function ap_orb_status_string {
     local hud_str is "".
 
-    if (true) { // debug
-        set hud_str to hud_str + "Othr " + round_dec(orb_throttle,1) +
-            (choose char(10) + "RCSon" if RCSon else "") +
-            (choose char(10) + "StRCS" if STEER_RCS else "") +
-            (choose char(10) + "BURN " if DO_BURN else "").
-    }
-
     if (true) {
         set hud_str to hud_str + char(10) + "align  " + round_dec(total_head_align,3) + char(10) + 
-            "RCSalign " + round_dec(delta_v*(ship:facing*ship:control:translation),3) + char(10) +
             "dv "  + round_dec(delta_v:mag,3) + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
                 round_dec(ship:facing:topvector*delta_v,2) + "," +
                 round_dec(ship:facing:forevector*delta_v,2) +")".

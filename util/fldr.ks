@@ -170,6 +170,8 @@ local function start_logging {
     log "t,u0,u1,u2,u3,y0,y1,y2,y3,ft,p,y,r,vp,vh,afore,aup,alat,alpha,beta,h,m,q,lat,lng" to filename.
     log "" to filename.
 
+    set fldr_evt_data[1] to "".
+
     set starttime to TIME:SECONDS.
     until (TIME:SECONDS-starttime > Tdur) and (Tdur > 0) {
         log TIME:SECONDS+","+u0+","+u1+","+u2+","+u3+
@@ -186,14 +188,11 @@ local function start_logging {
             break.
         }
         // also check for messages while logging.
-        if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
-            util_shbus_rx_msg().
-            // and record events sent by messages
-            if not (fldr_evt_data[1] = "")
-            {
-                log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to filename.
-                set fldr_evt_data[1] to "".
-            }
+        // and record events sent by messages
+        if not (fldr_evt_data[1] = "")
+        {
+            log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to filename.
+            set fldr_evt_data[1] to "".
         }
     }
 

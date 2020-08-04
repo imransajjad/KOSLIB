@@ -54,22 +54,43 @@ local lock AG to AG6.
 
 // AERO W PID STUFF
 
-local lock vel to ship:airspeed.
+local vel is ship:airspeed.
 
-local lock wg to vcrs(ship:velocity:surface:normalized, ship:up:vector)*
+local wg is vcrs(ship:velocity:surface:normalized, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)):mag.
 
-local lock pitch_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:STARVECTOR).
-local lock yaw_rate to ((SHIP:ANGULARVEL+wg)*SHIP:FACING:TOPVECTOR).
-local lock roll_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
+local pitch_rate is -((SHIP:ANGULARVEL)*SHIP:FACING:STARVECTOR).
+local yaw_rate is ((SHIP:ANGULARVEL+wg)*SHIP:FACING:TOPVECTOR).
+local roll_rate is -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 
 
-local lock LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
-local lock LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
+local LATOFS is (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
+local LONGOFS is (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
 
-local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
-// local lock alpha to wrap_angle(ship_vel:pitch). // how to get alpha and beta
-// local lock beta to wrap_angle(-ship_vel:yaw).
+local ship_vel is (-SHIP:FACING)*ship:velocity:surface:direction.
+local alpha is wrap_angle(ship_vel:pitch). // how to get alpha and beta
+local beta is wrap_angle(-ship_vel:yaw).
+
+when true then {
+    set vel to ship:airspeed.
+
+    set wg to vcrs(ship:velocity:surface:normalized, ship:up:vector)*
+                    (get_frame_accel_orbit()/max(1,vel)):mag.
+
+    set pitch_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:STARVECTOR).
+    set yaw_rate to ((SHIP:ANGULARVEL+wg)*SHIP:FACING:TOPVECTOR).
+    set roll_rate to -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
+
+
+    set LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
+    set LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
+
+    set ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
+    set alpha to wrap_angle(ship_vel:pitch). // how to get alpha and beta
+    set beta to wrap_angle(-ship_vel:yaw).
+
+    return true.
+}
 
 local function cl_sched {
     parameter v.
@@ -418,12 +439,13 @@ function ap_aero_w_nav_do {
     // uses roll to minimze the bearing in the ship frame so that most omega is
     // applied by pitch and not by yaw
 
-    if not AP_NAV_IN_SURFACE {
-        return. // we don't want to do anything if we are in surface mode
-    }
     unlock steering. // steering manager needs to be disabled.
-
+    
     local current_nav_velocity is ship:velocity:surface.
+    if not AP_NAV_IN_SURFACE {
+        set current_nav_velocity to ship:velocity:orbit.
+    }
+
     
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
@@ -473,8 +495,6 @@ function ap_aero_w_status_string {
     local hud_str is "".
 
     if (ship:q > MIN_AERO_Q) {
-        local alpha is wrap_angle(ship_vel:pitch).
-        local beta is wrap_angle(-ship_vel:yaw).
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +
         round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
         char(10) + (choose "" if STICK_GAIN = STICK_GAIN_NOM else "S") +

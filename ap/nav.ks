@@ -16,7 +16,7 @@ global AP_NAV_IN_SURFACE is false. // use this global !!!
 global AP_NAV_IN_ORBIT is true.
 
 local previous_body is "Kerbin".
-local body_navchange_alt is 36000.
+local body_navchange_alt is get_param(BODY_navball_change_alt, ship:body:name, 36000).
 
 local FOLLOW_MODE_F is false.
 local FOLLOW_MODE_A is false.
@@ -28,7 +28,7 @@ local DISPLAY_TAR is false.
 
 local DISPLAY_HUD_VEL is false.
 
-local debug_vectors is false.
+local debug_vectors is true.
 if (debug_vectors) { // debug
     clearvecdraws().
     local vec_width is 0.5.
@@ -62,12 +62,6 @@ local function get_vessel_vel {
     } else {
         return this_vessel:velocity:orbit.
     }
-}
-
-local function unset_nav {
-    set AP_NAV_VEL to get_vessel_vel().
-    set AP_NAV_ACC to V(0,0,0).
-    set AP_NAV_ATT to ship:facing.
 }
 
 // returns a unit vector for velocity direction
@@ -191,15 +185,12 @@ local function nav_check_done {
         if ( angle_to > 30) or
             (angle_to > 12.5 and time_to < 2) or 
             ( time_to < 1) {
-            local wp_reached_str is  "Reached Waypoint " + (util_wp_queue_length()-1).
+            local wp_reached_str is  "reached waypoint " + (util_wp_queue_length()-1).
             print wp_reached_str.
             if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event(wp_reached_str).
             }
             util_wp_done().
-            if util_wp_queue_length() = 0 {
-                unset_nav().
-            }
             set AP_NAV_TIME_TO_WP to 0.
         }
     }
@@ -344,6 +335,9 @@ local function maneuver_time {
             set p to p + e:availablethrust/e:isp.
         }
     }
+    if f <= 0 {
+        return 0. // no available thrust for maneuver, do something else
+    }
     set p to f/p. // inverse inverse = true isp (s)
 
     local m is ship:mass * 1000.        // starting mass (kg)
@@ -400,7 +394,7 @@ local function tar_wp_guide {
         return false.
     }
 
-    local radius is get_param(wp, "radius", 1.0).
+    local radius is max(get_param(wp, "radius", 1.0), 0.05).
     set approach_speed to get_param(wp, "speed", 3.0).
     local offsvec is get_param(wp, "offsvec", V(0,0,-abs(radius)) ).
 
@@ -481,7 +475,9 @@ function ap_nav_display {
     } else if AP_NAV_IN_SURFACE and srf_stick() {
         set DISPLAY_SRF to true.
     } else {
-        unset_nav().
+        set AP_NAV_VEL to get_vessel_vel().
+        set AP_NAV_ACC to V(0,0,0).
+        set AP_NAV_ATT to ship:facing.
     }
     set DISPLAY_HUD_VEL to (DISPLAY_TAR or DISPLAY_SRF).
     set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.

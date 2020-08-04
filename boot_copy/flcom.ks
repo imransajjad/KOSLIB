@@ -43,5 +43,6 @@ GLOBAL BOOT_FLCOM_ENABLED IS true.
 util_term_do_startup().
 
 until false {
+    util_shbus_rx_msg().
     util_term_get_input().
 }

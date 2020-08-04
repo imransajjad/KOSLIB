@@ -12,7 +12,9 @@ GLOBAL UTIL_SHBUS_ENABLED IS true.
 // TX SECTION
 
 local PARAM is get_param(readJson("param.json"),"UTIL_SHBUS", lexicon()).
-local ship_router_core is (get_param(PARAM, "ship_router_core_tag", "flcs") = core:tag).
+local SHIP_ROUTER_CORE is (get_param(PARAM, "ship_router_core_tag", "flcs") = core:tag).
+local RX_MSG_IN_TRIGGER is get_param(PARAM, "RX_MSG_IN_TRIGGER", false).
+print "shbus rx msg in interrupt:" + RX_MSG_IN_TRIGGER.
 
 local tx_hosts is lexicon().
 local single_host_key is "".
@@ -143,8 +145,6 @@ function util_shbus_parse_command {
             }
         }
         print_hosts().
-    } else if commtext:STARTSWITH("flush"){
-        until not util_shbus_rx_msg() { }
     } else if commtext:STARTSWITH("inv"){
         util_shbus_tx_msg("a;lsfkja;wef",list(13,4,5)).
     } else if commtext:STARTSWITH("shtx"){
@@ -297,15 +297,29 @@ local function util_shbus_decode_rx_msg {
     return true.
 }
 
+when RX_MSG_IN_TRIGGER then {
+    rx_msg().
+    return true. // make the trigger persist
+}
+
 // check for any new messages and run any commands immediately
-// do not return any value
+// return whether a message was received
 function util_shbus_rx_msg {
+    if RX_MSG_IN_TRIGGER {
+        // do nothing, interrupt will handle this
+        return false. // did not "receive message" in this case
+    } else {
+        return rx_msg(). // call the local function directly
+    }
+}
+
+local function rx_msg {
     local received_msg is 0.
 
-    if not core:messages:empty or (ship_router_core and not ship:messages:empty){
+    if not core:messages:empty or (SHIP_ROUTER_CORE and not ship:messages:empty){
         if not core:messages:empty {
             set received_msg to core:messages:pop.
-        } else if ship_router_core and not ship:messages:empty {
+        } else if SHIP_ROUTER_CORE and not ship:messages:empty {
             set received_msg to ship:messages:pop.
         }
         if not (received_msg:content:length = 4) {

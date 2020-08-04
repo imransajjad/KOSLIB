@@ -34,15 +34,20 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
 
 // Global plane data
 
-LOCK DELTA_FACE_UP TO R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
-LOCK pitch TO (mod(DELTA_FACE_UP:pitch+90,180)-90).
-LOCK roll TO (180-DELTA_FACE_UP:roll).
-LOCK yaw TO (360-DELTA_FACE_UP:yaw).
+when true then {
+    set DELTA_FACE_UP to R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
+    set pitch to (mod(DELTA_FACE_UP:pitch+90,180)-90).
+    set roll to (180-DELTA_FACE_UP:roll).
+    set yaw to (360-DELTA_FACE_UP:yaw).
 
-LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
-    (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
-LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
-LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
+    set DELTA_PRO_UP to R(90,0,0)*(-SHIP:UP)*
+        (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
+    set vel_pitch to (mod(DELTA_PRO_UP:pitch+90,180)-90).
+    set vel_bear to (360-DELTA_PRO_UP:yaw).
+    
+    return true.
+}
+wait 0.
 
 run once "util_common".
 
@@ -61,7 +66,7 @@ run once "ap_mode".
 GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
 
 // main loop
-UNTIL false {
+until false {
     util_shbus_rx_msg().
     util_shsys_spin_check().
 
@@ -84,5 +89,5 @@ UNTIL false {
     }
     
     util_hud_info().
-    WAIT 0.01.
+    wait 0.
 }

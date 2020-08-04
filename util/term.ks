@@ -141,6 +141,8 @@ local function util_term_parse_command {
                 cpu:activate().
             }
         }
+        print "waiting before reestablishing comms".
+        wait 1.5.
         if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
             wait 0.1.
             util_shbus_reconnect().

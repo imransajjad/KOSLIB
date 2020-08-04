@@ -25,6 +25,7 @@ if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
     COPYPATH("0:/koslib/util/hud.ks","util_hud").
     COPYPATH("0:/koslib/util/wp.ks","util_wp").
 
+    COPYPATH("0:/koslib/ap/orb.ks","ap_orb").
     COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
     COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
     print "loaded resources from base".
@@ -38,6 +39,7 @@ LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
 
 run once "util_common".
+run once "util_fldr".
 run once "util_shbus".
 run once "util_shsys".
 run once "util_hud".
@@ -50,8 +52,8 @@ run once "ap_nav".
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.
 
 until false {
-    util_shsys_spin_check().
     util_shbus_rx_msg().
+    util_shsys_spin_check().
 
     ap_mode_update().
     ap_nav_display().
