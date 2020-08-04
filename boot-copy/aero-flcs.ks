@@ -13,22 +13,22 @@ WAIT UNTIL SHIP:LOADED.
 global DEV_FLAG is true.
 
 if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
-    COPYPATH("0:/koslib/util/common.ks","util_common").
-    run once "util_common".
+    COPYPATH("0:/koslib/util/common.ks","util-common").
+    run once "util-common".
     get_ship_param_file().
 
-    COPYPATH("0:/koslib/util/wp.ks","util_wp").
-    COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
-    COPYPATH("0:/koslib/util/shsys.ks","util_shsys").
-    COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
+    COPYPATH("0:/koslib/util/wp.ks","util-wp").
+    COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
+    COPYPATH("0:/koslib/util/shsys.ks","util-shsys").
+    COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
 
-    COPYPATH("0:/koslib/resource/blank.png","blank_tex").
-    COPYPATH("0:/koslib/util/hud.ks","util_hud").
+    COPYPATH("0:/koslib/resource/blank.png","blank-tex").
+    COPYPATH("0:/koslib/util/hud.ks","util-hud").
 
-    COPYPATH("0:/koslib/ap/aero_engines.ks","ap_aero_engines").
-    COPYPATH("0:/koslib/ap/aero_w.ks","ap_aero_w").
-    COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
-    COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
+    COPYPATH("0:/koslib/ap/aero-engines.ks","ap-aero-engines").
+    COPYPATH("0:/koslib/ap/aero-w.ks","ap-aero-w").
+    COPYPATH("0:/koslib/ap/nav.ks","ap-nav").
+    COPYPATH("0:/koslib/ap/mode.ks","ap-mode").
     print "loaded resources from base".
 }
 
@@ -49,19 +49,19 @@ when true then {
 }
 wait 0.
 
-run once "util_common".
+run once "util-common".
 
-run once "util_wp".
-run once "util_fldr".
-run once "util_shsys".
-run once "util_shbus".
+run once "util-wp".
+run once "util-fldr".
+run once "util-shsys".
+run once "util-shbus".
 
-run once "util_hud".
+run once "util-hud".
 
-run once "ap_aero_engines".
-run once "ap_aero_w".
-run once "ap_nav".
-run once "ap_mode".
+run once "ap-aero-engines".
+run once "ap-aero-w".
+run once "ap-nav".
+run once "ap-mode".
 
 GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
 

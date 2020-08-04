@@ -13,29 +13,29 @@ global DEV_FLAG is true.
 
 WAIT UNTIL SHIP:LOADED.
 if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
-    COPYPATH("0:/koslib/util/common.ks","util_common").
-    run once "util_common".
+    COPYPATH("0:/koslib/util/common.ks","util-common").
+    run once "util-common".
     get_ship_param_file().
     
-    COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
-    COPYPATH("0:/koslib/util/wp.ks","util_wp").
-    COPYPATH("0:/koslib/util/hud.ks","util_hud").
-    COPYPATH("0:/koslib/util/radar.ks","util_radar").
-    COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
-    COPYPATH("0:/koslib/util/term.ks","util_term").
+    COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
+    COPYPATH("0:/koslib/util/wp.ks","util-wp").
+    COPYPATH("0:/koslib/util/hud.ks","util-hud").
+    COPYPATH("0:/koslib/util/radar.ks","util-radar").
+    COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
+    COPYPATH("0:/koslib/util/term.ks","util-term").
     print "loaded resources from base".
 }
 
 wait 0.04.
 wait 0.04.
 
-run once "util_common".
-run once "util_fldr".
-run once "util_wp".
-run once "util_hud".
-run once "util_shbus".
-run once "util_radar".
-run once "util_term".
+run once "util-common".
+run once "util-fldr".
+run once "util-wp".
+run once "util-hud".
+run once "util-shbus".
+run once "util-radar".
+run once "util-term".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 

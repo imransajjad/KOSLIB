@@ -15,19 +15,19 @@ global DEV_FLAG is true.
 
 
 if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
-    COPYPATH("0:/koslib/util/common.ks","util_common").
-    run once "util_common".
+    COPYPATH("0:/koslib/util/common.ks","util-common").
+    run once "util-common".
     get_ship_param_file().
     
-    COPYPATH("0:/koslib/util/fldr.ks","util_fldr").
-    COPYPATH("0:/koslib/util/shbus.ks","util_shbus").
-    COPYPATH("0:/koslib/util/shsys.ks","util_shsys").
-    COPYPATH("0:/koslib/util/hud.ks","util_hud").
-    COPYPATH("0:/koslib/util/wp.ks","util_wp").
+    COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
+    COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
+    COPYPATH("0:/koslib/util/shsys.ks","util-shsys").
+    COPYPATH("0:/koslib/util/hud.ks","util-hud").
+    COPYPATH("0:/koslib/util/wp.ks","util-wp").
 
-    COPYPATH("0:/koslib/ap/orb.ks","ap_orb").
-    COPYPATH("0:/koslib/ap/nav.ks","ap_nav").
-    COPYPATH("0:/koslib/ap/mode.ks","ap_mode").
+    COPYPATH("0:/koslib/ap/orb.ks","ap-orb").
+    COPYPATH("0:/koslib/ap/nav.ks","ap-nav").
+    COPYPATH("0:/koslib/ap/mode.ks","ap-mode").
     print "loaded resources from base".
 }
 
@@ -38,16 +38,16 @@ LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
 LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
 LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
 
-run once "util_common".
-run once "util_fldr".
-run once "util_shbus".
-run once "util_shsys".
-run once "util_hud".
-run once "util_wp".
+run once "util-common".
+run once "util-fldr".
+run once "util-shbus".
+run once "util-shsys".
+run once "util-hud".
+run once "util-wp".
 
-run once "ap_orb".
-run once "ap_mode".
-run once "ap_nav".
+run once "ap-orb".
+run once "ap-mode".
+run once "ap-nav".
 
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.
 
