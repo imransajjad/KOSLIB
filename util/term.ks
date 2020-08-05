@@ -148,15 +148,15 @@ local function util_term_parse_command {
             util_shbus_reconnect().
         }
     } else if commtext:startswith("run") {
-        if has_connection_to_base() and exists("0:/term_scripts/"+args) {
-            local filecontent is open("0:/term_scripts/"+args):readall.
+        if HOMECONNECTION:ISCONNECTED and exists("0:/term-scripts/"+args) {
+            local filecontent is open("0:/term-scripts/"+args):readall.
             local i is filecontent:iterator.
             until not i:next {
                 print i:value:split("#")[0].
                 util_term_do_command(i:value:split("#")[0]).
             }
         } else {
-            print "0:/term_scripts/"+args+"does not exist".
+            print "0:/term-scripts/"+args+"does not exist".
         }
     } else {
         return false.

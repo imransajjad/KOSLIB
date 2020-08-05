@@ -144,9 +144,11 @@ local function get_another_ship {
 
 local target_vessel is -1.
 local function cache_target {
-    if TARGET_CACHING and is_active_vessel() and HASTARGET and not (target_vessel = TARGET){
-        set target_vessel to TARGET.
-        print "shsys target cached: "+ target_vessel:NAME.
+    if TARGET_CACHING and is_active_vessel() and HASTARGET {
+        if not (target_vessel = TARGET) {
+            set target_vessel to TARGET.
+            print "shsys target cached: "+ target_vessel:NAME.
+        }
     } else if TARGET_CACHING and is_active_vessel() and not HASTARGET and not (target_vessel = -1) {
         set target_vessel to -1.
         print "shsys target uncached".
@@ -275,6 +277,9 @@ local function shsys_check {
 
 function util_shsys_spin_check {
     until shsys_check() {
+        if defined UTIL_SHBUS_ENABLED {
+            util_shbus_rx_msg().
+        }
         wait 0.02.
     }
 }

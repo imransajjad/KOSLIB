@@ -279,6 +279,8 @@ local function srf_stick {
         set stick_pitch to vel_pitch.
         return false.
     } else if AP_MODE_VEL {
+        set stick_heading to vel_bear.
+        set stick_pitch to vel_pitch.
         set VSET_MAN to true.
     } else if AP_MODE_NAV {
         set increment to 2.0*deadzone(u1,0.25).

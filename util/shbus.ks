@@ -144,6 +144,9 @@ function util_shbus_parse_command {
             if (tx_hosts:haskey(args)) and not (args = exclude_host_key) {
                 util_shbus_tx_msg("UNASKHOST", list(my_fullname), list(args)).
                 tx_hosts:remove(args).
+                if single_host_key = args {
+                    set single_host_key to "".
+                }
             } else {
                 print "did not find host " + args.
             }
@@ -186,9 +189,15 @@ function util_shbus_tx_msg {
 }
 
 function util_shbus_reconnect {
+    local temp_a is single_host_key.
+    local temp_b is exclude_host_key.
+    set single_host_key to "".
+    set exclude_host_key to "".
     for key in tx_hosts:keys {
         util_shbus_tx_msg("ASKHOST", list(my_fullname), list(key)).       
     }
+    set single_host_key to temp_a.
+    set exclude_host_key to temp_b.
 }
 
 function util_shbus_disconnect {
@@ -292,18 +301,25 @@ local function util_shbus_decode_rx_msg {
         }
     } else if opcode = "UNASKHOST" {
         local host_asking is data[0].
+        print "removing rx host " + host_asking.
+        if get_ship_name(host_asking) = ship:name {
+            set host_asking to get_final_name(host_asking).
+        }
         if tx_hosts:haskey(host_asking) {
-            print "removing rx host " + host_asking + " " + tx_hosts[host_asking]:name.
+            print "removed" + tx_hosts[host_asking]:name.
             tx_hosts:remove(host_asking).
+            if single_host_key = host_asking {
+                set single_host_key to "".
+            }
         }
     } else if opcode = "HOSTTAGS" {
         local tags is list("SHBUS").
-        if defined UTIL_TERM_ENABLED {(tags:add("TERM") = 0).}
-        if defined UTIL_FLDR_ENABLED {(tags:add("FLDR") = 0).}
-        if defined UTIL_WP_ENABLED {(tags:add("WP") = 0).}
-        if defined UTIL_HUD_ENABLED {(tags:add("HUD") = 0).}
-        if defined UTIL_RADAR_ENABLED {(tags:add("RADAR") = 0).}
-        if defined UTIL_DEV_ENABLED {(tags:add("DEV") = 0).}
+        if defined UTIL_TERM_ENABLED {tags:add("TERM").}
+        if defined UTIL_FLDR_ENABLED {tags:add("FLDR").}
+        if defined UTIL_WP_ENABLED {tags:add("WP").}
+        if defined UTIL_HUD_ENABLED {tags:add("HUD").}
+        if defined UTIL_RADAR_ENABLED {tags:add("RADAR").}
+        if defined UTIL_DEV_ENABLED {tags:add("DEV").}
         util_shbus_ack("tags: " + char(10) + "  " + tags:join(char(10)+"  "), sender).
     } else {
         return false.

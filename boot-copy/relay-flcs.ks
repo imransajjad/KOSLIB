@@ -1,20 +1,11 @@
 
-function has_connection_to_base {
-    if addons:available("RT") {
-        return addons:RT:AVAILABLE AND addons:RT:HASKSCCONNECTION(SHIP).
-    } else {
-        return true.
-    }
-    return false.
-}
-
-WAIT UNTIL SHIP:LOADED.
+wait until ship:loaded.
 wait 0.25. // so that connection is established if possible.
 
 global DEV_FLAG is true.
 
 
-if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
+if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
     get_ship_param_file().
@@ -58,7 +49,7 @@ until false {
     ap_mode_update().
     ap_nav_display().
 
-    if not AP_MODE_NAV and not has_connection_to_base(){
+    if not AP_MODE_NAV and not HOMECONNECTION:ISCONNECTED {
         ap_mode_set("NAV").
     }
 

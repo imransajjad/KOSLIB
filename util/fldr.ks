@@ -13,7 +13,6 @@ local Tdur is 0.0.
 local Tdel is 0.
 
 local logtag to "".
-local filename is "".
 local logdesc is "".
 
 local fldr_evt_data is list(0,"").
@@ -41,11 +40,13 @@ local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
 local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
 // Locals for filenaming etc
-local filename is "".
-local core_is_logging is false.
-local sending_to_base is false.
+local FILENAME is "".
+local CORE_IS_LOGGING is false.
+local SENDING_TO_BASE is false.
 local starttime is 0.
 local PREV_AG is AG.
+
+local CORE_IS_TESTING is false.
 
 // Local Locks for data recording
 
@@ -97,10 +98,10 @@ local Alat is 0.
 local lock lat to ship:GEOPOSITION:LAT.
 local lock lng to ship:GEOPOSITION:LNG.
 
-// TX SECTION
+// COMMON SECTION
 
 local function get_last_log_filename {
-    return (choose "0" if has_connection_to_base() else "1")+":/logs/lastlog".
+    return (choose "0" if HOMECONNECTION:ISCONNECTED else "1")+":/logs/lastlog".
 }
 
 local function list_logs {
@@ -112,7 +113,7 @@ local function list_logs {
 }
 
 local function send_logs {
-    if not has_connection_to_base() {
+    if not HOMECONNECTION:ISCONNECTED {
         print "send_logs: no connection to KSC".
         return.
     }
@@ -154,7 +155,7 @@ local function print_pos_info {
 }
 
 local function log_one_step {
-    if sending_to_base <> has_connection_to_base() {
+    if SENDING_TO_BASE <> HOMECONNECTION:ISCONNECTED {
         return.
     }
     log time:seconds+","+u0+","+u1+","+u2+","+u3+
@@ -165,34 +166,30 @@ local function log_one_step {
         ","+alpha+","+beta+
         ","+h+","+m+","+dynamic_pres+
         ","+lat+","+lng
-        to filename.
+        to FILENAME.
     // also check for messages while logging.
     // and record events sent by messages
     if not (fldr_evt_data[1] = "")
     {
-        log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to filename.
+        log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to FILENAME.
         set fldr_evt_data[1] to "".
     }
 }
 
 local function log_first_step {
-    set filename to get_last_log_filename() + ".csv".
-
-    set sending_to_base to has_connection_to_base().
-
-    if exists(filename) {
-        deletepath(filename).
+    if exists(FILENAME) {
+        deletepath(FILENAME).
     }
 
     local logdesc is "log_"+string_acro(ship:NAME)+"_"+TIME:CALENDAR:replace(":","")+
             "_"+TIME:CLOCK:replace(":","")+"_"+logtag.
 
     set logdesc to logdesc:replace(" ", "_"):replace(",", "").
-    print "logging " + logdesc + " to " + filename.
+    print "logging " + logdesc + " to " + FILENAME.
 
-    log logdesc to filename.
-    log "t,u0,u1,u2,u3,y0,y1,y2,y3,ft,p,y,r,vp,vh,afore,aup,alat,alpha,beta,h,m,q,lat,lng" to filename.
-    log "" to filename.
+    log logdesc to FILENAME.
+    log "t,u0,u1,u2,u3,y0,y1,y2,y3,ft,p,y,r,vp,vh,afore,aup,alat,alpha,beta,h,m,q,lat,lng" to FILENAME.
+    log "" to FILENAME.
 
     set fldr_evt_data[1] to "".
 
@@ -213,18 +210,69 @@ local function log_first_step {
 
 local function check_for_stop_logging {
     return (AG <> PREV_AG) or
-        (sending_to_base <> has_connection_to_base()) or
-        (time:seconds-starttime > Tdur) and (Tdur > 0) or not core_is_logging.
+        (time:seconds-starttime > Tdur) and (Tdur > 0) or
+        not CORE_IS_LOGGING.
 }
+
+// log on action group use without shbus
+function util_fldr_log_on_ag {
+    if AG <> PREV_AG {
+        util_fldr_start_logging().
+    }
+    wait 0.
+}
+
+function util_fldr_start_logging {
+    parameter LOG_IN_TRIGGER is false.
+    
+    if CORE_IS_LOGGING {
+        // this function serves as its own inverse
+        set CORE_IS_LOGGING to false.
+        return.
+    }
+    set CORE_IS_LOGGING to true.
+    set PREV_AG to AG.
+    set FILENAME to get_last_log_filename() + ".csv".
+    set SENDING_TO_BASE to HOMECONNECTION:ISCONNECTED.
+
+    log_first_step(). // log the first step outside interrupt
+
+    if LOG_IN_TRIGGER {
+        local last_log_time is 0.
+        when time:seconds - last_log_time > Ts then {
+            if check_for_stop_logging() {
+                print "log written to "+ FILENAME.
+                set CORE_IS_LOGGING to false.
+                return false.
+            } else {
+                log_one_step().
+                set last_log_time to time:seconds.
+                return true.
+            }
+        }
+    } else {
+        until check_for_stop_logging() {
+            log_one_step().
+            wait Ts.
+        }
+        print "log written to "+ FILENAME.
+        set CORE_IS_LOGGING to false.
+    }
+}
+
+// COMMON SECTION END
+
+// TX SECTION
 
 function util_fldr_get_help_str {
     return list(
         "UTIL_FLDR running on "+core:tag,
         "logtime(T)   total log time=T",
         "logdt(dt)    log interval =dt",
-        "logtag TAG   set log tag",
-        "log          start/stop logging",
-        "testlog      start test, log",
+        "logtag TAG   set log tag on all",
+        "log          start/stop logging on self",
+        "remotelog    start/stop logging on hosts",
+        "testlog      start test on hosts",
         "listloginfo  list logs",
         "sendlogs     send logs",
         "stashlog     save last log",
@@ -259,33 +307,33 @@ function util_fldr_parse_command {
 
     if commtext:startswith("logtime(") {
         set Tdur to args[0].
+        util_shbus_tx_msg("FLDR_SET_LOGTIME", list(Tdur)).
     } else if commtext:startswith("logdt(") {
         set Ts to args[0].
+        util_shbus_tx_msg("FLDR_SET_LOGTS", list(Ts)).
     } else if commtext:startswith("logtag") {
         if commtext:length > 7 {
             set logtag to args.
         } else {
             set logtag to "".
         }
+        util_shbus_tx_msg("FLDR_SET_LOGTAG", list(logtag)).
     } else if commtext = "log" {
-        if not core_is_logging {
-            util_fldr_start_logging().
-        } else {
-            util_fldr_stop_logging().
-        }
+        util_fldr_start_logging().
+    } else if commtext = "remotelog" {
+        util_shbus_tx_msg("FLDR_TOGGLE_LOGGING").
     } else if commtext = "testlog" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
-        util_fldr_start_logging().
     } else if commtext:startswith("listloginfo") {
         print_pos_info().
         list_logs().
+        util_shbus_tx_msg("FLDR_LOGINFO").
     } else if commtext:startswith("sendlogs") {
         send_logs().
     } else if commtext:startswith("stashlog") {
         stash_last_log().
     } else if commtext:startswith("logstp(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
-        set Tdur to listsum(args)+Tdel.
 
     } else if commtext:startswith("logsu0(") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U0", args).
@@ -312,7 +360,7 @@ function util_fldr_parse_command {
 
 function util_fldr_send_event {
     parameter str_in.
-    if core_is_logging {
+    if CORE_IS_LOGGING {
         set fldr_evt_data to list(time:seconds, str_in).
     } else if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
         util_shbus_tx_msg("FLDR_EVENT", list(time:seconds, str_in)).
@@ -323,6 +371,7 @@ function util_fldr_send_event {
 
 // RX SECTION
 
+// Test should not be run on TX side, so this is in the RX section
 set U_seq to LIST(LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0)).
 set PULSE_TIMES to LIST(0,0,0,0,0).
 
@@ -342,8 +391,18 @@ function print_sequences {
     return pstr.
 }
 
-// Run a test sequence
+
+when CORE_IS_TESTING then {
+    droppriority(). // don't want to use this, messes with gui stuff
+    run_test_control().
+    set CORE_IS_TESTING to false.
+    // persist trigger
+    return true.
+}
+
 local function run_test_control {
+    print "STARTING TEST, TAKING control.".
+
     local u0_trim is ship:control:mainthrottle.
     local u1_trim is ship:control:pitch.
     local u2_trim is ship:control:yaw.
@@ -369,7 +428,7 @@ local function run_test_control {
         set ship:control:yaw to u2_trim + U_seq[2][i].
         set ship:control:roll to u3_trim + U_seq[3][i].
         wait PULSE_TIMES[i].
-        if AG <> PREV_AG {
+        if AG <> PREV_AG  or not CORE_IS_TESTING {
             break.
         }
     }
@@ -397,9 +456,19 @@ function util_fldr_decode_rx_msg {
 
     } else if opcode = "FLDR_SET_SEQ_TP" {
         set PULSE_TIMES to data.
-
     } else if opcode = "FLDR_RUN_TEST" {
-        run_test_control().
+        toggle CORE_IS_TESTING.
+    } else if opcode = "FLDR_SET_LOGTAG" {
+        set logtag to data[0].
+    } else if opcode = "FLDR_SET_LOGTIME" {
+        set Tdur to data[0].
+    } else if opcode = "FLDR_SET_LOGTS" {
+        set Ts to data[0].
+    } else if opcode = "FLDR_LOGINFO" {
+        print_pos_info().
+        list_logs().
+    } else if opcode = "FLDR_TOGGLE_LOGGING" {
+        util_fldr_start_logging(true). // on rx side, test is always in trigger
     } else if opcode = "FLDR_PRINT_TEST" {
         util_shbus_ack(print_sequences(), sender).
     } else if opcode = "FLDR_EVENT" {
@@ -414,44 +483,3 @@ function util_fldr_decode_rx_msg {
 }
 
 // RX SECTION END
-
-// log on action group use without shbus
-function util_fldr_log_on_ag {
-    if AG <> PREV_AG {
-        util_fldr_start_logging().
-    }
-    wait 0.
-}
-
-function util_fldr_start_logging {
-    parameter LOG_IN_TRIGGER is false.
-    
-    set core_is_logging to true.
-    set PREV_AG to AG.
-
-    log_first_step().
-    if LOG_IN_TRIGGER {
-        local last_log_time is 0.
-        when time:seconds - last_log_time > Ts then {
-            if check_for_stop_logging() {
-                print "log written to "+ filename.
-                set core_is_logging to false.
-                return false.
-            } else {
-                log_one_step().
-                return true.
-            }
-        }
-    } else {
-        until check_for_stop_logging() {
-            log_one_step().
-            wait Ts.
-        }
-        print "log written to "+ filename.
-        set core_is_logging to false.
-    }
-}
-
-function util_fldr_stop_logging {
-    set core_is_logging to false.
-}

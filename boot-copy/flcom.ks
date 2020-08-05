@@ -1,18 +1,11 @@
 // Generic flight command system
 
-function has_connection_to_base {
-    if addons:available("RT") {
-        return addons:RT:AVAILABLE AND addons:RT:HASKSCCONNECTION(SHIP).
-    } else {
-        return true.
-    }
-    return false.
-}
-
 global DEV_FLAG is true.
 
-WAIT UNTIL SHIP:LOADED.
-if (DEV_FLAG or not exists("param.json")) and has_connection_to_base() {
+wait until ship:loaded.
+wait 0.25.
+
+if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
     get_ship_param_file().
