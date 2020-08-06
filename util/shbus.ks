@@ -252,6 +252,31 @@ local function get_ship_name {
     }
 }
 
+// returns a savable hostname from fullname
+local function resolve_name {
+    parameter name_in. // is always ship:name+SEP+cpu:tag
+    if name_in:contains(SEP) and ship:name = name_in:split(SEP)[0] {
+        return name_in:split(SEP)[1].
+        // return the core name
+    }
+    // we got ship:name+SEP+cpu:tag from another ship
+    // do nothing
+    return name_in.
+}
+
+// returns a host (not the name) from a fullname
+local function resolve_obj {
+    parameter name_in. // is always ship:name+SEP+cpu:tag
+    local new_host is -1.
+    if name_in:split(SEP)[0] = ship:name {
+        // we got a core on our ship
+        set new_host to find_cpu(name_in:split(SEP)[1]).
+    } else {
+        set new_host to find_ship(name_in:split(SEP)[0]).
+    }
+    return new_host.
+}
+
 
 // RX SECTION
 
@@ -260,8 +285,7 @@ function util_shbus_ack{
     parameter ack_str.
     parameter sender. // is always ship:name+SEP+cpu:tag
     // data is [fullname of who ack is for, fullname of who is acking, ack_content]
-
-    util_shbus_tx_msg("ACK", list(sender, my_fullname, ack_str), list(sender)).
+    util_shbus_tx_msg("ACK", list(sender, my_fullname, ack_str), list(resolve_name(sender))).
 }
 
 // this function serves as a template for other receiving messages
@@ -275,7 +299,7 @@ local function util_shbus_decode_rx_msg {
     parameter data.
 
     if opcode = "HELLO" {
-        print "" + sender + "says hello!".
+        print "" + sender + " says hello!".
         util_shbus_ack("hey!", sender).
     } else if opcode = "ACK" {
         if my_fullname = data[0] {
@@ -285,32 +309,25 @@ local function util_shbus_decode_rx_msg {
             print "Received an ACK that was not for me".
         }
     } else if opcode = "ASKHOST" {
-        local host_asking is data[0].
-        if not tx_hosts:haskey(host_asking) {
-            local new_host is -1.
-            if get_ship_name(host_asking) = ship:name {
-                set new_host to find_cpu(get_final_name(host_asking)).
-            } else {
-                set new_host to find_ship(get_ship_name(host_asking)).
-            }
-            // search for target of this name if no CPU of this name is found
-            if not (new_host = -1) {
-                tx_hosts:add(host_asking, new_host).
-                print "added rx host " + host_asking+ " "+new_host:name.
-            }
+        // data[0] is always a fullname
+        local host_asking is resolve_name(data[0]).
+        local new_host is resolve_obj(data[0]).
+        if not tx_hosts:haskey(host_asking) and not (new_host = -1){
+            tx_hosts:add(host_asking, new_host).
+            print "added host " + host_asking+ "/"+ new_host:name.
+        } else {
+            print "could not add host " + host_asking.
         }
     } else if opcode = "UNASKHOST" {
-        local host_asking is data[0].
-        print "removing rx host " + host_asking.
-        if get_ship_name(host_asking) = ship:name {
-            set host_asking to get_final_name(host_asking).
-        }
+        local host_asking is resolve_name(data[0]).
         if tx_hosts:haskey(host_asking) {
-            print "removed" + tx_hosts[host_asking]:name.
+            print "removed host " + host_asking + "/" + tx_hosts[host_asking]:name.
             tx_hosts:remove(host_asking).
             if single_host_key = host_asking {
                 set single_host_key to "".
             }
+        } else {
+            print "did not find " + host_asking.
         }
     } else if opcode = "HOSTTAGS" {
         local tags is list("SHBUS").
@@ -381,9 +398,9 @@ local function rx_msg {
             }
         } else if (get_ship_name(recipient) = ship:name) {
             // received message is for some other core on this ship
-            util_shbus_tx_msg(opcode, data, list(recipient), sender).
+            util_shbus_tx_msg(opcode, data, list(get_final_name(recipient)), sender).
             // only sent if recipient in tx_hosts.
-            print "routing msg".
+            print "routing msg to " + recipient.
         } else {
             print "msg not for my ship".
         }
