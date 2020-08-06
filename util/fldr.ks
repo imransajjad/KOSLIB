@@ -391,16 +391,11 @@ function print_sequences {
     return pstr.
 }
 
+function util_fldr_run_test {
+    if not CORE_IS_TESTING {
+        return.
+    }
 
-when CORE_IS_TESTING then {
-    droppriority(). // don't want to use this, messes with gui stuff
-    run_test_control().
-    set CORE_IS_TESTING to false.
-    // persist trigger
-    return true.
-}
-
-local function run_test_control {
     print "STARTING TEST, TAKING control.".
 
     local u0_trim is ship:control:mainthrottle.
@@ -433,6 +428,7 @@ local function run_test_control {
         }
     }
     print "TEST COMPLETE, RETURNING control.".
+    set CORE_IS_TESTING to false.
 }
 
 

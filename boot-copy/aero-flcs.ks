@@ -62,6 +62,7 @@ GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
 until false {
     util_shbus_rx_msg().
     util_shsys_spin_check().
+    util_fldr_run_test().
 
     ap_mode_update().
     ap_nav_display().
