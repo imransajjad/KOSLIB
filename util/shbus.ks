@@ -79,7 +79,7 @@ function util_shbus_parse_command {
             local new_host is -1.
             local splitargs is args:split(" ").
             if splitargs[0] = "target" {
-                if is_active_vessel() and HASTARGET {
+                if ISACTIVEVESSEL and HASTARGET {
                     if (ship:name = TARGET:name) { print "warning adding self".}
                     set new_host to TARGET.
                     splitargs:remove(0).

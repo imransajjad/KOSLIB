@@ -9,6 +9,8 @@ set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
 
+global lock ISACTIVEVESSEL to (kuniverse:activevessel = ship).
+
 global BODY_navball_change_alt is lexicon("Kerbin", 36000, "Mun", 4000).
 
 function sat {
@@ -186,10 +188,6 @@ function outerweight {
     parameter xsat is 1.5.
 
     return sat(deadzone(abs(x),xmin)/(xsat-xmin),1.0).
-}
-
-function is_active_vessel {
-    return (KUniverse:ActiveVessel = SHIP).
 }
 
 function get_engines {

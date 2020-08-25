@@ -288,13 +288,13 @@ function util_wp_parse_command {
         overwrite_waypoint(0, wp_arg_lex(args, cur_mode) ).
     } else if (commtext:startswith("wpt(")  or commtext:startswith("wptarget")) 
         and args:length = 2 {
-        if is_active_vessel() and HASTARGET {
+        if ISACTIVEVESSEL and HASTARGET {
             print "Found Target.".
             insert_waypoint(-1,
                 wp_arg_lex(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
                     TARGET:GEOPOSITION:LNG), cur_mode) ).
             return true.
-        } else if is_active_vessel() {
+        } else if ISACTIVEVESSEL {
             for WP_TAR in ALLWAYPOINTS() {
                 if (WP_TAR:ISSELECTED) {
                     print "Found navigation waypoint".
