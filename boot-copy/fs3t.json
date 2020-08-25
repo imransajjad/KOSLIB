@@ -131,13 +131,6 @@
                 "TARGET_SCAN_TIMEOUT", 10
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_TERM",
-        {
-            "entries": [
-                "STARTUP_COMMAND", "askhost flcs"
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
         }
     ],
     "$type": "kOS.Safe.Encapsulation.Lexicon"

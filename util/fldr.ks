@@ -339,15 +339,15 @@ function util_fldr_parse_command {
     }
 
 
-    if commtext:startswith("logtime(") {
+    if commtext:startswith("logtime") {
         set Tdur to args[0].
         util_shbus_tx_msg("FLDR_SET_LOGTIME", list(Tdur)).
-    } else if commtext:startswith("logdt(") {
+    } else if commtext:startswith("logdt") {
         set Ts to args[0].
         util_shbus_tx_msg("FLDR_SET_LOGTS", list(Ts)).
     } else if commtext:startswith("logtag") {
         if commtext:length > 7 {
-            set logtag to args.
+            set logtag to commtext:replace("logtag",""):trim().
         } else {
             set logtag to "".
         }
@@ -366,22 +366,22 @@ function util_fldr_parse_command {
         send_stashed_logs().
     } else if commtext:startswith("stashlog") {
         stash_last_log().
-    } else if commtext:startswith("logstp(") {
+    } else if commtext:startswith("logstp") {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
 
-    } else if commtext:startswith("logsu0(") {
+    } else if commtext:startswith("logsu0") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U0", args).
         print "Sent FLDR_SET_SEQ_U0 "+ args:join(" ").
 
-    } else if commtext:startswith("logsu1(") {
+    } else if commtext:startswith("logsu1") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U1", args).
         print "Sent FLDR_SET_SEQ_U1 "+ args:join(" ").
 
-    } else if commtext:startswith("logsu2(") {
+    } else if commtext:startswith("logsu2") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U2", args).
         print "Sent FLDR_SET_SEQ_U2 "+ args:join(" ").
 
-    } else if commtext:startswith("logsu3(") {
+    } else if commtext:startswith("logsu3") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U3", args).
         print "Sent SET_SEQ_U3 "+ args:join(" ").
     } else if commtext:startswith("logsupr") {
