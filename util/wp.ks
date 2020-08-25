@@ -252,13 +252,13 @@ function util_wp_parse_command {
     } else {
         return false.
     }
-    if commtext:startswith("wpo") or commtext:startswith("wpoverwrite") {
+    if commtext = "wpo" or commtext = "wpoverwrite" {
         overwrite_waypoint(-args[0]-1, util_wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext:startswith("wpi") or commtext:startswith("wpinsert")  {
+    } else if commtext = "wpi" or commtext = "wpinsert"  {
         insert_waypoint(-args[0]-2, util_wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext:startswith("wpr") or commtext:startswith("wpremove"){
+    } else if commtext = "wpr" or commtext = "wpremove"{
         remove_waypoint(-args[0]-1).
-    } else if commtext:startswith("wps") or commtext:startswith("wpswap"){
+    } else if commtext = "wps" or commtext = "wpswap"{
         print "not implmented yet".
     } else if commtext = "wpqp" or commtext = "wpqueueprint" {
         util_shbus_tx_msg("WP_PRINT").
@@ -273,13 +273,13 @@ function util_wp_parse_command {
         }
     } else if commtext = "wpd" or commtext = "wpdelete" { 
         remove_waypoint(0).
-    } else if commtext:startswith("wpf") or commtext:startswith("wpfirst"){ 
+    } else if commtext = "wpf" or commtext = "wpfirst"{ 
         insert_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if commtext:startswith("wpa") or commtext:startswith("wpadd"){ 
+    } else if commtext = "wpa" or commtext = "wpadd"{ 
         insert_waypoint(-1, util_wp_arg_lex(args, cur_mode) ).
-    } else if commtext:startswith("wpu") or commtext:startswith("wpupdate"){
+    } else if commtext = "wpu" or commtext = "wpupdate"{
         overwrite_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if (commtext:startswith("wpt")  or commtext:startswith("wptarget")) 
+    } else if (commtext = "wpt"  or commtext = "wptarget") 
         and args:length = 2 {
         if ISACTIVEVESSEL and HASTARGET {
             print "Found Target.".
@@ -299,15 +299,15 @@ function util_wp_parse_command {
             }
         }
         print "Could not find target or navigation waypoint".
-    } else if (commtext:startswith("wpk") or commtext:startswith("wphome")) 
+    } else if (commtext = "wpk" or commtext = "wphome") 
         and args:length = 2 {
         insert_waypoint(-1,
             util_wp_arg_lex(list(args[0],args[1],-0.048,
                 -74.69), cur_mode) ).
-    } else if (commtext:startswith("wpl") or commtext:startswith("wpland")) 
+    } else if (commtext = "wpl" or commtext = "wpland") 
         and (args:length = 3 or args:length = 4) {
         util_shbus_tx_msg("WP_LAND", args). // special command for landing
-    } else if (commtext:startswith("wpto") or commtext:startswith("wptakeoff")) 
+    } else if (commtext = "wpto" or commtext = "wptakeoff") 
         and (args:length = 1 or args:length = 2) {
         util_shbus_tx_msg("WP_PURGE").
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
