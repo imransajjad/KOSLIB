@@ -104,7 +104,7 @@ local function do_action_group_or_key {
 // it should serve as a template for other utilities' parse_command functions
 local function util_term_parse_command {
     parameter commtext.
-    parameter args is list().
+    parameter args is -1.
 
     if commtext:startswith("help") {
         local tags is list("TERM").
@@ -148,15 +148,16 @@ local function util_term_parse_command {
             util_shbus_reconnect().
         }
     } else if commtext:startswith("run") {
-        if HOMECONNECTION:ISCONNECTED and exists("0:/term-scripts/"+args) {
-            local filecontent is open("0:/term-scripts/"+args):readall.
+        local runfile is commtext:replace("run",""):trim().
+        if HOMECONNECTION:ISCONNECTED and exists("0:/term-scripts/"+runfile) {
+            local filecontent is open("0:/term-scripts/"+runfile):readall.
             local i is filecontent:iterator.
             until not i:next {
                 print i:value:split("#")[0].
                 util_term_do_command(i:value:split("#")[0]).
             }
         } else {
-            print "0:/term-scripts/"+args+"does not exist".
+            print "0:/term-scripts/"+runfile+"does not exist".
         }
     } else {
         return false.
@@ -164,9 +165,10 @@ local function util_term_parse_command {
     return true.
 }
 
-// get list of numbers or strings or -1 from commtext
+// separates elements in parentheses from text portion of a command
+//  "arg text(1,2,tag,3)ignored" -> list("arg text", list(1,2,"tag",3))
 local function raw_input_to_args {
-    // will return a list of numbers, a string or -1 (no args in command)
+    // will return a list of numbers, a list of strings or -1 (no args in command)
     parameter commtext.
     if commtext:contains("(") AND commtext:contains(")") {
         local arg_start is commtext:FIND("(").
@@ -179,19 +181,14 @@ local function raw_input_to_args {
         for i in arg_strings {
             local arg_as_num is i:toscalar(-9999999).
             if arg_as_num = -9999999 {
-                numlist:add(i).
+                numlist:add(i:trim()).
             } else {
                 numlist:add(arg_as_num).
             }
         }
-        return numlist.
+        return list(commtext:substring(0,arg_start),numlist).
     }
-    if commtext:split(" "):length > 1 {
-        local n is commtext:find(" ")+1.
-        return commtext:substring(n,commtext:length-n).
-
-    }
-    return -1.
+    return list(commtext,-1).
 }
 
 
@@ -203,8 +200,9 @@ local function parse_command {
 
     for comm in commtextfull:split(";") {
 
-        local commtext is comm:trim().
-        local args is raw_input_to_args(commtext).
+        local parsed is raw_input_to_args(comm:trim()).
+        local commtext is parsed[0].
+        local args is parsed[1].
 
         if util_term_parse_command(commtext,args) {
            print("terminal parsed").

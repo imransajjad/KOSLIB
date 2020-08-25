@@ -78,7 +78,7 @@ local function nav_vecdraw {
     }
     local nav_vel is ap_nav_get_hud_vel().
 
-    if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel()
+    if hud_setting_dict["on"] and hud_setting_dict["nav"] and ISACTIVEVESSEL
         and not MAPVIEW and nav_vel:mag > 0.3  {
 
         local py_temp is pitch_yaw_from_dir(nav_vel:direction).
@@ -159,7 +159,7 @@ local function ladder_vec_draw {
             }
         }
     }
-    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and is_active_vessel() and not MAPVIEW and ship:airspeed > 1.0 {
+    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and ISACTIVEVESSEL and not MAPVIEW and ship:airspeed > 1.0 {
 
         local closest_pitch is sat(
             round(vel_pitch/PITCH_DIV)*PITCH_DIV,
@@ -231,7 +231,7 @@ local function align_marker_draw {
         set align_hori:wiping to false.
     }
 
-    if is_active_vessel() and hud_setting_dict["on"] and hud_setting_dict["align"] and not MAPVIEW {
+    if ISACTIVEVESSEL and hud_setting_dict["on"] and hud_setting_dict["align"] and not MAPVIEW {
         local camera_offset is camera_offset_vec.
         local ghead is heading(align_head,align_elev,-align_roll).
         
@@ -303,7 +303,7 @@ local function lr_text_info {
 
     }
 
-    if hud_setting_dict["on"] and not MAPVIEW and is_active_vessel() {
+    if hud_setting_dict["on"] and not MAPVIEW and ISACTIVEVESSEL {
 
         local vel_displayed is 0.
         local vel_type is "  ".
@@ -376,7 +376,7 @@ local function control_part_vec_draw {
         //set control_part_vec:wiping to false.
         set control_part_vec_init_draw to true.
     }
-    if is_active_vessel() and hud_setting_dict["on"] and not MAPVIEW {
+    if ISACTIVEVESSEL and hud_setting_dict["on"] and not MAPVIEW {
 
         set control_part_vec:vec to SHIP:CONTROLPART:position + CAMERA_HEIGHT*ship:facing:topvector.
         set control_part_vec:show to true.
@@ -467,10 +467,10 @@ function util_hud_parse_command {
         return false.
     }
 
-    if commtext:startswith("hudsw") {
-        local newkey is args.
+    if commtext:startswith("hudsw ") {
+        local newkey is commtext:split(" ")[1].
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
-    } else if commtext:startswith("hudalign(") {
+    } else if commtext:startswith("hudalign") {
         if (args:length = 2 or args:length = 3) {
             if args:length = 2 { args:add(0). }
             util_shbus_tx_msg("HUD_ALIGN_SET", args).

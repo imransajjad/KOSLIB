@@ -105,20 +105,8 @@
         "UTIL_SHBUS",
         {
             "entries": [
-                "FLCS_PROC_TAG", "flcs",
+                "SHIP_ROUTER_CORE_TAG", "flcs",
                 "RX_MSG_IN_TRIGGER", true
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_FLDR",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_WP",
-        {
-            "entries": [
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
@@ -129,13 +117,6 @@
                 "MAX_ANGLE", 25,
                 "DISPLAY_UPDATE_PERIOD", 0.25,
                 "TARGET_SCAN_TIMEOUT", 10
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_TERM",
-        {
-            "entries": [
-                "STARTUP_COMMAND", "askhost flcs"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

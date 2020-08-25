@@ -33,14 +33,14 @@ for i in Slist {
 
 
 local PARAM is readJson("1:/param.json").
-local MAIN_ENGINE_NAME is (choose PARAM["AP_ENGINES"]["MAIN_ENGINE_NAME"]
-        if PARAM:haskey("AP_ENGINES") and
-        PARAM["AP_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
+local MAIN_ENGINE_NAME is (choose PARAM["AP_AERO_ENGINES"]["MAIN_ENGINE_NAME"]
+        if PARAM:haskey("AP_AERO_ENGINES") and
+        PARAM["AP_AERO_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
 
 local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
 
-// Locals for filenaming etc
-local FILENAME is "".
+// Locals for file logging naming etc
+local FILENAME is "?". // a character that's invalid on every filesystem
 local CORE_IS_LOGGING is false.
 local SENDING_TO_BASE is false.
 local starttime is 0.
@@ -101,7 +101,8 @@ local lock lng to ship:GEOPOSITION:LNG.
 // COMMON SECTION
 
 local function get_last_log_filename {
-    return (choose "0" if HOMECONNECTION:ISCONNECTED else "1")+":/logs/lastlog".
+    parameter send_to_home is HOMECONNECTION:ISCONNECTED.
+    return (choose "0" if send_to_home else "1")+":/logs/lastlog".
 }
 
 local function list_logs {
@@ -112,52 +113,74 @@ local function list_logs {
     }
 }
 
-local function send_logs {
+local function send_stashed_logs {
     if not HOMECONNECTION:ISCONNECTED {
         print "send_logs: no connection to KSC".
         return.
     }
-    if exists("logs"){
-        cd("logs").
-        LIST files IN FLIST.
-        FOR F in FLIST {
-            print "send_logs: "+F.
-            COPYPATH(F,"0:/logs/"+F).
-            DELETEPATH(F).
+    local basefilename is get_last_log_filename(false)+"stashed.csv".
+    if exists(basefilename) {
+        local i is 0.
+        local lock fname to basefilename:replace("stashed.csv",""+i+"sent.csv"):replace("1:/","0:/").
+        until not exists(fname) {
+            set i to i+1.
         }
-        cd("..").
+        copypath(basefilename,fname).
+        deletepath(basefilename).
+        print "stashed log sent to " + fname.
+    } else {
+        print basefilename+" does not exist".
     }
 }
 
 local function stash_last_log {
-    if exists(get_last_log_filename()+".csv") {
-        local i is 0.
-        until not exists(get_last_log_filename()+i+".csv") {
-            set i to i+1.
-        }
-        copypath(get_last_log_filename()+".csv",get_last_log_filename()+i+".csv").
-        print "log stashed to " + get_last_log_filename()+i+".csv".
+    local basefilename is get_last_log_filename(false).
+    if exists(basefilename+".csv") {
+        copypath(basefilename+".csv",basefilename+"stashed.csv").
+        deletepath(basefilename+".csv").
+        print "log stashed to " + basefilename+"stashed.csv".
     } else {
-        print "logs/lastlog.csv does not exist".
+        print basefilename+".csv does not exist".
     }
 }
 
-local function print_pos_info {
-    print "time " + round_dec(time:seconds,3).
-    print "dur " + round_dec(Tdur,3).
-    print "dt  " + round_dec(Ts,3).
-    print "lat  " + ship:GEOPOSITION:LAT.
-    print "lng  " + ship:GEOPOSITION:LNG.
-    print "h    " + ship:ALTITUDE.
-    print "vs   " + ship:AIRSPEED.
-    print "engine " + MAIN_ENGINE_NAME.
-    print "logtag " + logtag.
+local function get_info_string {
+    set rstr to "time " + round_dec(time:seconds,3) +
+    char(10) + "dur " + round_dec(Tdur,3) +
+    char(10) + "dt  " + round_dec(Ts,3) +
+    char(10) + "lat  " + ship:GEOPOSITION:LAT +
+    char(10) + "lng  " + ship:GEOPOSITION:LNG +
+    char(10) + "h    " + ship:ALTITUDE +
+    char(10) + "vs   " + ship:AIRSPEED +
+    char(10) + "engine " + MAIN_ENGINE_NAME +
+    char(10) + "logtag " + logtag.
+
+    local Filelist is -1.
+    if exists("logs"){
+        cd("logs").
+        LIST files in Filelist.
+        set rstr to rstr + char(10) + Filelist:join(char(10)).
+        cd("..").
+    }
+    return rstr.
 }
 
+local time_logged is 0.
 local function log_one_step {
-    if SENDING_TO_BASE <> HOMECONNECTION:ISCONNECTED {
-        return.
+    set FILENAME to get_last_log_filename() + ".csv".
+    if SENDING_TO_BASE and not HOMECONNECTION:ISCONNECTED {
+        set SENDING_TO_BASE to false.
+        print "fldr connection lost".
+    } else if not SENDING_TO_BASE and HOMECONNECTION:ISCONNECTED {
+        set SENDING_TO_BASE to true.
+        print "fldr connection regained".
+        stash_last_log().
+        send_stashed_logs().
     }
+    if not SENDING_TO_BASE {
+        // return.
+    }
+
     log time:seconds+","+u0+","+u1+","+u2+","+u3+
         ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
         ","+thrust+","+pitch+","+yaw+","+roll+
@@ -174,11 +197,22 @@ local function log_one_step {
         log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to FILENAME.
         set fldr_evt_data[1] to "".
     }
+    if time:seconds - time_logged > 15 {
+        print "logged " + round(time:seconds - time_logged) + " seconds".
+        set time_logged to time:seconds.
+    }
 }
 
 local function log_first_step {
+    set FILENAME to get_last_log_filename() + ".csv".
     if exists(FILENAME) {
         deletepath(FILENAME).
+        local i is 0.
+        local lock fname to FILENAME:replace(".csv",""+i+"sent.csv").
+        until not exists(fname){
+            deletepath(fname).
+            set i to i+1.
+        }
     }
 
     local logdesc is "log_"+string_acro(ship:NAME)+"_"+TIME:CALENDAR:replace(":","")+
@@ -232,7 +266,6 @@ function util_fldr_start_logging {
     }
     set CORE_IS_LOGGING to true.
     set PREV_AG to AG.
-    set FILENAME to get_last_log_filename() + ".csv".
     set SENDING_TO_BASE to HOMECONNECTION:ISCONNECTED.
 
     log_first_step(). // log the first step outside interrupt
@@ -274,6 +307,7 @@ function util_fldr_get_help_str {
         "remotelog    start/stop logging on hosts",
         "testlog      start test on hosts",
         "listloginfo  list logs",
+        "remoteloginfo remote list logs",
         "sendlogs     send logs",
         "stashlog     save last log",
         "logstp(SEQ)  set pulse_time(SEQ)",
@@ -305,15 +339,15 @@ function util_fldr_parse_command {
     }
 
 
-    if commtext:startswith("logtime(") {
+    if commtext:startswith("logtime") {
         set Tdur to args[0].
         util_shbus_tx_msg("FLDR_SET_LOGTIME", list(Tdur)).
-    } else if commtext:startswith("logdt(") {
+    } else if commtext:startswith("logdt") {
         set Ts to args[0].
         util_shbus_tx_msg("FLDR_SET_LOGTS", list(Ts)).
     } else if commtext:startswith("logtag") {
         if commtext:length > 7 {
-            set logtag to args.
+            set logtag to commtext:replace("logtag",""):trim().
         } else {
             set logtag to "".
         }
@@ -325,29 +359,29 @@ function util_fldr_parse_command {
     } else if commtext = "testlog" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
     } else if commtext:startswith("listloginfo") {
-        print_pos_info().
-        list_logs().
+        print get_info_string().
+    } else if commtext:startswith("remoteloginfo") {
         util_shbus_tx_msg("FLDR_LOGINFO").
     } else if commtext:startswith("sendlogs") {
-        send_logs().
+        send_stashed_logs().
     } else if commtext:startswith("stashlog") {
         stash_last_log().
-    } else if commtext:startswith("logstp(") {
+    } else if commtext:startswith("logstp") {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
 
-    } else if commtext:startswith("logsu0(") {
+    } else if commtext:startswith("logsu0") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U0", args).
         print "Sent FLDR_SET_SEQ_U0 "+ args:join(" ").
 
-    } else if commtext:startswith("logsu1(") {
+    } else if commtext:startswith("logsu1") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U1", args).
         print "Sent FLDR_SET_SEQ_U1 "+ args:join(" ").
 
-    } else if commtext:startswith("logsu2(") {
+    } else if commtext:startswith("logsu2") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U2", args).
         print "Sent FLDR_SET_SEQ_U2 "+ args:join(" ").
 
-    } else if commtext:startswith("logsu3(") {
+    } else if commtext:startswith("logsu3") {
         util_shbus_tx_msg("FLDR_SET_SEQ_U3", args).
         print "Sent SET_SEQ_U3 "+ args:join(" ").
     } else if commtext:startswith("logsupr") {
@@ -461,8 +495,9 @@ function util_fldr_decode_rx_msg {
     } else if opcode = "FLDR_SET_LOGTS" {
         set Ts to data[0].
     } else if opcode = "FLDR_LOGINFO" {
-        print_pos_info().
-        list_logs().
+        local info_str is get_info_string().
+        util_shbus_ack(info_str, sender).
+        print info_str.
     } else if opcode = "FLDR_TOGGLE_LOGGING" {
         util_fldr_start_logging(true). // on rx side, test is always in trigger
     } else if opcode = "FLDR_PRINT_TEST" {
