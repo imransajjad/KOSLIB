@@ -9,6 +9,8 @@ set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
 
+global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
+
 global BODY_navball_change_alt is lexicon("Kerbin", 36000, "Mun", 4000).
 
 function sat {
@@ -168,6 +170,12 @@ function pitch_yaw_from_dir {
     local guide_dir_py to R(90,0,0)*(-SHIP:UP)*dir.
     return list( (mod(guide_dir_py:pitch+90,180)-90) ,
                  (360-guide_dir_py:yaw) ).
+}
+
+function srf_head_from_vec {
+    parameter vec.
+    local guide_dir_py to R(90,0,0)*(-SHIP:UP)*vec:direction.
+    return heading(360-guide_dir_py:yaw, mod(guide_dir_py:pitch+90,180)-90, 0).
 }
 
 function remainder {

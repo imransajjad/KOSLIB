@@ -124,7 +124,7 @@ function ap_missile_guide {
             wait Ts.
         }
 
-    } else {
+    } else if target_vessel:status = "LANDED" or target_vessel:status = "SPLASHED" {
         local lock DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
         local lock target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
         local lock target_bear to (360-DELTA_TARGET:yaw).
@@ -157,9 +157,9 @@ function ap_missile_guide {
 
         print "entering terminal guidance".
         util_fldr_send_event("entering terminal guidance").
-        // unlock throttle.
-        // unlock steering.
-        // return.
+        unlock throttle.
+        unlock steering.
+        return.
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
         
@@ -168,5 +168,24 @@ function ap_missile_guide {
             set my_throttle to (choose 1.0 if ship:q < 0.7 else 0.0).
             wait Ts.
         }
+    } else if target_vessel:status = "FLYING" or target_vessel:status = "SUB ORBITAL" {
+        
+        local lock DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
+        local lock target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
+        local lock target_bear to (360-DELTA_TARGET:yaw).
+
+        print "entering guidance loop 1".
+        util_fldr_send_event("entering guidance loop 1").
+        lock steering TO heading(target_bear,30,0).
+        until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) 
+        OR (get_true_intercept_error(target_vessel) < minimum_intercept) {
+            wait Ts.
+        }
+
+        print "entering terminal guidance".
+        util_fldr_send_event("entering terminal guidance").
+        unlock throttle.
+        unlock steering.
+        return.
     }
 }

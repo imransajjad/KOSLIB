@@ -28,7 +28,7 @@ local DISPLAY_TAR is false.
 
 local DISPLAY_HUD_VEL is false.
 
-local debug_vectors is false.
+local debug_vectors is true.
 if (debug_vectors) { // debug
     clearvecdraws().
     local vec_width is 0.5.
@@ -58,6 +58,10 @@ local function get_vessel_vel {
         set this_vessel to this_vessel:ship.
     }
     if AP_NAV_IN_SURFACE {
+        if not this_vessel:loaded and 
+        (this_vessel:status = "LANDED" or this_vessel:status = "SPLASHED") {
+            return V(0,0,0).
+        }
         return this_vessel:velocity:surface.
     } else {
         return this_vessel:velocity:orbit.
@@ -304,7 +308,7 @@ local function srf_stick {
         }
         set VSET_MAN to true.
     }
-    if VSET_MAN AND is_active_vessel() {
+    if VSET_MAN and is_active_vessel() {
         set increment to 2.7*deadzone(2*u0-1,0.1).
         if increment <> 0 {
             set AP_NAV_VEL To MIN(MAX(AP_NAV_VEL:mag+increment,MIN_NAV_SRF_VEL),VSET_MAX)*AP_NAV_VEL:normalized.
@@ -400,8 +404,6 @@ local function tar_wp_guide {
     set approach_speed to get_param(wp, "speed", 3.0).
     local offsvec is get_param(wp, "offsvec", V(0,0,-abs(radius)) ).
 
-    local current_nav_velocity is get_vessel_vel().
-
     local target_ship is -1.
     if defined UTIL_SHSYS_ENABLED {
         set target_ship to util_shsys_get_target().
@@ -410,9 +412,8 @@ local function tar_wp_guide {
     }
 
     if not (target_ship = -1) {
-        local target_nav_velocity is get_vessel_vel(target_ship).
-        set relative_velocity to current_nav_velocity-target_nav_velocity.
-        set final_head to target:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(0,180,0)).
+        set relative_velocity to get_vessel_vel()-get_vessel_vel(target_ship).
+        set final_head to target_ship:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(0,180,0)).
         set position to target_ship:position + (final_head)*offsvec.
 
         if position:mag > INTERCEPT_DISTANCE {
