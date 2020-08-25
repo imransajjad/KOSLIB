@@ -12,7 +12,7 @@ GLOBAL UTIL_SHBUS_ENABLED IS true.
 // TX SECTION
 
 local PARAM is get_param(readJson("param.json"),"UTIL_SHBUS", lexicon()).
-local SHIP_ROUTER_CORE is (get_param(PARAM, "ship_router_core_tag", "flcs") = core:tag).
+local SHIP_ROUTER_CORE is (get_param(PARAM, "SHIP_ROUTER_CORE_TAG", "flcs") = core:tag).
 local RX_MSG_IN_TRIGGER is get_param(PARAM, "RX_MSG_IN_TRIGGER", false).
 print "shbus rx msg in interrupt:" + RX_MSG_IN_TRIGGER.
 
@@ -85,7 +85,7 @@ function util_shbus_parse_command {
         local new_host is -1.
 
         if arg_hostname:startswith("target") {
-            if is_active_vessel() and HASTARGET {
+            if ISACTIVEVESSEL and HASTARGET {
                 if (ship:name = TARGET:name) { print "warning adding self".}
                 set new_host to TARGET.
                 if arg_hostname = "target" {
@@ -397,6 +397,11 @@ local function rx_msg {
 function util_shbus_set_ship_router {
     parameter is_ship_router.
     set SHIP_ROUTER_CORE to is_ship_router.
+}
+
+// once on startup, if not ship router core, try and connect to it
+if not SHIP_ROUTER_CORE {
+    util_shbus_parse_command("host ask " + get_param(PARAM, "SHIP_ROUTER_CORE_TAG", "flcs")).
 }
 
 // RX SECTION END

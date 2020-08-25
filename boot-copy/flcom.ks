@@ -32,8 +32,6 @@ run once "util-term".
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 
-util_shbus_connect("flcs").
-
 until false {
     util_shbus_rx_msg().
     util_term_get_input().

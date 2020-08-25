@@ -95,13 +95,6 @@
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
-        "UTIL_SHBUS",
-        {
-            "entries": [
-                "FLCS_PROC_TAG", "flcs"
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
         "UTIL_TERM",
         {
             "entries": [

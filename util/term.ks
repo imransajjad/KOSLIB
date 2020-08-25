@@ -186,8 +186,6 @@ local function raw_input_to_args {
                 numlist:add(arg_as_num).
             }
         }
-        print commtext:substring(0,arg_start).
-        print numlist.
         return list(commtext:substring(0,arg_start),numlist).
     }
     return list(commtext,-1).

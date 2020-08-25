@@ -105,20 +105,8 @@
         "UTIL_SHBUS",
         {
             "entries": [
-                "FLCS_PROC_TAG", "flcs",
+                "SHIP_ROUTER_CORE_TAG", "flcs",
                 "RX_MSG_IN_TRIGGER", true
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_FLDR",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_WP",
-        {
-            "entries": [
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
