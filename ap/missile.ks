@@ -36,7 +36,7 @@ local function get_true_intercept_error {
 
 // local target_vessel is -1.
 function ap_missile_cache_target {
-//     if is_active_vessel() and HASTARGET {
+//     if ISACTIVEVESSEL and HASTARGET {
 //         set target_vessel to TARGET.
 //         print "target locked: "+ target_vessel:NAME.
 //     }

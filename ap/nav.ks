@@ -304,7 +304,7 @@ local function srf_stick {
         }
         set VSET_MAN to true.
     }
-    if VSET_MAN AND is_active_vessel() {
+    if VSET_MAN and ISACTIVEVESSEL {
         set increment to 2.7*deadzone(2*u0-1,0.1).
         if increment <> 0 {
             set AP_NAV_VEL To MIN(MAX(AP_NAV_VEL:mag+increment,MIN_NAV_SRF_VEL),VSET_MAX)*AP_NAV_VEL:normalized.
@@ -355,7 +355,7 @@ local function orb_stick {
 
     local steer_time is 10. // ?get from orb?
     local buffer_time is 1.
-    if is_active_vessel() and HASNODE and NEXTNODE:eta < maneuver_time(NEXTNODE:deltav)/2 + steer_time {
+    if ISACTIVEVESSEL and HASNODE and NEXTNODE:eta < maneuver_time(NEXTNODE:deltav)/2 + steer_time {
         local mannode_delta_v is NEXTNODE:deltav:mag.
 
         if NEXTNODE:eta < maneuver_time(NEXTNODE:deltav)/2 + buffer_time {
@@ -490,7 +490,7 @@ function ap_nav_display {
 function ap_nav_get_hud_vel {
     if DISPLAY_HUD_VEL {
         set DISPLAY_HUD_VEL to false.
-        if is_active_vessel() and NAVMODE = "TARGET" and HASTARGET {
+        if ISACTIVEVESSEL and NAVMODE = "TARGET" and HASTARGET {
             return AP_NAV_VEL-get_vessel_vel(TARGET).
         } else {
             return AP_NAV_VEL.
@@ -551,7 +551,7 @@ function ap_nav_status_string {
     }
 
     if DISPLAY_TAR {
-        if is_active_vessel() and NAVMODE = "TARGET" and HASTARGET {
+        if ISACTIVEVESSEL and NAVMODE = "TARGET" and HASTARGET {
             set dstr to dstr + "/"+round_fig(approach_speed,2).
         } else {
             set dstr to dstr + "/"+round_fig(vel_mag,2).

@@ -92,7 +92,7 @@ local function apply_auto_brakes {
 
 local function turbojet_throttle_map {
     parameter u0.
-    if not is_active_vessel() {
+    if not ISACTIVEVESSEL {
         return my_throttle.
     }
 
