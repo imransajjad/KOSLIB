@@ -51,6 +51,23 @@ local total_head_align is 0.
 local BURNvec to V(0,0,1).
 local RCSon to false.
 
+// for a command below a minumum actuator force,
+// return a pulsed output to apply averaged out actuator force
+local function pwm_alivezone {
+    parameter u_in.
+    parameter min_act is 0.1.
+
+    local period is 0.4. // min pulse 0.04 seconds
+
+    if abs(u_in) < min_act {
+        local act_on is ( remainder(time:seconds,period) < abs(u_in/min_act)*period ).
+        return choose min_act*sign(u_in) if act_on else 0.0.
+    } else {
+        return u_in.
+    }
+
+}
+
 function ap_orb_nav_do {
     parameter vel_vec is AP_NAV_VEL. // defaults are globals defined in AP_NAV
     parameter acc_vec is AP_NAV_ACC.
@@ -114,9 +131,9 @@ function ap_orb_nav_do {
 
             if RCSon and (total_head_align >= RCS_MIN_ALIGN) {
                 set ship:control:translation to V(
-                    K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR,
-                    K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR,
-                    K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR).
+                    pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR),
+                    pwm_alivezone(K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR),
+                    pwm_alivezone(K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR)).
             } else {
                 set ship:control:translation to V(0,0,0).
             }
