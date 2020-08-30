@@ -19,7 +19,6 @@ local K_ORB_ENGINE_FORE is get_param(PARAM, "K_ORB_ENGINE_FORE",0.5).
 local ENGINE_VEC is get_param(PARAM, "ENGINE_VEC", V(0,0,1)).
 
 local RCS_MAX_DV is get_param(PARAM, "RCS_MAX_DV", 10.0).
-local RCS_MIN_DV is get_param(PARAM, "RCS_MIN_DV", 0.05).
 local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 local RCS_THRUST is get_param(PARAM, "RCS_THRUST", 1.0).
 
@@ -119,7 +118,7 @@ function ap_orb_nav_do {
             if (USE_RCS_STEER) {
                 set STEER_RCS to (total_head_align < MIN_ALIGN).
             }
-            local MOVE_RCS is (total_head_align >= RCS_MIN_ALIGN and delta_v:mag < RCS_MAX_DV and delta_v:mag > RCS_MIN_DV ).
+            local MOVE_RCS is (total_head_align >= RCS_MIN_ALIGN and delta_v:mag < RCS_MAX_DV).
             if RCSon and (throttle > 0.0 or not ( STEER_RCS or MOVE_RCS)) {
                 set RCS to false.
                 set RCSon to false.
