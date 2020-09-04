@@ -28,7 +28,7 @@ local DISPLAY_TAR is false.
 
 local DISPLAY_HUD_VEL is false.
 
-local debug_vectors is true.
+local debug_vectors is false.
 if (debug_vectors) { // debug
     clearvecdraws().
     local vec_width is 0.5.

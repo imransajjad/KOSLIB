@@ -18,16 +18,16 @@ global BODY_navball_change_alt is lexicon("Kerbin", 36000, "Mun", 4000).
 function sat {
     parameter X.
     parameter Lim is 1.0.
-    IF X > Lim { return Lim.}
-    IF X < -Lim { return -Lim.}
+    if X > Lim { return Lim.}
+    if X < -Lim { return -Lim.}
     return X.
 }
 
 function deadzone {
     parameter X.
     parameter BAND.
-    If X > BAND { return X-BAND.}
-    If X < -BAND { return X+BAND.}
+    if X > BAND { return X-BAND.}
+    if X < -BAND { return X+BAND.}
     return 0.
 }
 
@@ -38,6 +38,12 @@ function convex {
     return (1-e)*X + e*Y.
 }
 
+function sign {
+    parameter x.
+    if X > 0 { return 1.0.}
+    if X < 0 { return -1.0.}
+    return 0.
+}
 function round_dec {
     parameter NUM.
     parameter FRAD_DIG.
@@ -243,7 +249,7 @@ function flush_core_messages {
     parameter ECHO is true.
     UNTIL CORE:MESSAGES:EMPTY {
         SET RECEIVED TO CORE:MESSAGES:POP.
-        IF ECHO {print RECEIVED:CONTENT.}
+        if ECHO {print RECEIVED:CONTENT.}
     }
 }
 
