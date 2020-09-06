@@ -88,31 +88,6 @@
                 "FLARE_ALT", 40
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_SHSYS",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_TERM",
-        {
-            "entries": [
-                "STARTUP_COMMAND", "askhost flcs"
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_RADAR",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_WP",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
         }
     ],
     "$type": "kOS.Safe.Encapsulation.Lexicon"

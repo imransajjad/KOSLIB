@@ -186,6 +186,35 @@ function srf_head_from_vec {
     return heading(360-guide_dir_py:yaw, mod(guide_dir_py:pitch+90,180)-90, 0).
 }
 
+function vec_max {
+    parameter va. // vector
+    parameter vb. // vector
+    set va:x to max(va:x,vb:x).
+    set va:y to max(va:y,vb:y).
+    set va:z to max(va:z,vb:z).
+    return va.
+}
+
+function vec_min {
+    parameter va. // vector
+    parameter vb. // vector
+    set va:x to min(va:x,vb:x).
+    set va:y to min(va:y,vb:y).
+    set va:z to min(va:z,vb:z).
+    return va.
+}
+
+function vec_max_axis {
+    parameter va. // vector
+    if va:x > va:y and va:x > va:z {
+        return V(va:x,0,0).
+    } else if va:y > va:z {
+        return V(0,va:y,0).
+    } else {
+        return V(0,0,va:z).
+    }
+}
+
 function remainder {
     parameter x.
     parameter divisor.

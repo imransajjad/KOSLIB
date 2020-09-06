@@ -25,7 +25,7 @@ local lock MTR to 0*ship:mass/(2*RCS_THRUST).
 local lock omega to RAD2DEG*ship:angularVel.
 
 if USE_STEERMAN {
-    set STEERINGMANAGER:MAXSTOPPINGTIME to 1000.
+    // set STEERINGMANAGER:MAXSTOPPINGTIME to 1000.
     set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
     set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
     set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
@@ -65,6 +65,38 @@ local beta_c is 0.0.
 local W_A is 0.8.
 
 
+local RCSthrust is 0.
+local RCSthrustvec is V(0,0,1).
+if true {
+    local RCSTpos is V(0,0,0). // in ship frame in kN
+    local RCSTneg is V(0,0,0).
+    for i in ship:parts {
+        if i:name = "linearRCS" {
+            local F is 2.0*((-ship:facing)*i:rotation):topvector.
+            set RCSTpos to vec_max(RCSTpos,RCSTpos+F).
+            set RCSTneg to vec_min(RCSTneg,RCSTneg+F).
+        }
+        if i:name = "vernierEngine" {
+            local F is -12.0*((-ship:facing)*i:rotation):starvector.
+            set RCSTpos to vec_max(RCSTpos,RCSTpos+F).
+            set RCSTneg to vec_min(RCSTneg,RCSTneg+F).
+        }
+        if i:name = "RCSBlock.v2" {
+            for angle in list(0,90,180,270) {
+                local F is 1.0*((-ship:facing)*i:rotation*R(angle,0,0)):vector.
+                set RCSTpos to vec_max(RCSTpos,RCSTpos+F).
+                set RCSTneg to vec_min(RCSTneg,RCSTneg+F).
+            }
+        }
+        
+    }
+    set RCSthrustvec to vec_max_axis(RCSTpos):normalized.
+    set RCSthrust to vec_max_axis(RCSTpos):mag.
+    print "RCSThrustvec: ".
+    print round_fig(RCSthrust,3).
+    print RCSthrustvec.
+}
+
 // for a command below a minumum actuator force,
 // return a pulsed output to apply averaged out actuator force
 local function pwm_alivezone {
@@ -85,13 +117,63 @@ local function pwm_alivezone {
 // return if orb engine is usable
 local function orb_thrust {
     list engines in engine_list.
-    local f is 0.
+    local f is 0. // engine thrust (1000 kg * m/s²) (kN)
     for e in engine_list {
         if e:ignition {
             set f to f + e:availablethrust.
         }
     }
     return f.
+}
+
+// Thanks https://www.reddit.com/user/gisikw/
+function ap_orb_maneuver_time {
+    parameter dv.
+
+    list engines in engine_list.
+
+    local f is 0.  // engine thrust (1000 kg * m/s²) (kN)
+    local isp is 0.  // inverse of engine isp (s)
+
+    for e in engine_list {
+        if e:ignition {
+            set f to f + e:availablethrust.
+            set isp to isp + e:availablethrust/e:isp.
+        }
+    }
+    if f = 0 {
+        set isp to 240.
+        set f to RCSthrust.
+    } else {
+        set isp to f/isp. // inverse inverse = true isp (s)
+    }
+    
+    local m_engine_prop is 0.
+    local m_rcs_prop is 0.
+    for r in ship:resources {
+        if r:name = "LiquidFuel" or r:name = "Oxidizer" {
+            set m_engine_prop to m_engine_prop + r:amount*r:density.
+        } else if r:name = "Monopropellant" {
+            set m_rcs_prop to m_rcs_prop + r:amount*r:density.
+        }
+    }
+
+    local v_e is 9.80665*isp.
+    local v_e_rcs is 9.80665*240.
+
+    local m_burn is ship:mass*(1 - constant():e^(-dv:mag/(v_e))).
+
+    if m_burn < m_engine_prop {
+        return (v_e/f) *m_burn. // F = m vdot = -mdot ve -> v_e/f = mdot
+    }
+    local m_engine_delta_v is v_e*ln(ship:mass/(ship:mass-m_engine_prop)).
+    local m_rcs_burn is (ship:mass-m_engine_prop)*
+                    (1 - constant():e^(-(dv:mag-m_engine_delta_v)/(v_e_rcs))).
+
+    if (m_rcs_burn) < m_rcs_prop {
+        return (v_e/f) *m_engine_prop + (v_e_rcs/RCSThrust) *(m_rcs_burn).
+    }
+    return -1.
 }
 
 function ap_orb_nav_do {
@@ -104,7 +186,6 @@ function ap_orb_nav_do {
         set delta_a to (acc_vec - GRAV_ACC).
         set alpha_c to sat( W_A*(delta_a + 0.5*delta_v)*ship:facing:topvector*ship:mass/ship:q , 10 ).
         set beta_c to sat( W_A*(delta_a + 0.5*delta_v)*ship:facing:starvector*ship:mass/ship:q , 10 ).
-        util_hud_push_right("ap_orb_nav_do_in_surface", "ac/bc: " + round_dec(alpha_c,2) + "," + round_dec(beta_c,2)).
     } else {
         set delta_v to (vel_vec - ship:velocity:orbit).
         set delta_a to (acc_vec - GRAV_ACC).
@@ -123,14 +204,23 @@ function ap_orb_nav_do {
         } else if DO_BURN and (not have_thrust or BURNvec*delta_v < 0.05) {
             set DO_BURN to false.
         }
-        if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.95 and omega:mag < 0.1 {
+
+        if DO_BURN and AP_NAV_IN_SURFACE {
             set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
+        } else if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.95 and omega:mag < 0.5 {
+            set orb_throttle to max(0.75,K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v).
         } else {
             set orb_throttle to 0.0.
         }
 
         if AP_NAV_IN_SURFACE {
-            set orb_steer_direction to srf_head_from_vec(vel_vec)*R(-alpha_c,beta_c,0).
+            set orb_steer_direction to srf_head_from_vec(vel_vec)*R(-alpha,0,0).
+        util_hud_push_right("ap_orb_nav_do_in_surface", "a/b: " + round_dec(alpha,2) + "," + round_dec(beta,2)).
+            set orb_srf_steer_vector to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
+                "", 3.0, true, 1.0, true ).
+            set orb_srf_steer_vector:vec to 30*orb_steer_direction:starvector.
+            // set orb_srf_steer_vector:vec to 30*AP_NAV_VEL.
+            set orb_srf_steer_vector:show to true.
         } else if DO_BURN {
             set orb_steer_direction to BURNvec:direction.
         } else {
@@ -165,14 +255,21 @@ function ap_orb_nav_do {
 }
 
 // to lock and unlock controls in the same place
+local controls_locked is false.
 function ap_orb_lock_controls {
     parameter do_lock.
-    if do_lock {
+    if (do_lock = controls_locked) {
+        return.
+    } else if do_lock {
         lock steering to orb_steer_direction.
         lock throttle to orb_throttle.
+        set controls_locked to true.
+        print "ap_orb_lock_controls: locked".
     } else {
         unlock throttle.
         unlock steering.
+        set controls_locked to false.
+        print "ap_orb_lock_controls: unlocked".
     }
 }
 

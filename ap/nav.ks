@@ -58,7 +58,7 @@ local function get_vessel_vel {
         set this_vessel to this_vessel:ship.
     }
     if AP_NAV_IN_SURFACE {
-        if not this_vessel:loaded and 
+        if not this_vessel:loaded and
         (this_vessel:status = "LANDED" or this_vessel:status = "SPLASHED") {
             return V(0,0,0).
         }
@@ -324,34 +324,7 @@ local function srf_stick {
 
 // NAV ORB START
 
-local in_mannode is false.
-
-// Thanks https://www.reddit.com/user/gisikw/
-local function maneuver_time {
-    parameter dv.
-
-    list engines in engine_list.
-
-    local f is 0.  // engine thrust (1000 kg * m/s²) (kN)
-    local p is 0.  // inverse of engine isp (s)
-
-    for e in engine_list {
-        if e:ignition {
-            set f to f + e:availablethrust.
-            set p to p + e:availablethrust/e:isp.
-        }
-    }
-    if f <= 0 {
-        return 0. // no available thrust for maneuver, do something else
-    }
-    set p to f/p. // inverse inverse = true isp (s)
-
-    local m is ship:mass * 1000.        // starting mass (kg)
-    local e is constant():e.            // base of natural log
-    local g is 9.80665.                 // gravitational acceleration constant (m/s²)
-
-    return g * m * p * (1 - e^(-dv:mag/(g*p))) / (f*1000).
-}
+local mannode_maneuver_time is 0.
 
 // function that is used when no wp is found,
 // should just set nav parameters to execute present/future nodes
@@ -359,21 +332,30 @@ local function orb_stick {
 
     local steer_time is 10. // ?get from orb?
     local buffer_time is 1.
-    if ISACTIVEVESSEL and HASNODE and NEXTNODE:eta < maneuver_time(NEXTNODE:deltav)/2 + steer_time {
+    if ISACTIVEVESSEL and HASNODE {
         local mannode_delta_v is NEXTNODE:deltav:mag.
+        set mannode_maneuver_time to ap_orb_maneuver_time(NEXTNODE:deltav).
+        // print "nodeT: " + round_fig(mannode_maneuver_time,1).
 
-        if NEXTNODE:eta < maneuver_time(NEXTNODE:deltav)/2 + buffer_time {
-            set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
-            set AP_NAV_ATT to ship:facing.
-        } else {
+        set AP_NAV_ACC to V(0,0,0).
+        if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time {
+            if mannode_delta_v < 0.05 {
+                print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3).
+                set mannode_maneuver_time to 0.
+                set AP_NAV_VEL to ship:velocity:orbit.
+                REMOVE NEXTNODE.
+            } else {
+                set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
+                set AP_NAV_ATT to ship:facing.
+            }
+        } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
             set AP_NAV_VEL to ship:velocity:orbit.
             set AP_NAV_ATT to NEXTNODE:deltav:direction.
+        } else {
+            set AP_NAV_VEL to ship:velocity:orbit.
+            set AP_NAV_ATT to ship:facing.
         }
-        set AP_NAV_ACC to V(0,0,0).
-        if mannode_delta_v < 0.05 {
-            print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3).
-            REMOVE NEXTNODE.
-        }
+        
         return true.
     } else {
         return false.
@@ -527,8 +509,11 @@ function ap_nav_status_string {
     }
 
     if DISPLAY_ORB {
-        set dstr to char(10) + char(916) + "v " +round_fig((AP_NAV_VEL-ship:velocity:orbit):mag,2).
-        if ship:orbit:eccentricity < 1.0 {
+        if mannode_maneuver_time > 0 {
+            set dstr to char(10) + char(916) + "v " +round_fig((AP_NAV_VEL-ship:velocity:orbit):mag,2)
+                + "|" + round_fig(mannode_maneuver_time,2) + "s"
+                + (choose char(10) + "T " + round_fig(-NEXTNODE:eta,2) + "s" if HASNODE else "").
+        } else if ship:orbit:eccentricity < 1.0 {
             if ship:orbit:trueanomaly >= 90 and ship:orbit:trueanomaly < 270{
                 local time_hud is eta:apoapsis - (choose 0 if ship:orbit:trueanomaly < 180 else ship:orbit:period).
                 set dstr to dstr+char(10)+"Ap "+round(ship:orbit:apoapsis) +

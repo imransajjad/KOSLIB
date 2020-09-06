@@ -149,13 +149,23 @@ local function util_term_parse_command {
         }
     } else if commtext:startswith("run") {
         local runfile is commtext:replace("run",""):trim().
-        if HOMECONNECTION:ISCONNECTED and exists("0:/term-scripts/"+runfile) {
-            local filecontent is open("0:/term-scripts/"+runfile):readall.
+        local execute_file is {
+            parameter filepath.
+            local filecontent is open(filepath):readall.
             local i is filecontent:iterator.
             until not i:next {
                 print i:value:split("#")[0].
                 util_term_do_command(i:value:split("#")[0]).
             }
+        }.
+        if HOMECONNECTION:ISCONNECTED and exists("0:/term-scripts/"+runfile) {
+            // save a copy and run the file
+            copypath("0:/term-scripts/"+runfile, ("0:/term-scripts/"+runfile):replace("0:/","1:/")).
+            execute_file("0:/term-scripts/"+runfile).
+
+        } else if exists("1:/term-scripts/"+runfile) {
+            // run the file
+            execute_file("1:/term-scripts/"+runfile).
         } else {
             print "0:/term-scripts/"+runfile+"does not exist".
         }

@@ -49,17 +49,16 @@ until false {
     ap_mode_update().
     ap_nav_display().
 
-    if not AP_MODE_NAV and not HOMECONNECTION:ISCONNECTED {
+    if not AP_MODE_NAV and not CONTROLCONNECTION:ISCONNECTED {
         ap_mode_set("NAV").
     }
 
     if AP_MODE_NAV {
         ap_orb_nav_do().
     } else {
-        unlock THROTTLE.
-        unlock STEERING.
+        ap_orb_lock_controls(false).
         SET SHIP:CONTROL:NEUTRALIZE to true.
     }
     util_hud_info().
-    wait 0.02.
+    wait 0.
 }
