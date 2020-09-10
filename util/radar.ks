@@ -7,7 +7,7 @@ local PARAM is get_param(readJson("param.json"), "UTIL_RADAR", lexicon())..
 local max_range is get_param(PARAM, "MAX_RANGE", 100000).
 local max_angle is get_param(PARAM, "MAX_ANGLE", 20).
 
-local LOOKUP_VECTOR is R(-get_param(PARAM, "LOOKUP_ANGLE", 0),0,0):vector.
+local LOOKUP_DIRECTION is R(-get_param(PARAM, "LOOKUP_ANGLE", 0),0,0).
 
 local Ts is get_param(PARAM, "DISPLAY_UPDATE_PERIOD", 1.0).
 local scan_timeout_per_target is get_param(PARAM, "TARGET_SCAN_TIMEOUT", 5).
@@ -21,8 +21,6 @@ local scan_timeout is 0.
 local target_list is list().
 
 local status_str is "".
-
-local hudtext_sent is false.
 
 local debug_str is "".
 
@@ -45,28 +43,23 @@ local function do_debug_print {
 local function set_status {
     parameter str_in.
     set status_str to str_in.
+    if status_str = "" {
+        util_shbus_tx_msg("HUD_POPR",list(core:tag), list("flcs")).
+    } else {
+        util_shbus_tx_msg("HUD_PUSHR",list(core:tag, status_str), list("flcs")).
+    }
 }
 
 local function print_status {
-    print status_str at(view_width,0).
+    local i is status_str:split(char(10)):iterator.
+    until not i:next {
+        print i:value at (view_width,0+i:index).
+    }
+    // print status_str at(view_width,0).
 }
 
 local function print_target_data {
     
-    if next_lock_index > 0 {
-        if scan_timeout > 0 {
-            print next_lock_index + "/" +target_list:length at(view_width, 1).
-        } else {
-            print next_lock_index + "/" +target_list:length at(view_width, 1).
-        }
-    } else {
-        if scan_timeout > 0 {
-            print "-/"+target_list:length at(view_width, 1).
-        } else {
-            print "-/"+target_list:length at(view_width, 1).
-        }
-    }
-
     if not HASTARGET {
         print "         " at (view_width,3).
         print "         " at (view_width,4).
@@ -78,7 +71,8 @@ local function print_target_data {
         }
         local dist_str is "".
         
-        local vel_str is round_dec((target_ship:velocity:orbit-ship:velocity:orbit):mag,0).
+        local rel_vel is target_ship:velocity:orbit-ship:velocity:orbit.
+        local vel_str is (choose "-" if rel_vel*ship:facing:vector > 0 else "") +round_dec(rel_vel:mag,0).
 
         if target_ship:distance < 1200 { set dist_str to ""+round_dec(target_ship:distance,1).}
         else { set dist_str to ""+round_dec(target_ship:distance/1000,1) + "k".}
@@ -89,25 +83,9 @@ local function print_target_data {
         local i is TARGET:name:split(" "):iterator.
         until not i:next {
             print i:value at (view_width,7+i:index).
-        } 
+        }
         
     }
-}
-
-
-local function hudtext {
-    parameter ttext.
-    if defined UTIL_SHBUS_ENABLED and not hudtext_sent {
-        util_shbus_tx_msg("HUD_PUSHR",list(core:tag, ttext), list("flcs")).
-    }
-    set hudtext_sent to true.
-}
-
-local function hudtext_remove {
-    if defined UTIL_SHBUS_ENABLED and hudtext_sent {
-        util_shbus_tx_msg("HUD_POPR",list(core:tag), list("flcs")).
-    }    
-    set hudtext_sent to false.
 }
 
 local function do_scan {
@@ -118,7 +96,7 @@ local function do_scan {
     local ti is target_list:iterator.
     until not ti:next {
         if (ti:value:distance > max_range) or 
-        (vectorangle(ti:value:position, ship:facing*LOOKUP_VECTOR) > max_angle) {
+        (vectorangle(ti:value:position, ship:facing*LOOKUP_DIRECTION:vector) > max_angle) {
             removal_list:add(ti:index).
         }
     }
@@ -150,8 +128,7 @@ function target_radar_update_target{
             do_scan().
             if target_list:length > 0 {
                 set scan_timeout to scan_timeout_per_target*target_list:length.
-                hudtext("sR"+target_list:length).
-                set_status("scanned").
+                set_status("scanned" + char(10) +"-/" + target_list:length).
             } else {
                 set scan_timeout to 1.
                 set_status("no tar").
@@ -168,7 +145,7 @@ function target_radar_update_target{
             set scan_timeout to 0.
             set next_lock_index to 0.
         } else {
-            set_status("locked").
+            set_status("locked" + char(10) + next_lock_index+"/" + target_list:length).
             do_lock().
             set next_lock_index to next_lock_index+1.
             // set scan_timeout to scan_timeout_per_target.
@@ -183,7 +160,6 @@ function scan_timeout_do {
         set scan_timeout to max(0, scan_timeout - Ts).
         if scan_timeout = 0 {
             set_status("").
-            hudtext_remove().
         }
     }
 }
@@ -244,8 +220,18 @@ function target_radar_draw_picture {
         print "x" at(screen_pos[0],screen_pos[1]).
     }
     // print min max distance
-    print round_dec( (2^max_distance_log)/1000,1) AT(0,0).
-    print round_dec( (2^min_distance_log)/1000,1) AT(0,view_height).
+    if target_list:length > 0 {
+        print round_dec( (2^max_distance_log)/1000,1) AT(0,0).
+        print round_dec( (2^min_distance_log)/1000,1) AT(0,view_height).
+    } else if not HASTARGET {
+        print "radar".
+        print " use AG to scan".
+        print " and cycle targets".
+        print " use AG twice to exit".
+        print " max range: " + max_range/1000 +"k".
+        print " max angle: " + max_angle +" deg".
+        print " pitch: " + -LOOKUP_DIRECTION:pitch +" deg".
+    }
 
     // do_debug_print().
     print_status().
@@ -274,7 +260,6 @@ function util_radar_loop {
         if nAG >= 2 {
             CLEARSCREEN.
             set_status("").
-            hudtext_remove().
             return.
         } else {
             set nAG to max(0,nAG-1).
