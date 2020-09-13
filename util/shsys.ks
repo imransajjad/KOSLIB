@@ -14,7 +14,7 @@ local ATMOS_ESCAPE_STAGE is get_param(PARAM, "ATMOS_ESCAPE_STAGE", 99999).
 local ATMOS_ESCAPE_ALT is get_param(PARAM, "ATMOS_ESCAPE_ALT", 70000).
 
 local REENTRY_STAGE is get_param(PARAM, "REENTRY_STAGE", 99999).
-local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", 70000).
+local REENTRY_ALT is get_param(PARAM, "REENTRY_ALT", 65000).
 local PARACHUTE_ALT is get_param(PARAM, "PARACHUTE_ALT", 1000).
 
 local Q_SAFE is get_param(PARAM, "Q_SAFE", 0).
@@ -142,6 +142,38 @@ local function get_another_ship {
     //}
 }
 
+local function setup_docking {
+    local target_vessel is util_shsys_get_target().
+
+    if target_vessel = -1 {
+        print "no target".
+        return.
+    } else if target_vessel:position:mag > 200 {
+        print "target needs to be within 200 m to set up docking".
+        return.
+    } else if target_vessel:hassuffix("dockingports") {
+        for i in ship:dockingports {
+            for they in target_vessel:dockingports {
+                if they:state = "Ready" and they:nodetype = i:nodetype {
+                    if not (i:state = "Ready") and
+                            i:hasmodule("ModuleAnimateGeneric") and
+                            i:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
+                        // try opening the shield
+                        i:getmodule("ModuleAnimateGeneric"):doaction("toggle shield", true).
+                        wait 1.5.
+                    }
+                    if i:state = "Ready" {
+                        set TARGET to they.
+                        print "target:dockingport".
+                        return.
+                    }
+                }
+            }
+        }
+    }
+    print "shsys did not find compatible dockingport".
+}
+
 local target_vessel is -1.
 local function cache_target {
     if TARGET_CACHING and ISACTIVEVESSEL and HASTARGET {
@@ -179,7 +211,7 @@ local function shsys_check {
     } else if try_wp and cur_wayp["mode"] = "spin" {
             util_shsys_set_spin(cur_wayp["spin_part"], cur_wayp["spin_state"]).
             if defined UTIL_FLDR_ENABLED {
-                util_fldr_send_event("action waypoint " + (util_wp_queue_length()-1)).
+                util_fldr_send_event("spin waypoint " + (util_wp_queue_length()-1)).
             }
             util_wp_done().
     }
@@ -201,13 +233,12 @@ local function shsys_check {
         }
         if not SPIN_ON_DECOUPLER { print "unspin on decoupler".}
     }
+    local any_docked is false.
     if SPIN_ON_DOCKINGPORT {
-        if dockingports:length > 0 {
-            set SPIN_ON_DOCKINGPORT to 
-                dockingports[0]:state:contains("Docked") or 
-                dockingports[0]:state:contains("PreAttached").
-        } else {
-            set SPIN_ON_DOCKINGPORT to false.
+        for i in core:element:dockingports {
+            set any_docked to any_docked or
+                i:state:contains("Docked") or 
+                i:state:contains("PreAttached").
         }
     }
     if SPIN_ON_FARING {
@@ -218,7 +249,7 @@ local function shsys_check {
             set SPIN_ON_SEPARATION to false.
         }
     }
-    local do_spin is ( SPIN_ON_ENGINE or SPIN_ON_DECOUPLER or SPIN_ON_DOCKINGPORT or SPIN_ON_FARING or SPIN_ON_SEPARATION).
+    local do_spin is ( SPIN_ON_ENGINE or SPIN_ON_DECOUPLER or any_docked or SPIN_ON_FARING or SPIN_ON_SEPARATION).
 
     // send any safety messages to hud
     if Q_SAFE > 0 {
@@ -279,6 +310,9 @@ function util_shsys_spin_check {
     until shsys_check() {
         if defined UTIL_SHBUS_ENABLED {
             util_shbus_rx_msg().
+        }
+        if defined AP_ORB_ENABLED {
+            ap_orb_lock_controls(false).
         }
         wait 0.02.
     }
@@ -389,6 +423,8 @@ function util_shsys_do_action {
         set TARGET_CACHING to false.
     } else if action_in = "get_target" {
         set TARGET_CACHING to true.
+    } else if action_in = "dock_target" {
+        setup_docking().
     } else {
         print "could not do action " + action_in.
         return false.

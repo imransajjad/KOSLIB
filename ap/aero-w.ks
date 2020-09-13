@@ -92,38 +92,6 @@ when true then {
     return true.
 }
 
-local function cl_sched {
-    parameter v.
-
-    if ( v < 100) {
-        return -(5/100)*v + 8.5.
-    } else if (v < 300) {
-        return -(2.5/200)*v + 4.75.
-    } else if (v < 2100) {
-        return -(0.2/700)*v + 1.09.
-    } else {
-        return 0.49.
-    }
-}
-
-local function cd_sched {
-    parameter v.
-
-    if (v < 50) {
-        return 1.0.
-    } else if ( v < 100) {
-        return -(0.5/50)*v + 1.5.
-    } else if (v < 300) {
-        return 0.5.
-    } else if (v < 400) {
-        return (1.0/100)*v - 2.5.
-    } else if (v < 500) {
-        return -(0.3/100)*v + 2.7.
-    } else {
-        return 1.2.
-    }
-}
-
 local MIN_AERO_Q is 0.0003.
 local MIN_ANY_RATE is 2.5*DEG2RAD.
 
@@ -160,9 +128,6 @@ local yratePID is PIDLOOP(
     YR_KI,
     YR_KD,
     -1.0,1.0).
-// local lock yrate_max to MIN(
-//     W_Y_MAX*sqrt(SHIP:DYNAMICPRESSURE/CORNER_SEA_Q),
-//     GLIM_LAT*g0/vel).
 
 local rratePD is PIDLOOP(
     RR_KP,
@@ -175,8 +140,6 @@ local rrateI is PIDLOOP(
     RR_KI,
     0,
     -RR_I_SAT,RR_I_SAT).
-
-// local lock rrate_max to sat(vel/CORNER_VELOCITY*MAX_ROLL, MAX_ROLL).
 
 local LF is 1.0.
 local function rate_schedule {
@@ -496,7 +459,7 @@ function ap_aero_w_status_string {
 
     if (ship:q > MIN_AERO_Q) {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +
-        round_dec( vel*pitch_rate/g0 + 1.0*cos(vel_pitch)*cos(roll) ,1) + 
+        round_dec( get_applied_acc()*ship:facing:topvector/g0, 1) + 
         char(10) + (choose "" if STICK_GAIN = STICK_GAIN_NOM else "S") +
         char(945) + " " + round_dec(alpha,1).
         if defined UTIL_FLDR_ENABLED {

@@ -8,7 +8,7 @@ wait 0.25.
 if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
-    get_ship_param_file().
+    get_param_file(string_acro(core:element:name)).
     
     COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
     COPYPATH("0:/koslib/util/wp.ks","util-wp").

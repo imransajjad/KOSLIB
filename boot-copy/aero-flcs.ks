@@ -8,12 +8,13 @@ global DEV_FLAG is true.
 if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
-    get_ship_param_file().
+    get_param_file(string_acro(core:element:name)).
 
     COPYPATH("0:/koslib/util/wp.ks","util-wp").
     COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
     COPYPATH("0:/koslib/util/shsys.ks","util-shsys").
     COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
+    COPYPATH("0:/koslib/util/phys.ks","util-phys").
 
     COPYPATH("0:/koslib/resource/blank.png","blank-tex").
     COPYPATH("0:/koslib/util/hud.ks","util-hud").
@@ -48,6 +49,7 @@ run once "util-wp".
 run once "util-fldr".
 run once "util-shsys".
 run once "util-shbus".
+run once "util-phys".
 
 run once "util-hud".
 

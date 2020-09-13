@@ -26,7 +26,8 @@ local exclude_host_key is "".
 //  ship:name+SEP+cpu:tag    (for cores on other ship)
 
 local SEP is "+".
-local lock my_fullname to ship:name+SEP+core:tag.
+local lock my_shipname to core:element:name.
+local lock my_fullname to my_shipname+SEP+core:tag.
 
 local function print_hosts {
     local i is 0.
@@ -86,7 +87,7 @@ function util_shbus_parse_command {
 
         if arg_hostname:startswith("target") {
             if ISACTIVEVESSEL and HASTARGET {
-                if (ship:name = TARGET:name) { print "warning adding self".}
+                if (my_shipname = TARGET:name) { print "warning adding self".}
                 set new_host to TARGET.
                 if arg_hostname = "target" {
                     set arg_hostname to TARGET:name.
@@ -239,7 +240,7 @@ local function get_ship_name {
 // returns a savable hostname from fullname
 local function resolve_name {
     parameter name_in. // is always ship:name+SEP+cpu:tag
-    if name_in:contains(SEP) and ship:name = name_in:split(SEP)[0] {
+    if name_in:contains(SEP) and my_shipname = name_in:split(SEP)[0] {
         return name_in:split(SEP)[1].
         // return the core name
     }
@@ -252,7 +253,7 @@ local function resolve_name {
 local function resolve_obj {
     parameter name_in. // is always ship:name+SEP+cpu:tag
     local new_host is -1.
-    if name_in:split(SEP)[0] = ship:name {
+    if name_in:split(SEP)[0] = my_shipname {
         // we got a core on our ship
         set new_host to find_cpu(name_in:split(SEP)[1]).
     } else {
@@ -362,7 +363,7 @@ local function rx_msg {
         local opcode is received_msg:content[2]. // string
         local data is received_msg:content[3]. // list of args
 
-        if (get_final_name(recipient) = ship:name) or
+        if (get_final_name(recipient) = my_shipname) or
                 (recipient = core:tag) or (recipient = my_fullname) {
             // received message is for this ship or this ship+core
 
@@ -380,7 +381,7 @@ local function rx_msg {
                 print "Unexpected message from "+received_msg:SENDER:NAME +
                 "("+ received_msg:SENDER+"): " + received_msg:CONTENT.
             }
-        } else if (get_ship_name(recipient) = ship:name) {
+        } else if (get_ship_name(recipient) = my_shipname) {
             // received message is for some other core on this ship
             util_shbus_tx_msg(opcode, data, list(get_final_name(recipient)), sender).
             // only sent if recipient in tx_hosts.

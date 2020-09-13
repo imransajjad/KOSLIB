@@ -9,8 +9,6 @@ set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
 
-global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
-
 global lock ISACTIVEVESSEL to (kuniverse:activevessel = ship).
 
 global BODY_navball_change_alt is lexicon("Kerbin", 36000, "Mun", 4000).
@@ -303,21 +301,6 @@ function get_param {
     }
 }
 
-function get_frame_accel_orbit {
-    // returns a force that if subtracted from the ship
-    // will result in a constant height in SOI
-    return ship:up:vector*(-1.0*g0 +
-        (VECTOREXCLUDE(ship:up:vector,ship:velocity:orbit):mag^2
-        /(ship:altitude+ship:body:radius))).
-}
-
-function get_frame_accel {
-    // if the negative of this value is applied to ship
-    // it will always move in a straight line in sidereal frame
-
-    return ship:up:vector*(-1.0*g0).
-}
-
 function simple_q {
     // returns a non accurate dynamic pressure-like reading
     // that can be used for some contol purposes
@@ -345,27 +328,15 @@ function simple_E {
     return 0.5*velocity^2 - ship:body:mu/(height + ship:body:radius).
 }
 
-// try to get param file for this ship
-function get_ship_param_file {
-    if exists("0:/param/"+string_acro(ship:name)+".json") {
-        copypath("0:/param/"+string_acro(ship:name)+".json","param.json").
-    }
-}
-
-// try to get param file for this core
-function get_core_param_file {
-    local core_first_word is core:tag:split(" ")[0].
-    if exists("0:/param/"+core_first_word+".json") {
-        copypath("0:/param/"+core_first_word+".json","param.json").
-    }
-}
-
-// try to get param file for this boot file
-function get_boot_param_file {
-    local bootfile_name is core:bootfilename:replace("/boot/",""):replace(".ks",".json").
-
-    if exists("0:/param/"+bootfile_name) {
-        copypath("0:/param/"+bootfile_name,"param.json").
+// try to get param file
+// default without argument will get filename=bootfilename
+// if local param does not exist, create an empty file
+function get_param_file {
+    parameter filename is core:bootfilename:replace("/boot/",""):replace(".ks","").
+    if exists("0:/param/"+filename+".json") {
+        copypath("0:/param/"+filename+".json","param.json").
+    } else if not exists("param.json") {
+        writeJson(lexicon(),"param.json").
     }
 }
 

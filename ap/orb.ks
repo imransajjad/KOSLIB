@@ -1,7 +1,7 @@
 
 global AP_ORB_ENABLED is true.
 
-local PARAM is readJson("param.json")["AP_ORB"].
+local PARAM is get_param(readJson("param.json"), "AP_ORB", lexicon()).
 
 local USE_STEERMAN to get_param(PARAM, "USE_STEER_MAN", true).
 local USE_RCS to get_param(PARAM, "USE_RCS", true).
@@ -26,20 +26,7 @@ local lock omega to RAD2DEG*ship:angularVel.
 
 if USE_STEERMAN {
     // set STEERINGMANAGER:MAXSTOPPINGTIME to 1000.
-    set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
-    set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
-    set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
 
-    set STEERINGMANAGER:YAWPID:KP to get_param(PARAM, "Y_KP", 8.0).
-    set STEERINGMANAGER:YAWPID:KI to get_param(PARAM, "Y_KI", 8.0).
-    set STEERINGMANAGER:YAWPID:KD to get_param(PARAM, "Y_KD", 12.0).
-
-    set STEERINGMANAGER:ROLLPID:KP to get_param(PARAM, "R_KP", 8.0).
-    set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
-    set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
-    print "orb gains " + STEERINGMANAGER:PITCHPID:KP + " "
-                        + STEERINGMANAGER:PITCHPID:KI + " "
-                        + STEERINGMANAGER:PITCHPID:KD.
 }
 
 local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
@@ -65,9 +52,9 @@ local beta_c is 0.0.
 local W_A is 0.8.
 
 
-local RCSthrust is 0.
+local RCSthrust is -1.
 local RCSthrustvec is V(0,0,1).
-if true {
+local function init_orb_params {
     local RCSTpos is V(0,0,0). // in ship frame in kN
     local RCSTneg is V(0,0,0).
     for i in ship:parts {
@@ -95,6 +82,27 @@ if true {
     print "RCSThrustvec: ".
     print round_fig(RCSthrust,3).
     print RCSthrustvec.
+
+    STEERINGMANAGER:RESETTODEFAULT().
+    STEERINGMANAGER:RESETPIDS().
+    set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
+    set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
+    set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
+
+    set STEERINGMANAGER:YAWPID:KP to get_param(PARAM, "Y_KP", 8.0).
+    set STEERINGMANAGER:YAWPID:KI to get_param(PARAM, "Y_KI", 8.0).
+    set STEERINGMANAGER:YAWPID:KD to get_param(PARAM, "Y_KD", 12.0).
+
+    set STEERINGMANAGER:ROLLPID:KP to get_param(PARAM, "R_KP", 8.0).
+    set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
+    set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
+
+    if defined AP_NAV_ENABLED and AP_NAV_IN_SURFACE {
+        set STEERINGMANAGER:ROLLCONTROLANGLERANGE to 180.
+    }
+    print "orb gains " + STEERINGMANAGER:PITCHPID:KP + " "
+                        + STEERINGMANAGER:PITCHPID:KI + " "
+                        + STEERINGMANAGER:PITCHPID:KD.
 }
 
 // for a command below a minumum actuator force,
@@ -126,10 +134,21 @@ local function orb_thrust {
     return f.
 }
 
-// Thanks https://www.reddit.com/user/gisikw/
+local last_delta_v is V(-1,-1,-1).
+local last_mass is ship:mass.
+local last_time is -1.
 function ap_orb_maneuver_time {
     parameter dv.
 
+    if ship:mass = last_mass and (last_delta_v-dv):mag = 0 {
+        return last_time.
+    }
+    if RCSthrust < 0 {
+        init_orb_params().
+    }
+    set last_mass to ship:mass.
+    set last_delta_v to dv.
+    
     list engines in engine_list.
 
     local f is 0.  // engine thrust (1000 kg * m/s²) (kN)
@@ -164,16 +183,19 @@ function ap_orb_maneuver_time {
     local m_burn is ship:mass*(1 - constant():e^(-dv:mag/(v_e))).
 
     if m_burn < m_engine_prop {
-        return (v_e/f) *m_burn. // F = m vdot = -mdot ve -> v_e/f = mdot
-    }
-    local m_engine_delta_v is v_e*ln(ship:mass/(ship:mass-m_engine_prop)).
-    local m_rcs_burn is (ship:mass-m_engine_prop)*
-                    (1 - constant():e^(-(dv:mag-m_engine_delta_v)/(v_e_rcs))).
+        set last_time to (v_e/f) *m_burn. // F = m vdot = -mdot ve -> v_e/f = mdot
+    } else {
+        local m_engine_delta_v is v_e*ln(ship:mass/(ship:mass-m_engine_prop)).
+        local m_rcs_burn is (ship:mass-m_engine_prop)*
+                        (1 - constant():e^(-(dv:mag-m_engine_delta_v)/(v_e_rcs))).
 
-    if (m_rcs_burn) < m_rcs_prop {
-        return (v_e/f) *m_engine_prop + (v_e_rcs/RCSThrust) *(m_rcs_burn).
+        if (m_rcs_burn) < m_rcs_prop {
+            set last_time to (v_e/f) *m_engine_prop + (v_e_rcs/RCSThrust) *(m_rcs_burn).
+        } else {
+            set last_time to -1.
+        }
     }
-    return -1.
+    return last_time.
 }
 
 function ap_orb_nav_do {
@@ -239,13 +261,16 @@ function ap_orb_nav_do {
             set RCSon to true.
         }
         set RCS to RCSon.
-        util_hud_push_left("ap_orb_nav_do", (choose "R" if RCSon else "") +(choose "B" if MOVE_RCS else "") + (choose "S" if STEER_RCS else "") ).
+        if defined UTIL_HUD_ENABLED {
+            util_hud_push_left("ap_orb_nav_do", (choose "R" if RCSon else "") +(choose "B" if MOVE_RCS else "") + (choose "S" if STEER_RCS else "") ).
+        }
 
         if RCSon and (total_head_align >= RCS_MIN_ALIGN) {
+            local saturated_delta_v is delta_v:normalized*min(delta_v:mag,RCS_MAX_DV).
             set ship:control:translation to V(
-                pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*delta_v) + ship:facing:starvector*acc_vec*MTR),
-                pwm_alivezone(K_RCS_TOP*(ship:facing:topvector*delta_v) + ship:facing:topvector*acc_vec*MTR),
-                pwm_alivezone(K_RCS_FORE*(ship:facing:forevector*delta_v) + ship:facing:forevector*acc_vec*MTR)).
+                pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*saturated_delta_v) + ship:facing:starvector*acc_vec*MTR),
+                pwm_alivezone(K_RCS_TOP*(ship:facing:topvector*saturated_delta_v) + ship:facing:topvector*acc_vec*MTR),
+                pwm_alivezone(K_RCS_FORE*(ship:facing:forevector*saturated_delta_v) + ship:facing:forevector*acc_vec*MTR)).
         } else {
             set ship:control:translation to V(0,0,0).
         }
@@ -261,6 +286,7 @@ function ap_orb_lock_controls {
     if (do_lock = controls_locked) {
         return.
     } else if do_lock {
+        init_orb_params().
         lock steering to orb_steer_direction.
         lock throttle to orb_throttle.
         set controls_locked to true.

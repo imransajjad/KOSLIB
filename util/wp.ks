@@ -59,6 +59,12 @@ function util_wp_arg_lex {
             set wp["do_action"] to wp_args[0].
             return wp.
         }
+    } else if wp["mode"] = "spin" {
+        if wp_args:length = 2 {
+            set wp["spin_part"] to wp_args[0].
+            set wp["spin_state"] to wp_args[1].
+            return wp.
+        }
     } else if wp["mode"] = "srf" {
         local L is wp_args:length.
         if L >= 2 {
@@ -325,6 +331,8 @@ local function waypoint_print_str {
     parameter WP.
     if WP["mode"] = "act" {
         return WP["mode"] + " " + WP["do_action"].
+    } else if WP["mode"] = "spin" {
+        return WP["mode"] + " " + WP["spin_part"] + " " + WP["spin_state"].
     } else if WP["mode"] = "srf" {
         local wp_str is WP["mode"].
         set wp_str to wp_str + " " + round(get_param(WP,"alt",0))
