@@ -326,9 +326,8 @@ local function srf_stick {
 
 local mannode_maneuver_time is 0.
 
-// function that is used when no wp is found,
-// should just set nav parameters to execute present/future nodes
-local function orb_stick {
+// function that sets nav parameters to execute present/future nodes
+local function orb_mannode {
 
     local steer_time is 10. // ?get from orb?
     local buffer_time is 1.
@@ -374,12 +373,27 @@ local position is V(0,0,0).
 local final_head is R(0,0,0).
 
 local relative_velocity is V(0,0,0).
+local slow_roll is 0.
+local relative_roll is 0.
 
 local function tar_wp_guide {
     parameter wp.
 
     if not (wp["mode"] = "tar") {
         return false.
+    }
+
+    local new_roll is relative_roll.
+    if wp:haskey("roll") {
+        set new_roll to wp["roll"].
+    } else if defined AP_MODE_ENABLED and AP_MODE_NAV {
+        local delta_slow is sign(deadzone(ship:control:pilotroll,0.5)).
+        set slow_roll to slow_roll+0.25*delta_slow.
+        set new_roll to 15*round_dec(slow_roll,0).
+    }
+    if new_roll <> relative_roll {
+        set relative_roll to new_roll.
+        print "tar roll " + relative_roll.
     }
 
     local radius is max(get_param(wp, "radius", 1.0), 0.05).
@@ -396,7 +410,7 @@ local function tar_wp_guide {
     if not (target_ship = -1) {
         set relative_velocity to get_vessel_vel()-get_vessel_vel(target_ship).
         set final_head to target_ship:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(0,180,0)).
-        set position to target_ship:position + (final_head)*offsvec.
+        local position is target_ship:position + (final_head)*offsvec.
 
         if position:mag > INTERCEPT_DISTANCE {
             return false. // do nothing
@@ -411,7 +425,7 @@ local function tar_wp_guide {
 
         set AP_NAV_VEL to approach_speed*align_data[0]+get_vessel_vel(target_ship).
         set AP_NAV_ACC to align_data[1].
-        set AP_NAV_ATT to final_head.
+        set AP_NAV_ATT to final_head*R(0,0,-relative_roll).
 
         return true.
     } else {
@@ -455,7 +469,7 @@ function ap_nav_display {
             set nav_debug_vec1:vec to AP_NAV_ACC.
             set nav_debug_vec2:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
         }
-    } else if AP_NAV_IN_ORBIT and orb_stick() {
+    } else if AP_NAV_IN_ORBIT and orb_mannode() {
         set DISPLAY_ORB to true.
     } else if AP_NAV_IN_SURFACE and srf_stick() {
         set DISPLAY_SRF to true.

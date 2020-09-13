@@ -437,6 +437,23 @@ function util_hud_pop_right {
     }
 }
 
+// set key to value in setting dictionary
+// if value not given, toggle
+function util_hud_setting {
+    parameter key.
+    parameter value is -1.
+
+    if hud_setting_dict:haskey(key) {
+        if value = -1 {
+            set hud_setting_dict[key] to not hud_setting_dict[key].
+        } else {
+            set hud_setting_dict[key] to value.
+        }
+        return true.
+    }
+    return false.
+}
+
 // shbus_tx compatible send messages
 // TX_SECTION
 
@@ -514,10 +531,8 @@ function util_hud_decode_rx_msg {
     } else if opcode = "HUD_POPR" {
         hud_text_dict_right:remove(data[0]).
     } else if opcode = "HUD_SETTING_TOGGLE" {
-        if data[0] = "off" {set data[0] to "on".}
-        if hud_setting_dict:haskey(data[0]) {
-            set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
-        } else {
+        if data[0] = "off" {set data[0] to "on".}        
+        if not util_hud_setting(data[0]) {
             util_shbus_ack("util hud setting not found", sender).
 
         }

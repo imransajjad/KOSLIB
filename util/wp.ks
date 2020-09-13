@@ -93,6 +93,7 @@ function util_wp_arg_lex {
         if L >= 1 { set wp["speed"] to wp_args[0]. }
         if L >= 2 { set wp["radius"] to wp_args[1].}
         if L >= 5 { set wp["offsvec"] to V(wp_args[2],wp_args[3],wp_args[4]).}
+        if L >= 6 { set wp["roll"] to wp_args[5].}
         return wp.
     }
     print "received invalid waypoint data".

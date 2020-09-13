@@ -18,9 +18,8 @@ local ENGINE_VEC is get_param(PARAM, "ENGINE_VEC", V(0,0,1)).
 
 local RCS_MAX_DV is get_param(PARAM, "RCS_MAX_DV", 10.0).
 local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
-local RCS_THRUST is get_param(PARAM, "RCS_THRUST", 1.0).
 
-local lock MTR to 0*ship:mass/(2*RCS_THRUST).
+local lock MTR to ship:mass/(RCSthrust).
 
 local lock omega to RAD2DEG*ship:angularVel.
 

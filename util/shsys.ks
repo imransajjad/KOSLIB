@@ -314,6 +314,10 @@ function util_shsys_spin_check {
         if defined AP_ORB_ENABLED {
             ap_orb_lock_controls(false).
         }
+        if defined UTIL_HUD_ENABLED {
+            util_hud_setting("on",false).
+            util_hud_info().
+        }
         wait 0.02.
     }
 }
