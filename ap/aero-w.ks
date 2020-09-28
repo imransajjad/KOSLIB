@@ -248,22 +248,14 @@ function ap_aero_w_do {
             set rrateI:SETPOINT to rrate_max*sat(STICK_GAIN*u3,1.0).
         }
 
-        set SHIP:CONTROL:YAW to yratePID:UPDATE(TIME:SECONDS, yaw_rate)
-            +SHIP:CONTROL:YAWTRIM.
 
-        local roll_pd is rratePD:UPDATE(TIME:SECONDS, roll_rate).
-        local roll_i is 0.
-        if (abs(u3) < 0.2) {
-            set roll_i to rrateI:UPDATE(TIME:SECONDS, roll_rate).
-        } else {
-            rrateI:RESET().
+        if (abs(rrateI:SETPOINT) > 5*DEG2RAD) or abs(roll_rate) > 5*DEG2RAD or abs(roll) > 3 {
+            set rrateI:SETPOINT to roll_rate. // do not trim roll if not level flight
         }
 
-        set SHIP:CONTROL:ROLL to ( roll_pd + roll_i ) +
-            SHIP:CONTROL:ROLLTRIM.
-
-        set SHIP:CONTROL:PITCH to pratePID:UPDATE(TIME:SECONDS, pitch_rate)+
-            SHIP:CONTROL:PITCHTRIM.
+        set SHIP:CONTROL:PITCH to pratePID:UPDATE(TIME:SECONDS, pitch_rate).
+        set SHIP:CONTROL:YAW to yratePID:UPDATE(TIME:SECONDS, yaw_rate).
+        set SHIP:CONTROL:ROLL to rratePD:UPDATE(TIME:SECONDS, roll_rate) + rrateI:UPDATE(TIME:SECONDS, roll_rate).
 
         if not aero_active {
             set aero_active to true.

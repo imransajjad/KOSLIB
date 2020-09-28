@@ -494,7 +494,7 @@ function util_hud_parse_command {
         } else {
             print "use args (pitch,bear) or (pitch,bear,roll)".
         }
-    } else if commtext:startswith("hudcolor(") {
+    } else if commtext:startswith("hudcolor") {
         if (args:length = 3) {
             util_shbus_tx_msg("HUD_COLOR_SET", args).
         } else {

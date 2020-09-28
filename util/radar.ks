@@ -2,12 +2,13 @@
 GLOBAL UTIL_RADAR_ENABLED IS true.
 
 
-local PARAM is get_param(readJson("param.json"), "UTIL_RADAR", lexicon())..
+local PARAM is get_param(readJson("param.json"), "UTIL_RADAR", lexicon()).
 
-local max_range is get_param(PARAM, "MAX_RANGE", 100000).
-local max_angle is get_param(PARAM, "MAX_ANGLE", 20).
+local max_angle is 20.
+local MAX_ENERGY is get_param(PARAM, "MAX_ENERGY", 50000000). // distance at 1 deg beam
+local max_range is MAX_ENERGY/(max_angle^2).
 
-local LOOKUP_DIRECTION is R(-get_param(PARAM, "LOOKUP_ANGLE", 0),0,0).
+local LOOKUP_DIRECTION is R(0,0,0).
 
 local Ts is get_param(PARAM, "DISPLAY_UPDATE_PERIOD", 1.0).
 local scan_timeout_per_target is get_param(PARAM, "TARGET_SCAN_TIMEOUT", 5).
@@ -145,7 +146,7 @@ function target_radar_update_target{
             set scan_timeout to 0.
             set next_lock_index to 0.
         } else {
-            set_status("locked" + char(10) + next_lock_index+"/" + target_list:length).
+            set_status("locked" + char(10) + (next_lock_index+1)+"/" + target_list:length).
             do_lock().
             set next_lock_index to next_lock_index+1.
             // set scan_timeout to scan_timeout_per_target.
@@ -228,9 +229,9 @@ function target_radar_draw_picture {
         print " use AG to scan".
         print " and cycle targets".
         print " use AG twice to exit".
-        print " max range: " + max_range/1000 +"k".
-        print " max angle: " + max_angle +" deg".
-        print " pitch: " + -LOOKUP_DIRECTION:pitch +" deg".
+        print " max range: " + round_dec(max_range/1000,2) +"k".
+        print " max angle: " + round_dec(max_angle,2) +" deg".
+        print " pitch: " + round_dec(-LOOKUP_DIRECTION:pitch,2) +" deg".
     }
 
     // do_debug_print().
@@ -273,6 +274,8 @@ function util_radar_get_help_str {
     return list(
         "UTIL_RADAR  running on "+core:tag,
         "radar   turn on radar",
+        "radar(args)",
+        "args: beam_width,beam_angle",
         "press AG twice to exit"
         ).
 }
@@ -281,7 +284,20 @@ function util_radar_parse_command {
     parameter commtext.
     parameter args is list().
 
+    set target_list to list().
+    set next_lock_index to 0.
+    set scan_timeout to 0.
+
     if commtext = "radar" {
+        if not (args = -1) {
+            if args:length >= 1 {
+                set max_angle to max(0.5,min(45,args[0])).
+                set max_range to MAX_ENERGY/(max_angle^2).
+            }
+            if args:length >= 2 {
+                set LOOKUP_DIRECTION to R(-args[1],0,0).
+            }
+        }
         util_radar_loop().
         print "radar exiting".
         return true.

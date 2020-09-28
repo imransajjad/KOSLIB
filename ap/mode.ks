@@ -1,6 +1,6 @@
 
 GLOBAL AP_MODE_ENABLED IS TRUE.
-local PARAM is readJson("1:/param.json")["AP_MODE"].
+local PARAM is get_param(readJson("param.json"), "AP_MODE", lexicon()).
 
 global LIST_AVAIL_AP_MODES is list().
 
