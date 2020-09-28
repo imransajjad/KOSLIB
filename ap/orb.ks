@@ -3,7 +3,6 @@ global AP_ORB_ENABLED is true.
 
 local PARAM is get_param(readJson("param.json"), "AP_ORB", lexicon()).
 
-local USE_STEERMAN to get_param(PARAM, "USE_STEER_MAN", true).
 local USE_RCS to get_param(PARAM, "USE_RCS", true).
 local USE_RCS_STEER to get_param(PARAM, "USE_RCS_STEER", false).
 
@@ -22,11 +21,6 @@ local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 local lock MTR to ship:mass/(RCSthrust).
 
 local lock omega to RAD2DEG*ship:angularVel.
-
-if USE_STEERMAN {
-    // set STEERINGMANAGER:MAXSTOPPINGTIME to 1000.
-
-}
 
 local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
 local lock alpha to wrap_angle(ship_vel:pitch).
@@ -51,11 +45,15 @@ local beta_c is 0.0.
 local W_A is 0.8.
 
 
-local RCSthrust is -1.
-local RCSthrustvec is V(0,0,1).
+// local RCSthrust is -1.
+// local RCSthrustvec is V(0,0,1).
+local RCSTpos is V(-1,-1,-1). // not really a vector but a list of max
+local RCSTneg is V(+1,+1,+1). // and min values in ship relative axes
+local RCSIsp is -1.
+
 local function init_orb_params {
-    local RCSTpos is V(0,0,0). // in ship frame in kN
-    local RCSTneg is V(0,0,0).
+    set RCSTpos to V(0,0,0).
+    set RCSTneg to V(0,0,0).
     for i in ship:parts {
         if i:name = "linearRCS" {
             local F is 2.0*((-ship:facing)*i:rotation):topvector.
@@ -74,13 +72,11 @@ local function init_orb_params {
                 set RCSTneg to vec_min(RCSTneg,RCSTneg+F).
             }
         }
-        
     }
-    set RCSthrustvec to vec_max_axis(RCSTpos):normalized.
-    set RCSthrust to vec_max_axis(RCSTpos):mag.
-    print "RCSThrustvec: ".
-    print round_fig(RCSthrust,3).
-    print RCSthrustvec.
+    set RCSIsp to 240.
+
+    print RCSTpos.
+    print RCSTneg.
 
     STEERINGMANAGER:RESETTODEFAULT().
     STEERINGMANAGER:RESETPIDS().
@@ -121,6 +117,21 @@ local function pwm_alivezone {
 
 }
 
+local function max_dir {
+    parameter v_in.
+    parameter poslim_vec.
+    parameter neglim_vec.
+
+    local dzone is 0.01.
+
+    local v_out is V(0,0,0).
+    set v_out:x to (choose poslim_vec:x if v_in:x > dzone else 0) + (choose neglim_vec:x if v_in:x < -dzone else 0).
+    set v_out:y to (choose poslim_vec:y if v_in:y > dzone else 0) + (choose neglim_vec:y if v_in:y < -dzone else 0).
+    set v_out:z to (choose poslim_vec:z if v_in:z > dzone else 0) + (choose neglim_vec:z if v_in:z < -dzone else 0).
+
+    return v_out.
+}
+
 // return if orb engine is usable
 local function orb_thrust {
     list engines in engine_list.
@@ -133,23 +144,31 @@ local function orb_thrust {
     return f.
 }
 
+// returns -1 if maneuver is not possible given fuel/thrust etc
+//  time in seconds if maneuver possible in the given thrust vector
 local last_delta_v is V(-1,-1,-1).
+local last_thrust_vector is V(-1,-1,-1).
 local last_mass is ship:mass.
 local last_time is -1.
 function ap_orb_maneuver_time {
-    parameter dv.
-
-    if ship:mass = last_mass and (last_delta_v-dv):mag = 0 {
+    parameter delta_v.
+    parameter thrust_vector is ENGINE_VEC.
+    if ship:mass = last_mass and
+        (last_delta_v-delta_v):mag < 0.03 and
+        (last_thrust_vector-thrust_vector):mag < 0.001 {
         return last_time.
     }
-    if RCSthrust < 0 {
+    if RCSIsp < 0 {
         init_orb_params().
     }
     set last_mass to ship:mass.
-    set last_delta_v to dv.
-    
+    set last_delta_v to delta_v.
+    set last_thrust_vector to thrust_vector.
+    set last_time to 0.
+
     list engines in engine_list.
 
+    local RCSThrust is max_dir(thrust_vector, RCSTpos, RCSTneg).
     local f is 0.  // engine thrust (1000 kg * m/s²) (kN)
     local isp is 0.  // inverse of engine isp (s)
 
@@ -160,8 +179,8 @@ function ap_orb_maneuver_time {
         }
     }
     if f = 0 {
-        set isp to 240.
-        set f to RCSthrust.
+        set isp to RCSIsp.
+        set f to RCSthrust:mag.
     } else {
         set isp to f/isp. // inverse inverse = true isp (s)
     }
@@ -176,20 +195,20 @@ function ap_orb_maneuver_time {
         }
     }
 
-    local v_e is 9.80665*isp.
-    local v_e_rcs is 9.80665*240.
+    local v_e is g0*isp.
+    local v_e_rcs is g0*RCSIsp.
 
-    local m_burn is ship:mass*(1 - constant():e^(-dv:mag/(v_e))).
+    local m_burn is ship:mass*(1 - constant():e^(-delta_v:mag/(v_e))).
 
     if m_burn < m_engine_prop {
         set last_time to (v_e/f) *m_burn. // F = m vdot = -mdot ve -> v_e/f = mdot
     } else {
         local m_engine_delta_v is v_e*ln(ship:mass/(ship:mass-m_engine_prop)).
         local m_rcs_burn is (ship:mass-m_engine_prop)*
-                        (1 - constant():e^(-(dv:mag-m_engine_delta_v)/(v_e_rcs))).
+                        (1 - constant():e^(-(delta_v:mag-m_engine_delta_v)/(v_e_rcs))).
 
         if (m_rcs_burn) < m_rcs_prop {
-            set last_time to (v_e/f) *m_engine_prop + (v_e_rcs/RCSThrust) *(m_rcs_burn).
+            set last_time to (v_e/f) *m_engine_prop + (v_e_rcs/RCSThrust:mag) *(m_rcs_burn).
         } else {
             set last_time to -1.
         }
@@ -236,7 +255,7 @@ function ap_orb_nav_do {
 
         if AP_NAV_IN_SURFACE {
             set orb_steer_direction to srf_head_from_vec(vel_vec)*R(-alpha,0,0).
-        util_hud_push_right("ap_orb_nav_do_in_surface", "a/b: " + round_dec(alpha,2) + "," + round_dec(beta,2)).
+            // util_hud_push_right("ap_orb_nav_do_in_surface", "a/b: " + round_dec(alpha,2) + "," + round_dec(beta,2)).
             set orb_srf_steer_vector to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
                 "", 3.0, true, 1.0, true ).
             set orb_srf_steer_vector:vec to 30*orb_steer_direction:starvector.
@@ -267,9 +286,9 @@ function ap_orb_nav_do {
         if RCSon and (total_head_align >= RCS_MIN_ALIGN) {
             local saturated_delta_v is delta_v:normalized*min(delta_v:mag,RCS_MAX_DV).
             set ship:control:translation to V(
-                pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*saturated_delta_v) + ship:facing:starvector*acc_vec*MTR),
-                pwm_alivezone(K_RCS_TOP*(ship:facing:topvector*saturated_delta_v) + ship:facing:topvector*acc_vec*MTR),
-                pwm_alivezone(K_RCS_FORE*(ship:facing:forevector*saturated_delta_v) + ship:facing:forevector*acc_vec*MTR)).
+                pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*saturated_delta_v) ),
+                pwm_alivezone(K_RCS_TOP*(ship:facing:topvector*saturated_delta_v) ),
+                pwm_alivezone(K_RCS_FORE*(ship:facing:forevector*saturated_delta_v) )).
         } else {
             set ship:control:translation to V(0,0,0).
         }
@@ -306,7 +325,8 @@ function ap_orb_status_string {
             "dv "  + round_dec(delta_v:mag,3) + char(10) + (choose "B" if DO_BURN else " ")
             + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
                 round_dec(ship:facing:topvector*delta_v,2) + "," +
-                round_dec(ship:facing:forevector*delta_v,2) +")".
+                round_dec(ship:facing:forevector*delta_v,2) +")" + char(10) + 
+                "G "+ round_dec( get_applied_acc()*ship:facing:vector/g0, 1).
     }
     
     return hud_str.

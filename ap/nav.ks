@@ -1,6 +1,6 @@
 
 GLOBAL AP_NAV_ENABLED IS TRUE.
-local PARAM is readJson("1:/param.json")["AP_NAV"].
+local PARAM is get_param(readJson("param.json"), "AP_NAV", lexicon()).
 
 local K_Q is get_param(PARAM,"K_Q").
 local K_E is get_param(PARAM,"K_E").
@@ -324,21 +324,40 @@ local function srf_stick {
 
 // NAV ORB START
 
+local thrust_vector is V(0,0,1).
+
+local function orb_stick {
+    
+    if defined AP_MODE_ENABLED and AP_MODE_NAV {
+        local delta is ship:control:pilottranslation.
+        if (delta):mag > 0.5 and (delta-thrust_vector):mag > 0.5 {
+            print "set thrust_vector to " + 
+                char(10) + "  " +round_dec(delta:x,2) + " star" +
+                char(10) + "  " +round_dec(delta:y,2) + " top" +
+                char(10) + "  " +round_dec(delta:z,2) + " fore".
+            set thrust_vector to delta:normalized.
+        }
+    }
+}
+
 local mannode_maneuver_time is 0.
 
 // function that sets nav parameters to execute present/future nodes
 local function orb_mannode {
 
+    orb_stick().
+
     local steer_time is 10. // ?get from orb?
     local buffer_time is 1.
     if ISACTIVEVESSEL and HASNODE {
         local mannode_delta_v is NEXTNODE:deltav:mag.
-        set mannode_maneuver_time to ap_orb_maneuver_time(NEXTNODE:deltav).
-        // print "nodeT: " + round_fig(mannode_maneuver_time,1).
+        if defined AP_ORB_ENABLED {
+            set mannode_maneuver_time to ap_orb_maneuver_time(NEXTNODE:deltav,thrust_vector).
+        }
 
         set AP_NAV_ACC to V(0,0,0).
         if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time {
-            if mannode_delta_v < 0.05 {
+            if mannode_delta_v < 0.01 {
                 print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3).
                 set mannode_maneuver_time to 0.
                 set AP_NAV_VEL to ship:velocity:orbit.
@@ -349,7 +368,7 @@ local function orb_mannode {
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
             set AP_NAV_VEL to ship:velocity:orbit.
-            set AP_NAV_ATT to NEXTNODE:deltav:direction.
+            set AP_NAV_ATT to NEXTNODE:deltav:direction*thrust_vector:direction.
         } else {
             set AP_NAV_VEL to ship:velocity:orbit.
             set AP_NAV_ATT to ship:facing.
@@ -479,7 +498,7 @@ function ap_nav_display {
         set AP_NAV_ATT to ship:facing.
     }
     set DISPLAY_HUD_VEL to (DISPLAY_TAR or DISPLAY_SRF).
-    set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
+    // set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
     // AP_NAV_VEL, AP_NAV_ACC, AP_NAV_ATT
 }
@@ -523,7 +542,7 @@ function ap_nav_status_string {
     }
 
     if DISPLAY_ORB {
-        if mannode_maneuver_time > 0 {
+        if mannode_maneuver_time <> 0 {
             set dstr to char(10) + char(916) + "v " +round_fig((AP_NAV_VEL-ship:velocity:orbit):mag,2)
                 + "|" + round_fig(mannode_maneuver_time,2) + "s"
                 + (choose char(10) + "T " + round_fig(-NEXTNODE:eta,2) + "s" if HASNODE else "").
