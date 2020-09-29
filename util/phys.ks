@@ -1,8 +1,20 @@
 
+local PARAM is get_param(readJson("param.json"),"UTIL_PHYS", lexicon()).
+
+local C_SCHED_TYPE is get_param(PARAM, "C_SCHED_TYPE", "FS3T").
 
 global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
 
-function cl_sched {
+// initialize/assign schedule functions
+if C_SCHED_TYPE = "FS3T" {
+    set cl_sched_assigned to cl_sched_fs3t@.
+    set cd_sched_assigned to cd_sched_fs3t@.
+} else if C_SCHED_TYPE = "ASM" {
+    set cl_sched_assigned to cl_sched_fs3t@.
+    set cd_sched_assigned to cd_sched_fs3t@.
+}
+
+local function cl_sched_fs3t {
     parameter v.
 
     if ( v < 100) {
@@ -16,7 +28,7 @@ function cl_sched {
     }
 }
 
-function cd_sched {
+local function cd_sched_fs3t {
     parameter v.
 
     if (v < 50) {
@@ -33,6 +45,18 @@ function cd_sched {
         return 1.2.
     }
 }
+
+
+function cl_sched {
+    parameter v.
+    return cl_sched_assigned:call(v).
+}
+
+function cd_sched {
+    parameter v.
+    return cd_sched_assigned:call(v).
+}
+
 
 local Tlast is 0.
 local Vlast is V(0,0,0).

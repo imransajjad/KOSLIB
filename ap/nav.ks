@@ -347,12 +347,13 @@ local function orb_mannode {
 
     orb_stick().
 
-    local steer_time is 10. // ?get from orb?
+    local steer_time is 10. // get from orb if possible
     local buffer_time is 1.
     if ISACTIVEVESSEL and HASNODE {
         local mannode_delta_v is NEXTNODE:deltav:mag.
         if defined AP_ORB_ENABLED {
             set mannode_maneuver_time to ap_orb_maneuver_time(NEXTNODE:deltav,thrust_vector).
+            set steer_time to ap_orb_steer_time(NEXTNODE:deltav).
         }
 
         set AP_NAV_ACC to V(0,0,0).
@@ -361,15 +362,18 @@ local function orb_mannode {
                 print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3).
                 set mannode_maneuver_time to 0.
                 set AP_NAV_VEL to ship:velocity:orbit.
+                set AP_NAV_ATT to ship:facing.
                 REMOVE NEXTNODE.
             } else {
+                // do burn
                 set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
-                set AP_NAV_ATT to ship:facing.
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
+            // steer to burn direction
             set AP_NAV_VEL to ship:velocity:orbit.
             set AP_NAV_ATT to NEXTNODE:deltav:direction*thrust_vector:direction.
         } else {
+            // do nothing
             set AP_NAV_VEL to ship:velocity:orbit.
             set AP_NAV_ATT to ship:facing.
         }

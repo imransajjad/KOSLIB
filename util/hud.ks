@@ -488,7 +488,7 @@ function util_hud_parse_command {
         local newkey is commtext:split(" ")[1].
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
     } else if commtext:startswith("hudalign") {
-        if (args:length = 2 or args:length = 3) {
+        if not (args = -1) and (args:length = 2 or args:length = 3) {
             if args:length = 2 { args:add(0). }
             util_shbus_tx_msg("HUD_ALIGN_SET", args).
         } else {

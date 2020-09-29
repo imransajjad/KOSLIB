@@ -462,6 +462,7 @@ function util_shsys_set_spin {
         print "could not find " + part_name.
         return false.
     }
+    print "spin on " + part_name + " set to " + set_state.
     return true.
 }
 

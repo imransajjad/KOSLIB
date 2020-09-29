@@ -216,6 +216,11 @@ function ap_orb_maneuver_time {
     return last_time.
 }
 
+function ap_orb_steer_time {
+    parameter steer_to_vector.
+    return 10.
+}
+
 function ap_orb_nav_do {
     parameter vel_vec is AP_NAV_VEL. // defaults are globals defined in AP_NAV
     parameter acc_vec is AP_NAV_ACC.
