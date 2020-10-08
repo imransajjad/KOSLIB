@@ -261,11 +261,11 @@ function ap_orb_nav_do {
         if AP_NAV_IN_SURFACE {
             set orb_steer_direction to srf_head_from_vec(vel_vec)*R(-alpha,0,0).
             // util_hud_push_right("ap_orb_nav_do_in_surface", "a/b: " + round_dec(alpha,2) + "," + round_dec(beta,2)).
-            set orb_srf_steer_vector to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
-                "", 3.0, true, 1.0, true ).
-            set orb_srf_steer_vector:vec to 30*orb_steer_direction:starvector.
+            // set orb_srf_steer_vector to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
+                // "", 3.0, true, 1.0, true ).
+            // set orb_srf_steer_vector:vec to 30*orb_steer_direction:starvector.
             // set orb_srf_steer_vector:vec to 30*AP_NAV_VEL.
-            set orb_srf_steer_vector:show to true.
+            // set orb_srf_steer_vector:show to true.
         } else if DO_BURN {
             set orb_steer_direction to BURNvec:direction.
         } else {

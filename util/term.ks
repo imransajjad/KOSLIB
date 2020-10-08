@@ -184,7 +184,7 @@ local function raw_input_to_args {
         local arg_start is commtext:FIND("(").
         local arg_end is commtext:FINDLAST(")").
         if arg_end-arg_start <= 1 {
-            return list().
+            return list(commtext,-1).
         }
         local arg_strings is commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
         local numlist is list().

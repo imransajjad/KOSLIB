@@ -157,9 +157,9 @@ function ap_missile_guide {
 
         print "entering terminal guidance".
         util_fldr_send_event("entering terminal guidance").
-        unlock throttle.
-        unlock steering.
-        return.
+        // unlock throttle.
+        // unlock steering.
+        // return.
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
         

@@ -48,25 +48,35 @@ function util_wp_arg_lex {
     parameter wp_args. // has to be a list of numbers
     parameter wp_mode is "srf".
 
-    local wp is lexicon("mode", wp_mode).
-
-    if wp_args:length = 1 {
-        set wp["mode"] to "act". // if one arg, set to action regardless
+    if wp_args[0] = "act" or 
+        wp_args[0] = "spin" or 
+        wp_args[0] = "srf" or 
+        // wp_args[0] = "orb" or 
+        wp_args[0] = "tar" {
+        set wp_mode to wp_args[0].
+        wp_args:remove(0).
     }
+
+    local wp is lexicon("mode", wp_mode).
 
     if wp["mode"] = "act" {
         if wp_args:length = 1 {
             set wp["do_action"] to wp_args[0].
-            return wp.
+        } else {
+            set wp["mode"] to "inv".
         }
     } else if wp["mode"] = "spin" {
         if wp_args:length = 2 {
             set wp["spin_part"] to wp_args[0].
             set wp["spin_state"] to wp_args[1].
-            return wp.
+        } else {
+            set wp["mode"] to "inv".
         }
     } else if wp["mode"] = "srf" {
         local L is wp_args:length.
+        if L < 2 {
+            set wp["mode"] to "inv".
+        }
         if L >= 2 {
             set wp["alt"] to wp_args[0].
             set wp["vel"] to wp_args[1].
@@ -82,22 +92,24 @@ function util_wp_arg_lex {
         if L >= 7 {
             set wp["nomg"] to wp_args[6].
         }
-        return wp.
     } else if wp["mode"] = "orb" {
         // not implemented yet, setting invalid action
         set wp["mode"] to "act".
         set wp["do_action"] to -99.
-        return wp.
     } else if wp["mode"] = "tar" {
         local L is wp_args:length.
+        if L < 1 {
+            set wp["mode"] to "inv".
+        }
         if L >= 1 { set wp["speed"] to wp_args[0]. }
         if L >= 2 { set wp["radius"] to wp_args[1].}
         if L >= 5 { set wp["offsvec"] to V(wp_args[2],wp_args[3],wp_args[4]).}
         if L >= 6 { set wp["roll"] to wp_args[5].}
-        return wp.
     }
-    print "received invalid waypoint data".
-    set wp["mode"] to "inv".
+
+    if wp["mode"] = "inv" {
+        print "received invalid waypoint data".
+    }
     return wp.
 }
 
@@ -115,8 +127,6 @@ local function insert_waypoint {
     parameter wp_lex.
     if not (wp_lex["mode"] = "inv") {
         util_shbus_tx_msg("INS_WP", list(index,wp_lex)).
-    } else {
-        print "invalid".
     }
 }
 local function remove_waypoint {
@@ -127,21 +137,22 @@ local function remove_waypoint {
 function util_wp_get_help_str {
     return LIST(
         "UTIL_WP running on "+core:tag,
-        "wpoverwrite(i,WP) [wpo] overwrite wp",
-        "wpinsert(i,WP)    [wpi] insert wp",
-        "wpremove(i)       [wpr] remove wp ",
-        "wpswap(i,j)       [wps] swap wps",
-        "wpqueueprint      [wpqp] print wp list",
-        "wpqueuedelete     [wpqd] purge wp list",
-        "wpmode str        [wpmd] str is act, spin, srf, orb, tar",
-        "wpdelete          [wpd] delete first wp",
-        "wpfirst(WP)       [wpf] add wp to first ",
-        "wpadd(WP)         [wpa] add wp to last ",
-        "wpupdate(WP)      [wpu] first wp write",
-        "wptarget(WP)      [wpt] vessel/nav target wp",
-        "wphome(alt,vel)   [wpk] go home (srf)",
-        "wptakeoff(distance,heading) [wpto] takeoff (srf)",
-        "wpland(distance,vel,GSlope,heading) [wpl] landing (srf)",
+        "wp overwrite(i,WP) [wpo] overwrite wp",
+        "wp insert(i,WP)    [wpi] insert wp",
+        "wp remove(i)       [wpr] remove wp ",
+        "wp swap(i,j)       [wps] swap wps",
+        "wp queueprint      [wpqp] print wp list",
+        "wp highlight       [wphl] highlight wps in list",
+        "wp queuedelete     [wpqd] purge wp list",
+        "wp mode STR        [wpmd] STR is act, spin, srf, orb, tar",
+        "wp delete          [wpd] delete first wp",
+        "wp first(WP)       [wpf] add wp to first ",
+        "wp add(WP)         [wpa] add wp to last ",
+        "wp update(WP)      [wpu] first wp write",
+        "wp target(WP)      [wpt] vessel/nav target wp",
+        "wp home(alt,vel)   [wpk] go home (srf)",
+        "wp takeoff(distance,heading) [wpto] takeoff (srf)",
+        "wp land(distance,vel,GSlope,heading) [wpl] landing (srf)",
         "in srf mode:",
         "  WP = alt,vel",
         "  WP = alt,vel,lat,lng",
@@ -149,6 +160,13 @@ function util_wp_get_help_str {
         "in tar mode:",
         "  WP = speed,radius",
         "  WP = speed,radius,offx,offy,offz",
+        "in act mode:",
+        "  WP = action",
+        "in spin mode:",
+        "  WP = part,state",
+        "mode can always be provided as the first argument explicitly: ",
+        "  WP = srf,alt,vel,lat,lng",
+        "  WP = tar,speed,radius,offx,offy,offz",
         "depends on UTIL_SHBUS, is a way to schedule waypoints and actions.",
         "Commands usually have a shortened version. Messages are received and possibly serviced by SHBUS hosts."
         ).
@@ -160,12 +178,12 @@ local function generate_takeoff_seq {
     
     local lat is ship:geoposition:lat.
     local lng is ship:geoposition:lng.
-    local start_alt is ship:altitude.
+    local start_alt is ship:geoposition:terrainheight.
 
     //print start_head.
 
     local pullup_angle is 5.
-    local pullup_radius is takeoff_distance/2.
+    local pullup_radius is takeoff_distance*2.
 
     local p1 is haversine_latlng(lat,lng, heading,
         (takeoff_distance)/ship:body:radius*RAD2DEG).
@@ -173,15 +191,16 @@ local function generate_takeoff_seq {
         (takeoff_distance+pullup_radius*sin(pullup_angle))
         /ship:body:radius*RAD2DEG).
     local pesc is haversine_latlng(lat,lng, heading,
-        (takeoff_distance+pullup_radius*sin(pullup_angle)+ takeoff_distance*cos(pullup_angle))
-        /ship:body:radius*RAD2DEG).
+        (takeoff_distance+pullup_radius*sin(pullup_angle)+
+        takeoff_distance*cos(pullup_angle))/ship:body:radius*RAD2DEG + 
+        GCAS_ALTITUDE/tan(max(1.0,pullup_angle))/ship:body:radius*RAD2DEG ).
 
     set takeoff_sequence_WP to LIST(
         list(start_alt, 350, p1[0], p1[1], 0, heading),
         list(start_alt+pullup_radius*(1-cos(pullup_angle)), 350, pr[0], pr[1],pullup_angle,heading),
         list(start_alt+pullup_radius*(1-cos(pullup_angle))+
-            takeoff_distance*sin(pullup_angle), 350, pesc[0], pesc[1],pullup_angle,heading),
-        list("g")
+            takeoff_distance*sin(pullup_angle)+GCAS_ALTITUDE, 350, pesc[0], pesc[1],pullup_angle,heading),
+        list("act","g")
         ).
     return takeoff_sequence_WP.
 }
@@ -236,9 +255,9 @@ local function generate_landing_seq {
         }
     }
     if gcas_gear_wp > -1 {
-        landing_sequence:insert(gcas_gear_wp, list("g")).
+        landing_sequence:insert(gcas_gear_wp, list("act","g")).
     } else {
-        landing_sequence:insert(4, list("g")).
+        landing_sequence:insert(4, list("act","g")).
     }
 
     return landing_sequence.
@@ -259,34 +278,36 @@ function util_wp_parse_command {
     } else {
         return false.
     }
-    if commtext = "wpo" or commtext = "wpoverwrite" {
+    if commtext = "wpo" or commtext = "wp overwrite" {
         overwrite_waypoint(-args[0]-1, util_wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext = "wpi" or commtext = "wpinsert"  {
+    } else if commtext = "wpi" or commtext = "wp insert"  {
         insert_waypoint(-args[0]-2, util_wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext = "wpr" or commtext = "wpremove"{
+    } else if commtext = "wpr" or commtext = "wp remove"{
         remove_waypoint(-args[0]-1).
-    } else if commtext = "wps" or commtext = "wpswap"{
+    } else if commtext = "wps" or commtext = "wp swap"{
         print "not implmented yet".
-    } else if commtext = "wpqp" or commtext = "wpqueueprint" {
+    } else if commtext = "wpqp" or commtext = "wp queueprint" {
         util_shbus_tx_msg("WP_PRINT").
-    } else if commtext = "wpqd" or commtext = "wpqueuepurge" {
+    } else if commtext = "wphl" or commtext = "wp highlight" {
+        util_shbus_tx_msg("WP_HIGHLIGHT").
+    } else if commtext = "wpqd" or commtext = "wp queuepurge" {
         util_shbus_tx_msg("WP_PURGE").
-    } else if commtext:startswith("wpmd") or commtext:startswith("wpmode"){
-        local argmode is commtext:replace("wpmd",""):replace("wpmode",""):trim().
+    } else if commtext:startswith("wpmd") or commtext:startswith("wp mode"){
+        local argmode is commtext:replace("wpmd",""):replace("wp mode",""):trim().
         if ((argmode = "act") or (argmode = "spin") or (argmode = "srf") or (argmode = "orb") or (argmode = "tar")){
             set cur_mode to argmode.
         } else {
             print "wp mode " + argmode + " not supported".
         }
-    } else if commtext = "wpd" or commtext = "wpdelete" { 
+    } else if commtext = "wpd" or commtext = "wp delete" { 
         remove_waypoint(0).
-    } else if commtext = "wpf" or commtext = "wpfirst"{ 
+    } else if commtext = "wpf" or commtext = "wp first"{ 
         insert_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if commtext = "wpa" or commtext = "wpadd"{ 
+    } else if commtext = "wpa" or commtext = "wp add"{ 
         insert_waypoint(-1, util_wp_arg_lex(args, cur_mode) ).
-    } else if commtext = "wpu" or commtext = "wpupdate"{
+    } else if commtext = "wpu" or commtext = "wp update"{
         overwrite_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if (commtext = "wpt"  or commtext = "wptarget") 
+    } else if (commtext = "wpt"  or commtext = "wp target") 
         and args:length = 2 {
         if ISACTIVEVESSEL and HASTARGET {
             print "Found Target.".
@@ -306,15 +327,15 @@ function util_wp_parse_command {
             }
         }
         print "Could not find target or navigation waypoint".
-    } else if (commtext = "wpk" or commtext = "wphome") 
+    } else if (commtext = "wpk" or commtext = "wp home") 
         and args:length = 2 {
         insert_waypoint(-1,
             util_wp_arg_lex(list(args[0],args[1],-0.048,
                 -74.69), cur_mode) ).
-    } else if (commtext = "wpl" or commtext = "wpland") 
+    } else if (commtext = "wpl" or commtext = "wp land") 
         and (args:length = 3 or args:length = 4) {
         util_shbus_tx_msg("WP_LAND", args). // special command for landing
-    } else if (commtext = "wpto" or commtext = "wptakeoff") 
+    } else if (commtext = "wpto" or commtext = "wp takeoff") 
         and (args:length = 1 or args:length = 2) {
         util_shbus_tx_msg("WP_PURGE").
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
@@ -372,6 +393,27 @@ local function waypoint_print_str {
         return wp_str.
     }
     return "".
+}
+
+local wp_highlight_on is false.
+local highlight_wps is list().
+local function waypoint_queue_vecdraw {
+    parameter do_draw.
+    for v in highlight_wps {
+        set v:show to false.
+    }
+    set highlight_wps to list().
+
+    if do_draw {
+        local lastvector is V(0,0,0).
+        for wp in wp_queue {
+            if wp["mode"] = "srf" and wp:haskey("lat") {
+                local curvector is latlng(wp["lat"],wp["lng"]):altitudeposition(wp["alt"]).
+                highlight_wps:add(vecDraw( lastvector, curvector-lastvector, RGB(0,1,0), "", 1.0, true, 1.0, true )).
+                set lastvector to curvector.
+            }
+        }
+    }
 }
 
 function util_wp_add {
@@ -499,7 +541,18 @@ function util_wp_decode_rx_msg {
         for wp_seq_i in generate_takeoff_seq(data[0],data[1]) {
             util_wp_add(-1, util_wp_arg_lex(wp_seq_i, "srf")).
         }
-
+    } else if opcode = "WP_HIGHLIGHT"{
+        if not wp_highlight_on {
+            set wp_highlight_on to true.
+            when true then {
+                waypoint_queue_vecdraw(wp_highlight_on).
+                return wp_highlight_on.
+            }
+            util_shbus_ack("waypoint queue highlighted", sender).
+        } else {
+            set wp_highlight_on to false.
+            util_shbus_ack("turned off waypoint queue highlight", sender).
+        }
     } else {
         util_shbus_ack("could not decode wp rx msg", sender).
         print "could not decode wp rx msg".
