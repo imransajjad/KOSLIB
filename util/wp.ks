@@ -48,10 +48,10 @@ function util_wp_arg_lex {
     parameter wp_args. // has to be a list of numbers
     parameter wp_mode is "srf".
 
-    if wp_args[0] = "act" or 
-        wp_args[0] = "spin" or 
-        wp_args[0] = "srf" or 
-        // wp_args[0] = "orb" or 
+    if wp_args[0] = "act" or
+        wp_args[0] = "spin" or
+        wp_args[0] = "srf" or
+        // wp_args[0] = "orb" or
         wp_args[0] = "tar" {
         set wp_mode to wp_args[0].
         wp_args:remove(0).
@@ -192,7 +192,7 @@ local function generate_takeoff_seq {
         /ship:body:radius*RAD2DEG).
     local pesc is haversine_latlng(lat,lng, heading,
         (takeoff_distance+pullup_radius*sin(pullup_angle)+
-        takeoff_distance*cos(pullup_angle))/ship:body:radius*RAD2DEG + 
+        takeoff_distance*cos(pullup_angle))/ship:body:radius*RAD2DEG +
         GCAS_ALTITUDE/tan(max(1.0,pullup_angle))/ship:body:radius*RAD2DEG ).
 
     set takeoff_sequence_WP to LIST(
@@ -299,15 +299,15 @@ function util_wp_parse_command {
         } else {
             print "wp mode " + argmode + " not supported".
         }
-    } else if commtext = "wpd" or commtext = "wp delete" { 
+    } else if commtext = "wpd" or commtext = "wp delete" {
         remove_waypoint(0).
-    } else if commtext = "wpf" or commtext = "wp first"{ 
+    } else if commtext = "wpf" or commtext = "wp first"{
         insert_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if commtext = "wpa" or commtext = "wp add"{ 
+    } else if commtext = "wpa" or commtext = "wp add"{
         insert_waypoint(-1, util_wp_arg_lex(args, cur_mode) ).
     } else if commtext = "wpu" or commtext = "wp update"{
         overwrite_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if (commtext = "wpt"  or commtext = "wp target") 
+    } else if (commtext = "wpt"  or commtext = "wp target")
         and args:length = 2 {
         if ISACTIVEVESSEL and HASTARGET {
             print "Found Target.".
@@ -327,15 +327,15 @@ function util_wp_parse_command {
             }
         }
         print "Could not find target or navigation waypoint".
-    } else if (commtext = "wpk" or commtext = "wp home") 
+    } else if (commtext = "wpk" or commtext = "wp home")
         and args:length = 2 {
         insert_waypoint(-1,
             util_wp_arg_lex(list(args[0],args[1],-0.048,
                 -74.69), cur_mode) ).
-    } else if (commtext = "wpl" or commtext = "wp land") 
+    } else if (commtext = "wpl" or commtext = "wp land")
         and (args:length = 3 or args:length = 4) {
         util_shbus_tx_msg("WP_LAND", args). // special command for landing
-    } else if (commtext = "wpto" or commtext = "wp takeoff") 
+    } else if (commtext = "wpto" or commtext = "wp takeoff")
         and (args:length = 1 or args:length = 2) {
         util_shbus_tx_msg("WP_PURGE").
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off

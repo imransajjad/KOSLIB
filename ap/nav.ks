@@ -464,7 +464,7 @@ function ap_nav_display {
         set previous_body to ship:body:name.
         set body_navchange_alt to get_param(BODY_navball_change_alt, previous_body, 36000).
     }
-    set AP_NAV_IN_ORBIT to (ship:apoapsis > body_navchange_alt).
+    set AP_NAV_IN_ORBIT to (ship:apoapsis > body_navchange_alt) or (ship:apoapsis < 0).
     set AP_NAV_IN_SURFACE to (ship:altitude < body_navchange_alt).
 
     local cur_wayp is -1.

@@ -18,6 +18,8 @@ local ENGINE_VEC is get_param(PARAM, "ENGINE_VEC", V(0,0,1)).
 local RCS_MAX_DV is get_param(PARAM, "RCS_MAX_DV", 10.0).
 local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 
+local MAX_STEER_TIME is get_param(PARAM, "MAX_STEER_TIME", 10.0).
+
 local lock MTR to ship:mass/(RCSthrust).
 
 local lock omega to RAD2DEG*ship:angularVel.
@@ -32,7 +34,6 @@ local lock SRFV_MARGIN to (choose 200 if AP_NAV_IN_SURFACE else 0).
 local orb_steer_direction is ship:facing.
 local total_head_align is 0.
 
-local orb_throttle is 0.0.
 local DO_BURN is false.
 local delta_v is V(0,0,0).
 local delta_a is V(0,0,0).
@@ -174,8 +175,10 @@ function ap_orb_maneuver_time {
 
     for e in engine_list {
         if e:ignition {
-            set f to f + e:availablethrust.
-            set isp to isp + e:availablethrust/e:isp.
+            if e:availablethrust > 0 and e:isp > 0 {
+                set f to f + e:availablethrust.
+                set isp to isp + e:availablethrust/e:isp.
+            }
         }
     }
     if f = 0 {
@@ -218,7 +221,7 @@ function ap_orb_maneuver_time {
 
 function ap_orb_steer_time {
     parameter steer_to_vector.
-    return 10.
+    return MAX_STEER_TIME.
 }
 
 function ap_orb_nav_do {
@@ -251,11 +254,11 @@ function ap_orb_nav_do {
         }
 
         if DO_BURN and AP_NAV_IN_SURFACE {
-            set orb_throttle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
+            set ship:control:mainthrottle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
         } else if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.95 and omega:mag < 0.5 {
-            set orb_throttle to max(0.75,K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v).
+            set ship:control:mainthrottle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
         } else {
-            set orb_throttle to 0.0.
+            set ship:control:mainthrottle to 0.0.
         }
 
         if AP_NAV_IN_SURFACE {
@@ -311,11 +314,9 @@ function ap_orb_lock_controls {
     } else if do_lock {
         init_orb_params().
         lock steering to orb_steer_direction.
-        lock throttle to orb_throttle.
         set controls_locked to true.
         print "ap_orb_lock_controls: locked".
     } else {
-        unlock throttle.
         unlock steering.
         set controls_locked to false.
         print "ap_orb_lock_controls: unlocked".

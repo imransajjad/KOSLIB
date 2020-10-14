@@ -112,17 +112,6 @@ local function do_scan {
     }
 }
 
-
-local function just_unlock {
-    set TARGET TO "".
-    set target_list to list().
-}
-
-
-local function do_lock {
-    set TARGET TO target_list[next_lock_index].
-}
-
 function target_radar_update_target{
     if scan_timeout = 0 {
         if next_lock_index = 0 {
@@ -136,21 +125,23 @@ function target_radar_update_target{
             }
         } else {
             set_status("").
-            just_unlock().
+            set TARGET TO "".
+            set target_list to list().
             set next_lock_index to 0.
         }
     } else {
         if next_lock_index = target_list:length {
             set_status("").
-            just_unlock().
+            set TARGET TO "".
+            set target_list to list().
             set scan_timeout to 0.
             set next_lock_index to 0.
         } else {
             set_status("locked" + char(10) + (next_lock_index+1)+"/" + target_list:length).
-            do_lock().
+            if not target_list[next_lock_index]:isdead {
+                set TARGET TO target_list[next_lock_index].
+            }
             set next_lock_index to next_lock_index+1.
-            // set scan_timeout to scan_timeout_per_target.
-
         }
     }
 }
