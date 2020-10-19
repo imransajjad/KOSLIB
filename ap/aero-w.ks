@@ -1,7 +1,7 @@
 
 GLOBAL AP_AERO_W_ENABLED IS true.
 
-local PARAM is readJson("param.json")["AP_AERO_W"].
+local PARAM is get_param(readJson("param.json"), "AP_AERO_W", lexicon()).
 
 local STICK_GAIN_NOM is get_param(PARAM, "STICK_GAIN", 3.0).
 local lock STICK_GAIN to STICK_GAIN_NOM*(choose 0.25 if AG else 1.0).

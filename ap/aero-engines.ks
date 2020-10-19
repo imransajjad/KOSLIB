@@ -2,7 +2,7 @@
 GLOBAL AP_AERO_ENGINES_ENABLED IS true.
 
 
-local PARAM is readJson("1:/param.json")["AP_AERO_ENGINES"].
+local PARAM is get_param(readJson("param.json"), "AP_AERO_ENGINES", lexicon()).
 
 local TOGGLE_X is get_param(PARAM,"TOGGLE_X", 0).
 local TOGGLE_Y is get_param(PARAM,"TOGGLE_Y", 0).

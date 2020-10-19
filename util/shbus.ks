@@ -49,6 +49,7 @@ function util_shbus_get_help_str {
         "host tags   get tags from hosts",
         "host only ARG toggle only send to (no ARG resets)",
         "host excl ARG toggle exclude this (no ARG resets)",
+        "host all    reset host only and host excl",
         "host hello  hello to hosts",
         "host tx(OP,DATA)  custom command",
         " ARG=[core]            or",
@@ -119,6 +120,10 @@ function util_shbus_parse_command {
         print_hosts().
     } else if commtext:startswith("excl") {
         set exclude_host_key to arg_hostname.
+        print_hosts().
+    } else if commtext:startswith("all") {
+        set single_host_key to "".
+        set exclude_host_key to "".
         print_hosts().
     } else if commtext:startswith("unask") {
         if (tx_hosts:haskey(arg_hostname)) and not (arg_hostname = exclude_host_key) {

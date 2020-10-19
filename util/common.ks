@@ -297,6 +297,7 @@ function get_param {
     if dict:haskey(key) {
         return dict[key].
     } else {
+        // print "default: " + key + " " + default.
         return default.
     }
 }

@@ -433,8 +433,7 @@ local function tar_wp_guide {
     if not (target_ship = -1) {
         set relative_velocity to get_vessel_vel()-get_vessel_vel(target_ship).
         set final_head to target_ship:facing*(choose R(0,0,0) if target_ship:hassuffix("velocity") else R(0,180,0)).
-        local position is target_ship:position + (final_head)*offsvec.
-
+        local position is -ship:controlpart:position + target_ship:position + (final_head)*offsvec.
         if position:mag > INTERCEPT_DISTANCE {
             return false. // do nothing
         }
@@ -507,16 +506,24 @@ function ap_nav_display {
     // AP_NAV_VEL, AP_NAV_ACC, AP_NAV_ATT
 }
 
+local last_hud_vel is V(0,0,0).
 function ap_nav_get_hud_vel {
     if DISPLAY_HUD_VEL {
         set DISPLAY_HUD_VEL to false.
-        if ISACTIVEVESSEL and NAVMODE = "TARGET" and HASTARGET {
-            return AP_NAV_VEL-get_vessel_vel(TARGET).
-        } else {
-            return AP_NAV_VEL.
+        local orb_srf_vel is ship:geoposition:altitudevelocity(ship:altitude):orbit.
+        if ISACTIVEVESSEL {
+            if NAVMODE = "TARGET" and HASTARGET {
+                set last_hud_vel to AP_NAV_VEL-get_vessel_vel(TARGET).
+            } else if NAVMODE = "ORBIT" and AP_NAV_IN_SURFACE {
+                set last_hud_vel to AP_NAV_VEL + orb_srf_vel.
+            } else if NAVMODE = "SURFACE" and not AP_NAV_IN_SURFACE {
+                set last_hud_vel to AP_NAV_VEL - orb_srf_vel.
+            } else {
+                set last_hud_vel to AP_NAV_VEL.
+            }
         }
     }
-    return V(0,0,0).
+    return last_hud_vel.
 }
 
 function ap_nav_get_vel_err_mag {
@@ -526,7 +533,7 @@ function ap_nav_get_vel_err_mag {
 function ap_nav_status_string {
     local dstr is "".
     local mode_str is "".
-    local vel_mag is AP_NAV_VEL:mag.
+    local vel_mag is ap_nav_get_hud_vel():mag.
 
     if DISPLAY_SRF {
         local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
@@ -574,11 +581,7 @@ function ap_nav_status_string {
     }
 
     if DISPLAY_TAR {
-        if ISACTIVEVESSEL and NAVMODE = "TARGET" and HASTARGET {
-            set dstr to dstr + "/"+round_fig(approach_speed,2).
-        } else {
-            set dstr to dstr + "/"+round_fig(vel_mag,2).
-        }
+        set dstr to dstr + "/"+round_fig(vel_mag,2).
         set DISPLAY_TAR to false.
         set mode_str to mode_str + "t".
     }

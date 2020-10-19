@@ -167,7 +167,7 @@ local function util_term_parse_command {
             // run the file
             execute_file("1:/term-scripts/"+runfile).
         } else {
-            print "0:/term-scripts/"+runfile+"does not exist".
+            print "0:/term-scripts/"+runfile+" does not exist".
         }
     } else {
         return false.
