@@ -13,9 +13,7 @@ local K_RCS_TOP is get_param(PARAM, "K_RCS_TOP",1.0).
 local K_RCS_FORE is get_param(PARAM, "K_RCS_FORE",1.0).
 local K_ORB_ENGINE_FORE is get_param(PARAM, "K_ORB_ENGINE_FORE",0.5).
 
-local ENGINE_VEC is get_param(PARAM, "ENGINE_VEC", V(0,0,1)).
-
-local RCS_MAX_DV is get_param(PARAM, "RCS_MAX_DV", 10.0).
+local RCS_MAX_DV is choose 0 if not USE_RCS else get_param(PARAM, "RCS_MAX_DV", 10.0).
 local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 
 local MAX_STEER_TIME is get_param(PARAM, "MAX_STEER_TIME", 10.0).
@@ -37,7 +35,6 @@ local total_head_align is 0.
 local DO_BURN is false.
 local delta_v is V(0,0,0).
 local delta_a is V(0,0,0).
-local BURNvec to V(0,0,1).
 
 local RCSon to false.
 
@@ -52,12 +49,17 @@ local RCSTpos is V(-1,-1,-1). // not really a vector but a list of max
 local RCSTneg is V(+1,+1,+1). // and min values in ship relative axes
 local RCSIsp is -1.
 
+local METvec is V(0,0,1).
+local MEIsp is V(0,0,0).
+
 local function init_orb_params {
+    // RCS stuff
     set RCSTpos to V(0,0,0).
     set RCSTneg to V(0,0,0).
     for i in ship:parts {
         if i:name = "linearRCS" {
-            local F is 2.0*((-ship:facing)*i:rotation):topvector.
+            local F is 2.0*((-ship:facing)*i:rotation):topvector*
+                i:getmodule("ModuleRCSFX"):getfield("thrust limiter")/100.
             set RCSTpos to vec_max(RCSTpos,RCSTpos+F).
             set RCSTneg to vec_min(RCSTneg,RCSTneg+F).
         }
@@ -68,7 +70,8 @@ local function init_orb_params {
         }
         if i:name = "RCSBlock.v2" {
             for angle in list(0,90,180,270) {
-                local F is 1.0*((-ship:facing)*i:rotation*R(angle,0,0)):vector.
+                local F is 1.0*((-ship:facing)*i:rotation*R(angle,0,0)):vector*
+                    i:getmodule("ModuleRCSFX"):getfield("thrust limiter")/100.
                 set RCSTpos to vec_max(RCSTpos,RCSTpos+F).
                 set RCSTneg to vec_min(RCSTneg,RCSTneg+F).
             }
@@ -76,11 +79,36 @@ local function init_orb_params {
     }
     set RCSIsp to 240.
 
-    print RCSTpos.
-    print RCSTneg.
+    print "RCSdata" +
+        char(10) +" s(" + round_dec(RCSTneg:x,2) + "," + round_dec(RCSTpos:x,2) + ")" +
+        char(10) +" t(" + round_dec(RCSTneg:y,2) + "," + round_dec(RCSTpos:y,2) + ")" +
+        char(10) +" f(" + round_dec(RCSTneg:z,2) + "," + round_dec(RCSTpos:z,2) + ")".
 
-    STEERINGMANAGER:RESETTODEFAULT().
-    STEERINGMANAGER:RESETPIDS().
+    // Main Engine Stuff
+    list engines in engine_list.
+    set METvec to V(0,0,0).
+    set MEIsp to V(0,0,0).
+
+    for e in engine_list {
+        if e:ignition and e:availablethrust > 0 and e:isp > 0 {
+            local evec is e:availablethrust*((-ship:facing)*e:facing:forevector).
+            set METvec to METvec + evec.
+            set MEIsp to MEIsp + evec/e:isp.
+            print evec.
+            print e:isp.
+        }
+    }
+    if MEIsp:x > 0.0001 { set MEIsp:x to METvec:x/MEIsp:x. }
+    if MEIsp:y > 0.0001 { set MEIsp:y to METvec:y/MEIsp:y. }
+    if MEIsp:z > 0.0001 { set MEIsp:z to METvec:z/MEIsp:z. }
+
+    print "RCSdata" +
+        char(10) +"F (" + round_dec(METvec:x,2) + "," + round_dec(METvec:y,2) + "," + round_dec(METvec:z,2) + ")" +
+        char(10) +"Isp (" + round_dec(MEIsp:x,2) + "," + round_dec(MEIsp:y,2) + "," + round_dec(MEIsp:z,2) + ")".
+
+    // Steering Manager Stuff
+    // STEERINGMANAGER:RESETTODEFAULT().
+    // STEERINGMANAGER:RESETPIDS().
     set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
     set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
     set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
@@ -92,6 +120,8 @@ local function init_orb_params {
     set STEERINGMANAGER:ROLLPID:KP to get_param(PARAM, "R_KP", 8.0).
     set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
     set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
+
+    set STEERINGMANAGER:MAXSTOPPINGTIME to 2.0.
 
     if defined AP_NAV_ENABLED and AP_NAV_IN_SURFACE {
         set STEERINGMANAGER:ROLLCONTROLANGLERANGE to 180.
@@ -150,44 +180,25 @@ local function orb_thrust {
 local last_delta_v is V(-1,-1,-1).
 local last_thrust_vector is V(-1,-1,-1).
 local last_mass is ship:mass.
+local last_controlpart is ship:controlpart.
+local last_stage is 9999999999.
 local last_time is -1.
 function ap_orb_maneuver_time {
     parameter delta_v.
-    parameter thrust_vector is ENGINE_VEC.
+    parameter thrust_vector is V(0,0,1).
     if ship:mass = last_mass and
         (last_delta_v-delta_v):mag < 0.03 and
-        (last_thrust_vector-thrust_vector):mag < 0.001 {
+        (last_thrust_vector-thrust_vector):mag < 0.001 and 
+        ship:controlpart = last_controlpart and
+        stage:number = last_stage {
         return last_time.
     }
-    if RCSIsp < 0 {
+
+    if ship:controlpart <> last_controlpart or
+        stage:number <> last_stage {
         init_orb_params().
     }
-    set last_mass to ship:mass.
-    set last_delta_v to delta_v.
-    set last_thrust_vector to thrust_vector.
-    set last_time to 0.
 
-    list engines in engine_list.
-
-    local RCSThrust is max_dir(thrust_vector, RCSTpos, RCSTneg).
-    local f is 0.  // engine thrust (1000 kg * m/s²) (kN)
-    local isp is 0.  // inverse of engine isp (s)
-
-    for e in engine_list {
-        if e:ignition {
-            if e:availablethrust > 0 and e:isp > 0 {
-                set f to f + e:availablethrust.
-                set isp to isp + e:availablethrust/e:isp.
-            }
-        }
-    }
-    if f = 0 {
-        set isp to RCSIsp.
-        set f to RCSthrust:mag.
-    } else {
-        set isp to f/isp. // inverse inverse = true isp (s)
-    }
-    
     local m_engine_prop is 0.
     local m_rcs_prop is 0.
     for r in ship:resources {
@@ -198,24 +209,41 @@ function ap_orb_maneuver_time {
         }
     }
 
-    local v_e is g0*isp.
+    local RCSThrust is max_dir(thrust_vector, RCSTpos, RCSTneg):mag.
+    local METhrust is METvec*(thrust_vector:normalized).
+    // print "RCS thrust : " + round_dec(RCSThrust,3).
+    // print "ME thrust : " + round_dec(METhrust,3).
+    if METhrust < RCSThrust {
+        set m_engine_prop to 0.
+    }
+
+    local v_e is g0*MEIsp*(thrust_vector:normalized).
     local v_e_rcs is g0*RCSIsp.
 
-    local m_burn is ship:mass*(1 - constant():e^(-delta_v:mag/(v_e))).
+    local m_me_burn is ship:mass+1.
+    if v_e > 0 {
+        set m_me_burn to ship:mass*(1 - constant():e^(-delta_v:mag/(v_e))).
+    }
 
-    if m_burn < m_engine_prop {
-        set last_time to (v_e/f) *m_burn. // F = m vdot = -mdot ve -> v_e/f = mdot
+    if m_me_burn < m_engine_prop {
+        set last_time to (v_e/METhrust) *m_me_burn. // F = m vdot = -mdot ve -> v_e/f = mdot
     } else {
         local m_engine_delta_v is v_e*ln(ship:mass/(ship:mass-m_engine_prop)).
         local m_rcs_burn is (ship:mass-m_engine_prop)*
                         (1 - constant():e^(-(delta_v:mag-m_engine_delta_v)/(v_e_rcs))).
 
         if (m_rcs_burn) < m_rcs_prop {
-            set last_time to (v_e/f) *m_engine_prop + (v_e_rcs/RCSThrust:mag) *(m_rcs_burn).
+            local me_time is choose (v_e/METhrust) *m_engine_prop if METhrust > 0 else 0.
+            set last_time to me_time + (v_e_rcs/RCSThrust) *(m_rcs_burn).
         } else {
             set last_time to -1.
         }
     }
+    set last_mass to ship:mass.
+    set last_delta_v to delta_v.
+    set last_thrust_vector to thrust_vector.
+    set last_controlpart to ship:controlpart.
+    set last_stage to stage:number.
     return last_time.
 }
 
@@ -243,23 +271,16 @@ function ap_orb_nav_do {
     if not SAS {
         ap_orb_lock_controls(true).
         
-        local have_thrust is (orb_thrust() > 0).
-
-        if not DO_BURN and have_thrust and ((delta_v:mag > RCS_MAX_DV) or
-            (not USE_RCS and delta_v:mag > 0.05)) {
-            set BURNvec to delta_v:normalized.
+        local me_delta_v is 0.
+        if METvec:mag > 0 {
+            set me_delta_v to (ship:facing*METvec:normalized)*delta_v.
+        }
+        if not DO_BURN and me_delta_v > RCS_MAX_DV {
             set DO_BURN to true.
-        } else if DO_BURN and (not have_thrust or BURNvec*delta_v < 0.05) {
+        } else if DO_BURN and me_delta_v <= 0 {
             set DO_BURN to false.
-        }
-
-        if DO_BURN and AP_NAV_IN_SURFACE {
-            set ship:control:mainthrottle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
-        } else if DO_BURN and (ship:facing*ENGINE_VEC)*BURNvec > 0.95 and omega:mag < 0.5 {
-            set ship:control:mainthrottle to K_ORB_ENGINE_FORE*(ship:facing*ENGINE_VEC)*delta_v.
-        } else {
-            set ship:control:mainthrottle to 0.0.
-        }
+        } 
+        set ship:control:mainthrottle to choose K_ORB_ENGINE_FORE*me_delta_v if DO_BURN else 0.
 
         if AP_NAV_IN_SURFACE {
             set orb_steer_direction to srf_head_from_vec(vel_vec)*R(-alpha,0,0).
@@ -269,8 +290,6 @@ function ap_orb_nav_do {
             // set orb_srf_steer_vector:vec to 30*orb_steer_direction:starvector.
             // set orb_srf_steer_vector:vec to 30*AP_NAV_VEL.
             // set orb_srf_steer_vector:show to true.
-        } else if DO_BURN {
-            set orb_steer_direction to BURNvec:direction.
         } else {
             set orb_steer_direction to head_dir.
         }
@@ -278,8 +297,7 @@ function ap_orb_nav_do {
         set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
         
         local STEER_RCS is not AP_NAV_IN_SURFACE and USE_RCS_STEER and (total_head_align < MIN_ALIGN).
-        local MOVE_RCS is not AP_NAV_IN_SURFACE and (total_head_align >= RCS_MIN_ALIGN
-                and (delta_v:mag > 0.0005 and (delta_v:mag < RCS_MAX_DV or not have_thrust))).
+        local MOVE_RCS is not DO_BURN and (total_head_align >= RCS_MIN_ALIGN and delta_v:mag > 0.0005).
         
         if RCSon and (throttle > 0.0 or not ( STEER_RCS or MOVE_RCS)) {
             set RCSon to false.

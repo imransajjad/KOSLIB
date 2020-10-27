@@ -338,6 +338,7 @@ function get_param_file {
         copypath("0:/param/"+filename+".json","param.json").
     } else if not exists("param.json") {
         writeJson(lexicon(),"param.json").
+        print "param file not found".
     }
 }
 

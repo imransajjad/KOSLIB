@@ -27,6 +27,7 @@ local DISPLAY_ORB is false.
 local DISPLAY_TAR is false.
 
 local DISPLAY_HUD_VEL is false.
+local CLEAR_HUD_VEL is false.
 
 local debug_vectors is false.
 if (debug_vectors) { // debug
@@ -57,11 +58,15 @@ local function get_vessel_vel {
     if not this_vessel:hassuffix("velocity") {
         set this_vessel to this_vessel:ship.
     }
-    if AP_NAV_IN_SURFACE {
-        if not this_vessel:loaded and
+    if not this_vessel:loaded and
         (this_vessel:status = "LANDED" or this_vessel:status = "SPLASHED") {
-            return V(0,0,0).
+            if AP_NAV_IN_SURFACE {
+                return this_vessel:geoposition:altitudevelocity(this_vessel:altitude):surface.
+            } else {
+                return this_vessel:geoposition:altitudevelocity(this_vessel:altitude):orbit.
+            }
         }
+    else if AP_NAV_IN_SURFACE {
         return this_vessel:velocity:surface.
     } else {
         return this_vessel:velocity:orbit.
@@ -325,6 +330,8 @@ local function srf_stick {
 // NAV ORB START
 
 local thrust_vector is V(0,0,1).
+// is a vector in the current ship:facing frame
+// note that controlpart alters ship:facing frame
 
 local function orb_stick {
     
@@ -367,11 +374,12 @@ local function orb_mannode {
             } else {
                 // do burn
                 set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
+                set AP_NAV_ATT to NEXTNODE:deltav:direction*R(0,0,ship:facing:roll)*thrust_vector:direction.
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
             // steer to burn direction
             set AP_NAV_VEL to ship:velocity:orbit.
-            set AP_NAV_ATT to NEXTNODE:deltav:direction*thrust_vector:direction.
+            set AP_NAV_ATT to NEXTNODE:deltav:direction*R(0,0,ship:facing:roll)*thrust_vector:direction.
         } else {
             // do nothing
             set AP_NAV_VEL to ship:velocity:orbit.
@@ -499,6 +507,7 @@ function ap_nav_display {
         set AP_NAV_VEL to get_vessel_vel().
         set AP_NAV_ACC to V(0,0,0).
         set AP_NAV_ATT to ship:facing.
+        set CLEAR_HUD_VEL to true.
     }
     set DISPLAY_HUD_VEL to (DISPLAY_TAR or DISPLAY_SRF).
     // set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
@@ -522,6 +531,10 @@ function ap_nav_get_hud_vel {
                 set last_hud_vel to AP_NAV_VEL.
             }
         }
+    }
+    if CLEAR_HUD_VEL {
+        set CLEAR_HUD_VEL to false.
+        set last_hud_vel to V(0,0,0).
     }
     return last_hud_vel.
 }

@@ -61,13 +61,17 @@ function cd_sched {
 local Tlast is 0.
 local Vlast is V(0,0,0).
 local acc_now is V(0,0,0).
-function get_applied_acc {
+function get_acc {
     if time:seconds-Tlast > 0.02 {
-        set acc_now to 0.5*(ship:velocity:surface-Vlast)/(time:seconds-Tlast) + 0.5*acc_now.
-        set Vlast to ship:velocity:surface.
+        set acc_now to 0.5*(ship:velocity:orbit-Vlast)/(time:seconds-Tlast) + 0.5*acc_now.
+        set Vlast to ship:velocity:orbit.
         set Tlast to time:seconds.
     }
-    return acc_now-GRAV_ACC.
+    return acc_now.
+}
+
+function get_applied_acc {
+    return get_acc()-GRAV_ACC.
 }
 
 

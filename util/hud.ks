@@ -305,21 +305,19 @@ local function lr_text_info {
 
     if hud_setting_dict["on"] and not MAPVIEW and ISACTIVEVESSEL {
 
-        local vel_displayed is 0.
-        local vel_type is "  ".
-        if (NAVMODE = "ORBIT") {
-            set vel_displayed to ship:velocity:orbit:mag.
-            set vel_type to " ".
-        } else if (NAVMODE = "SURFACE") {
-            set vel_displayed to ship:velocity:surface:mag.
-            set vel_type to ">".
-        } else if (NAVMODE = "TARGET") and HASTARGET {
-            local target_ship is TARGET.
-            if not TARGET:hassuffix("velocity") {
-                set target_ship to TARGET:ship.
+        local vel_displayed is "".
+        if not (ship:status = "ORBITING") or (NAVMODE = "TARGET") {
+            if (NAVMODE = "ORBIT") {
+                set vel_displayed to "> " + round_dec(round_fig(ship:velocity:orbit:mag,2),2).
+            } else if (NAVMODE = "SURFACE") {
+                set vel_displayed to ">> " + round_dec(round_fig(ship:velocity:surface:mag,2),2).
+            } else if (NAVMODE = "TARGET") and HASTARGET {
+                local target_ship is TARGET.
+                if not TARGET:hassuffix("velocity") {
+                    set target_ship to TARGET:ship.
+                }
+                set vel_displayed to "+> " + round_dec(round_fig((target_ship:velocity:orbit-ship:velocity:orbit):mag,2),2).
             }
-            set vel_displayed to (target_ship:velocity:orbit-ship:velocity:orbit):mag.
-            set vel_type to "+".
         }
 
         if hud_setting_dict["movable"] {
@@ -334,7 +332,7 @@ local function lr_text_info {
         // or last character
         set hud_left_label:text to ""+
             ( choose ap_mode_get_str()+char(10) if defined AP_MODE_ENABLED else "") +
-            vel_type+"> " + round_dec(round_fig(vel_displayed,2),2) +
+            ( vel_displayed ) +
             ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
             ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
