@@ -94,15 +94,13 @@ local function init_orb_params {
             local evec is e:availablethrust*((-ship:facing)*e:facing:forevector).
             set METvec to METvec + evec.
             set MEIsp to MEIsp + evec/e:isp.
-            print evec.
-            print e:isp.
         }
     }
     if MEIsp:x > 0.0001 { set MEIsp:x to METvec:x/MEIsp:x. }
     if MEIsp:y > 0.0001 { set MEIsp:y to METvec:y/MEIsp:y. }
     if MEIsp:z > 0.0001 { set MEIsp:z to METvec:z/MEIsp:z. }
 
-    print "RCSdata" +
+    print "ME data" +
         char(10) +"F (" + round_dec(METvec:x,2) + "," + round_dec(METvec:y,2) + "," + round_dec(METvec:z,2) + ")" +
         char(10) +"Isp (" + round_dec(MEIsp:x,2) + "," + round_dec(MEIsp:y,2) + "," + round_dec(MEIsp:z,2) + ")".
 
@@ -181,7 +179,7 @@ local last_delta_v is V(-1,-1,-1).
 local last_thrust_vector is V(-1,-1,-1).
 local last_mass is ship:mass.
 local last_controlpart is ship:controlpart.
-local last_stage is 9999999999.
+local last_stage is -2.
 local last_time is -1.
 function ap_orb_maneuver_time {
     parameter delta_v.
