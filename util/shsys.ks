@@ -145,6 +145,17 @@ local function get_another_ship {
 local function setup_docking {
     local target_vessel is util_shsys_get_target().
 
+    if not ship:controlpart:hassuffix("UNDOCK") {
+        if ship:dockingports:length > 0 {
+            print "shsys controlling from docking port".
+            ship:dockingports[0]:controlfrom().
+        } else {
+            print "shsys ship does not have a docking port".
+            return.
+        }
+    }    
+    // our control part should be a docking port now
+
     if target_vessel = -1 {
         print "no target".
         return.
@@ -152,21 +163,19 @@ local function setup_docking {
         print "target needs to be within 200 m to set up docking".
         return.
     } else if target_vessel:hassuffix("dockingports") {
-        for i in ship:dockingports {
-            for they in target_vessel:dockingports {
-                if they:state = "Ready" and they:nodetype = i:nodetype {
-                    if not (i:state = "Ready") and
-                            i:hasmodule("ModuleAnimateGeneric") and
-                            i:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
-                        // try opening the shield
-                        i:getmodule("ModuleAnimateGeneric"):doaction("toggle shield", true).
-                        wait 1.5.
-                    }
-                    if i:state = "Ready" {
-                        set TARGET to they.
-                        print "target:dockingport".
-                        return.
-                    }
+        for they in target_vessel:dockingports {
+            if they:state = "Ready" and they:nodetype = ship:controlpart:nodetype {
+                if not (ship:controlpart:state = "Ready") and
+                        ship:controlpart:hasmodule("ModuleAnimateGeneric") and
+                        ship:controlpart:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
+                    // try opening the shield
+                    ship:controlpart:getmodule("ModuleAnimateGeneric"):doaction("toggle shield", true).
+                    wait 1.5.
+                }
+                if ship:controlpart:state = "Ready" {
+                    set TARGET to they.
+                    print "target:dockingport".
+                    return.
                 }
             }
         }

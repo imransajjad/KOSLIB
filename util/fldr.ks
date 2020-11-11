@@ -31,13 +31,7 @@ for i in Slist {
     }
 }
 
-
-local PARAM is readJson("1:/param.json").
-local MAIN_ENGINE_NAME is (choose PARAM["AP_AERO_ENGINES"]["MAIN_ENGINE_NAME"]
-        if PARAM:haskey("AP_AERO_ENGINES") and
-        PARAM["AP_AERO_ENGINES"]:haskey("MAIN_ENGINE_NAME") else "").
-
-local MAIN_ENGINES is get_engines(MAIN_ENGINE_NAME).
+list engines in MAIN_ENGINES.
 
 // Locals for file logging naming etc
 local FILENAME is "?". // a character that's invalid on every filesystem
@@ -57,6 +51,10 @@ local lock u0 to ship:control:mainthrottle.
 local lock u1 to ship:control:pitch.
 local lock u2 to ship:control:yaw.
 local lock u3 to ship:control:roll.
+
+local lock d1 to ship:control:starboard.
+local lock d2 to ship:control:top.
+local lock d3 to ship:control:fore.
 
 local lock vel to ship:AIRSPEED.
 local lock pitch_rate to (-ship:ANGULARVEL*ship:FACING:STARVECTOR).
@@ -181,14 +179,18 @@ local function log_one_step {
         // return.
     }
 
-    log time:seconds+","+u0+","+u1+","+u2+","+u3+
-        ","+vel+","+pitch_rate+","+yaw_rate+","+roll_rate+
-        ","+thrust+","+pitch+","+yaw+","+roll+
-        ","+vel_pitch+","+vel_bear+
-        ","+Afore+","+Aup+","+Alat+
-        ","+alpha+","+beta+
-        ","+h+","+m+","+dynamic_pres+
-        ","+lat+","+lng
+    log time:seconds+","+u0+","+thrust+
+        ","+u1+","+u2+","+u3+
+        ","+pitch_rate+","+yaw_rate+","+roll_rate+
+        ","+pitch+","+yaw+","+roll+
+        ","+d1+","+d2+","+d3+
+        ","+m+","+dynamic_pres+
+        ","+h+","+lat+","+lng+
+        ","+vel+","+vel_pitch+","+vel_bear+
+        ","+ship:body:mu+
+        ","+velocity:orbit:x+","+velocity:orbit:y+","+velocity:orbit:z+
+        ","+ship:orbit:periapsis+","+ship:orbit:eccentricity+","+ship:orbit:argumentofperiapsis+
+        ","+ship:orbit:inclination+","+ship:orbit:longitudeofascendingnode	+","+ship:orbit:trueanomaly
         to FILENAME.
     // also check for messages while logging.
     // and record events sent by messages
@@ -222,7 +224,7 @@ local function log_first_step {
     print "logging " + logdesc + " to " + FILENAME.
 
     log logdesc to FILENAME.
-    log "t,u0,u1,u2,u3,y0,y1,y2,y3,ft,p,y,r,vp,vh,afore,aup,alat,alpha,beta,h,m,q,lat,lng" to FILENAME.
+    log "t,u0,ft,u1,u2,u3,y1,y2,y3,p,y,r,d1,d2,d3,m,q,h,lat,lng,y0,vp,vh,mu,ovx,ovy,ovz,pe,e,ap,inc,lan,theta" to FILENAME.
     log "" to FILENAME.
 
     set fldr_evt_data[1] to "".

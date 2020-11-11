@@ -26,9 +26,6 @@ local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
 local lock alpha to wrap_angle(ship_vel:pitch).
 local lock beta to wrap_angle(-ship_vel:yaw).
 
-local lock HAVE_FUEL to (ship:liquidfuel > 0.01).
-local lock SRFV_MARGIN to (choose 200 if AP_NAV_IN_SURFACE else 0).
-
 local orb_steer_direction is ship:facing.
 local total_head_align is 0.
 
@@ -49,8 +46,8 @@ local RCSTpos is V(-1,-1,-1). // not really a vector but a list of max
 local RCSTneg is V(+1,+1,+1). // and min values in ship relative axes
 local RCSIsp is -1.
 
-local METvec is V(0,0,1).
-local MEIsp is V(0,0,0).
+local METvec is V(0,0,1). // is a vector
+local MEIsp is V(0,0,0). // is also a vector is exhaust velocity in multiple directions
 
 local function init_orb_params {
     // RCS stuff
@@ -119,7 +116,7 @@ local function init_orb_params {
     set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
     set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
 
-    set STEERINGMANAGER:MAXSTOPPINGTIME to 2.0.
+    set STEERINGMANAGER:MAXSTOPPINGTIME to get_param(PARAM, "MAX_STOPPING_TIME", 5.0).
 
     if defined AP_NAV_ENABLED and AP_NAV_IN_SURFACE {
         set STEERINGMANAGER:ROLLCONTROLANGLERANGE to 180.
@@ -161,18 +158,6 @@ local function max_dir {
     return v_out.
 }
 
-// return if orb engine is usable
-local function orb_thrust {
-    list engines in engine_list.
-    local f is 0. // engine thrust (1000 kg * m/s²) (kN)
-    for e in engine_list {
-        if e:ignition {
-            set f to f + e:availablethrust.
-        }
-    }
-    return f.
-}
-
 // returns -1 if maneuver is not possible given fuel/thrust etc
 //  time in seconds if maneuver possible in the given thrust vector
 local last_delta_v is V(-1,-1,-1).
@@ -209,10 +194,8 @@ function ap_orb_maneuver_time {
 
     local RCSThrust is max_dir(thrust_vector, RCSTpos, RCSTneg):mag.
     local METhrust is METvec*(thrust_vector:normalized).
-    // print "RCS thrust : " + round_dec(RCSThrust,3).
-    // print "ME thrust : " + round_dec(METhrust,3).
-    if METhrust < RCSThrust {
-        set m_engine_prop to 0.
+    if METhrust < RCSThrust or delta_v:mag <= RCS_MAX_DV {
+        set m_engine_prop to 0. // only use rcs for this maneuver
     }
 
     local v_e is g0*MEIsp*(thrust_vector:normalized).
@@ -246,7 +229,7 @@ function ap_orb_maneuver_time {
 }
 
 function ap_orb_steer_time {
-    parameter steer_to_vector.
+    parameter steer_to_attitude.
     return MAX_STEER_TIME.
 }
 
@@ -255,15 +238,8 @@ function ap_orb_nav_do {
     parameter acc_vec is AP_NAV_ACC.
     parameter head_dir is AP_NAV_ATT.
 
-    if AP_NAV_IN_SURFACE {
-        set delta_v to (vel_vec - ship:velocity:surface).
-        set delta_a to (acc_vec - GRAV_ACC).
-        set alpha_c to sat( W_A*(delta_a + 0.5*delta_v)*ship:facing:topvector*ship:mass/ship:q , 10 ).
-        set beta_c to sat( W_A*(delta_a + 0.5*delta_v)*ship:facing:starvector*ship:mass/ship:q , 10 ).
-    } else {
-        set delta_v to (vel_vec - ship:velocity:orbit).
-        set delta_a to (acc_vec - GRAV_ACC).
-    }
+    set delta_v to (vel_vec - ship:velocity:orbit).
+    set delta_a to (acc_vec - GRAV_ACC).
     
 
     if not SAS {
@@ -279,35 +255,20 @@ function ap_orb_nav_do {
             set DO_BURN to false.
         } 
         set ship:control:mainthrottle to choose K_ORB_ENGINE_FORE*me_delta_v if DO_BURN else 0.
+        set orb_steer_direction to head_dir.
 
-        if AP_NAV_IN_SURFACE {
-            set orb_steer_direction to srf_head_from_vec(vel_vec)*R(-alpha,0,0).
-            // util_hud_push_right("ap_orb_nav_do_in_surface", "a/b: " + round_dec(alpha,2) + "," + round_dec(beta,2)).
-            // set orb_srf_steer_vector to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
-                // "", 3.0, true, 1.0, true ).
-            // set orb_srf_steer_vector:vec to 30*orb_steer_direction:starvector.
-            // set orb_srf_steer_vector:vec to 30*AP_NAV_VEL.
-            // set orb_srf_steer_vector:show to true.
-        } else {
-            set orb_steer_direction to head_dir.
-        }
         local head_error is (-ship:facing)*orb_steer_direction.
         set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
         
-        local STEER_RCS is not AP_NAV_IN_SURFACE and USE_RCS_STEER and (total_head_align < MIN_ALIGN).
-        local MOVE_RCS is not DO_BURN and (total_head_align >= RCS_MIN_ALIGN and delta_v:mag > 0.0005).
+        local STEER_RCS is USE_RCS_STEER and total_head_align < MIN_ALIGN.
+        local MOVE_RCS is not DO_BURN and delta_v:mag > 0.0005.
         
-        if RCSon and (throttle > 0.0 or not ( STEER_RCS or MOVE_RCS)) {
-            set RCSon to false.
-        } else if not RCSon and throttle = 0 and (MOVE_RCS or STEER_RCS) {
-            set RCSon to true.
-        }
-        set RCS to RCSon.
+        set RCS to (MOVE_RCS or STEER_RCS).
         if defined UTIL_HUD_ENABLED {
-            util_hud_push_left("ap_orb_nav_do", (choose "R" if RCSon else "") +(choose "B" if MOVE_RCS else "") + (choose "S" if STEER_RCS else "") ).
+            util_hud_push_left("ap_orb_nav_do", (choose "R" if RCS else "") +(choose "B" if MOVE_RCS else "") + (choose "S" if STEER_RCS else "") ).
         }
 
-        if RCSon and (total_head_align >= RCS_MIN_ALIGN) {
+        if MOVE_RCS and (total_head_align >= RCS_MIN_ALIGN) {
             local saturated_delta_v is delta_v:normalized*min(delta_v:mag,RCS_MAX_DV).
             set ship:control:translation to V(
                 pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*saturated_delta_v) ),

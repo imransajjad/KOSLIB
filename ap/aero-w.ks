@@ -18,7 +18,9 @@ local RATE_SCHEDULE_ENABLED is get_param(PARAM, "RATE_SCHEDULE_ENABLED", false).
 local START_MASS is get_param(PARAM,"START_MASS", 0).
 
 local GAIN_SCHEDULE_ENABLED is get_param(PARAM,"GAIN_SCHEDULE_ENABLED", false).
-local PITCH_SPECIFIC_INERTIA is get_param(PARAM,"PITCH_SPECIFIC_INERTIA", 0).
+local PITCH_SPECIFIC_INERTIA is get_param(PARAM,"PITCH_SPECIFIC_INERTIA", 30).
+local YAW_SPECIFIC_INERTIA is get_param(PARAM,"YAW_SPECIFIC_INERTIA", PITCH_SPECIFIC_INERTIA*1.5).
+local ROLL_SPECIFIC_INERTIA is get_param(PARAM,"ROLL_SPECIFIC_INERTIA", PITCH_SPECIFIC_INERTIA*0.5).
 
 local USE_GCAS is get_param(PARAM, "USE_GCAS", false).
 local GCAS_MARGIN is get_param(PARAM, "GCAS_MARGIN").
@@ -172,19 +174,22 @@ local function gain_schedule {
     if prev_AG {
         set LF2G to LF2G/3.
     }
-    set LF2G to LF2G/(PITCH_SPECIFIC_INERTIA*loadfactor*airflow_c_u)/kuniverse:timewarp:rate.
+    set LF2G to LF2G/(loadfactor*airflow_c_u)/kuniverse:timewarp:rate.
 
-    set pratePID:KP to PR_KP*LF2G.
-    set pratePID:KI to PR_KI*LF2G.
-    set pratePID:KD to PR_KD*LF2G.
+    local LF2GP is (LF2G/PITCH_SPECIFIC_INERTIA).
+    set pratePID:KP to PR_KP*LF2GP.
+    set pratePID:KI to PR_KI*LF2GP.
+    set pratePID:KD to PR_KD*LF2GP.
 
-    set yratePID:KP to YR_KP*LF2G.
-    set yratePID:KI to YR_KI*LF2G.
-    set yratePID:KD to YR_KD*LF2G.
+    local LF2GY is (LF2G/YAW_SPECIFIC_INERTIA).
+    set yratePID:KP to YR_KP*LF2GY.
+    set yratePID:KI to YR_KI*LF2GY.
+    set yratePID:KD to YR_KD*LF2GY.
     
-    set rratePD:KP to RR_KP*LF2G.
-    set rrateI:KI to RR_KI*LF2G.
-    set rratePD:KD to RR_KD*LF2G.
+    local LF2GR is (LF2G/ROLL_SPECIFIC_INERTIA).
+    set rratePD:KP to RR_KP*LF2GR.
+    set rrateI:KI to RR_KI*LF2GR.
+    set rratePD:KD to RR_KD*LF2GR.
 }
 
 
@@ -495,7 +500,7 @@ function ap_aero_w_status_string {
     set hud_str to hud_str+
         char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
         char(10) + "LF " + round_fig(WING_AREA_P*LF/(GLIM_VERT*g0/CORNER_VELOCITY),3) +
-        char(10) + "LF2G " + round_fig(LF2G,3) +
+        char(10) + "LF2GP " + round_fig(LF2G/PITCH_SPECIFIC_INERTIA,3) +
         char(10) + "WA " + round_dec(WING_AREA_P,1).
     }
     if ( false) { // nav debug

@@ -331,7 +331,7 @@ function util_wp_parse_command {
         and args:length = 2 {
         insert_waypoint(-1,
             util_wp_arg_lex(list(args[0],args[1],-0.048,
-                -74.69), cur_mode) ).
+                -74.69), "srf") ).
     } else if (commtext = "wpl" or commtext = "wp land")
         and (args:length = 3 or args:length = 4) {
         util_shbus_tx_msg("WP_LAND", args). // special command for landing

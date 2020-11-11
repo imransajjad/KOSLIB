@@ -374,12 +374,12 @@ local function orb_mannode {
             } else {
                 // do burn
                 set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
-                set AP_NAV_ATT to NEXTNODE:deltav:direction*R(0,0,ship:facing:roll)*thrust_vector:direction.
+                set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
             // steer to burn direction
             set AP_NAV_VEL to ship:velocity:orbit.
-            set AP_NAV_ATT to NEXTNODE:deltav:direction*R(0,0,ship:facing:roll)*thrust_vector:direction.
+            set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
         } else {
             // do nothing
             set AP_NAV_VEL to ship:velocity:orbit.
@@ -501,6 +501,12 @@ function ap_nav_display {
         }
     } else if AP_NAV_IN_ORBIT and orb_mannode() {
         set DISPLAY_ORB to true.
+        if (debug_vectors) {
+            set nav_debug_vec0:vec to 30*AP_NAV_VEL.
+            set nav_debug_vec1:vec to 10*AP_NAV_ATT:starvector.
+            set nav_debug_vec2:vec to 10*AP_NAV_ATT:topvector.
+            set nav_debug_vec3:vec to 20*AP_NAV_ATT:forevector.
+        }
     } else if AP_NAV_IN_SURFACE and srf_stick() {
         set DISPLAY_SRF to true.
     } else {
