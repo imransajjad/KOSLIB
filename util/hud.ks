@@ -306,18 +306,44 @@ local function lr_text_info {
     if hud_setting_dict["on"] and not MAPVIEW and ISACTIVEVESSEL {
 
         local vel_displayed is "".
-        if not (ship:status = "ORBITING") or (NAVMODE = "TARGET") {
-            if (NAVMODE = "ORBIT") {
-                set vel_displayed to "> " + round_dec(round_fig(ship:velocity:orbit:mag,2),2).
-            } else if (NAVMODE = "SURFACE") {
-                set vel_displayed to ">> " + round_dec(round_fig(ship:velocity:surface:mag,2),2).
-            } else if (NAVMODE = "TARGET") and HASTARGET {
-                local target_ship is TARGET.
-                if not TARGET:hassuffix("velocity") {
-                    set target_ship to TARGET:ship.
+        local alt_head_str is "".
+
+        if (NAVMODE = "ORBIT") {
+            set vel_displayed to "> " + round_dec(round_fig(ship:velocity:orbit:mag,2),2).
+            if ship:orbit:eccentricity < 1.0 {
+                if ship:orbit:trueanomaly >= 90 and ship:orbit:trueanomaly < 270{
+                    local time_hud is eta:apoapsis - (choose 0 if ship:orbit:trueanomaly < 180 else ship:orbit:period).
+                    set alt_head_str to "Ap "+round(ship:orbit:apoapsis) +
+                        char(10)+ " T " + round_fig(-time_hud,1)+"s".
+                } else {
+                    local time_hud is eta:periapsis - (choose 0 if ship:orbit:trueanomaly > 180 else ship:orbit:period).
+                    set alt_head_str to "Pe "+round(ship:orbit:periapsis) +
+                        char(10)+ " T " + round_fig(-time_hud,1)+"s".
                 }
-                set vel_displayed to "+> " + round_dec(round_fig((target_ship:velocity:orbit-ship:velocity:orbit):mag,2),2).
+            } else {
+                if ship:orbit:hasnextpatch and ship:orbit:trueanomaly >= 0 {
+                    set alt_head_str to "Esc " +
+                        char(10)+ " T " + round(ship:orbit:nextpatcheta)+"s".
+                } else{
+                    set alt_head_str to "Pe "+round(ship:orbit:periapsis) +
+                        char(10)+ " T " + round(eta:periapsis)+"s".
+                }
             }
+            set alt_head_str to alt_head_str + char(10) + "e " +  + round_fig(ship:orbit:eccentricity,2).
+        } else if (NAVMODE = "SURFACE") {
+            set vel_displayed to ">> " + round_dec(round_fig(ship:velocity:surface:mag,2),2).
+            
+            local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
+            set alt_head_str to (choose round_dec(ground_alt,1) +" ^_"
+                    if (ground_alt < FLARE_ALT ) else round_dec(SHIP:ALTITUDE,0)+" <|" ) +
+                    char(10) + round_dec(vel_bear,0) +" -O ".
+        } else if (NAVMODE = "TARGET") and HASTARGET {
+            local target_ship is TARGET.
+            if not TARGET:hassuffix("velocity") {
+                set target_ship to TARGET:ship.
+            }
+            set vel_displayed to "+> " + round_dec(round_fig((target_ship:velocity:orbit-ship:velocity:orbit):mag,2),2).
+            set alt_head_str to round_dec(round_fig((target_ship:position):mag,2),2) + "+|".
         }
 
         if hud_setting_dict["movable"] {
@@ -332,21 +358,15 @@ local function lr_text_info {
         // or last character
         set hud_left_label:text to ""+
             ( choose ap_mode_get_str()+char(10) if defined AP_MODE_ENABLED else "") +
-            ( vel_displayed ) +
-            ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
+            ( vel_displayed ) + ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
             ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
 
-        local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
-        local alt_str is (choose round_dec(ground_alt,1) +" ^_"
-                    if (ground_alt < FLARE_ALT ) else round_dec(SHIP:ALTITUDE,0)+" <|" ).
-
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
             ( choose util_shsys_status_string()+char(10) if defined UTIL_SHSYS_ENABLED else "") +
-            alt_str + char(10) +
-            round_dec(vel_bear,0) +" -O " + char(10) +
+            alt_head_str+char(10) +
             ( choose util_wp_status_string()+char(10) if defined UTIL_WP_ENABLED else "") +
             hud_text_dict_right:values:join(char(10)).
 

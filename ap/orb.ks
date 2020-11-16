@@ -6,8 +6,6 @@ local PARAM is get_param(readJson("param.json"), "AP_ORB", lexicon()).
 local USE_RCS to get_param(PARAM, "USE_RCS", true).
 local USE_RCS_STEER to get_param(PARAM, "USE_RCS_STEER", false).
 
-local MIN_ALIGN is cos(get_param(PARAM, "STEER_MAX_ANGLE", 1.0)).
-
 local K_RCS_STARBOARD is get_param(PARAM, "K_RCS_STARBOARD",1.0).
 local K_RCS_TOP is get_param(PARAM, "K_RCS_TOP",1.0).
 local K_RCS_FORE is get_param(PARAM, "K_RCS_FORE",1.0).
@@ -18,30 +16,18 @@ local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 
 local MAX_STEER_TIME is get_param(PARAM, "MAX_STEER_TIME", 10.0).
 
-local lock MTR to ship:mass/(RCSthrust).
-
-local lock omega to RAD2DEG*ship:angularVel.
-
-local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
-local lock alpha to wrap_angle(ship_vel:pitch).
-local lock beta to wrap_angle(-ship_vel:yaw).
-
 local orb_steer_direction is ship:facing.
-local total_head_align is 0.
 
+local ALIGNED is true.
 local DO_BURN is false.
+local STEER_RCS is false.
+local MOVE_RCS is false.
+
 local delta_v is V(0,0,0).
 local delta_a is V(0,0,0).
 
-local RCSon to false.
-
-local alpha_c is 0.0.
-local beta_c is 0.0.
-local W_A is 0.8.
 
 
-// local RCSthrust is -1.
-// local RCSthrustvec is V(0,0,1).
 local RCSTpos is V(-1,-1,-1). // not really a vector but a list of max
 local RCSTneg is V(+1,+1,+1). // and min values in ship relative axes
 local RCSIsp is -1.
@@ -77,9 +63,9 @@ local function init_orb_params {
     set RCSIsp to 240.
 
     print "RCSdata" +
-        char(10) +" s(" + round_dec(RCSTneg:x,2) + "," + round_dec(RCSTpos:x,2) + ")" +
-        char(10) +" t(" + round_dec(RCSTneg:y,2) + "," + round_dec(RCSTpos:y,2) + ")" +
-        char(10) +" f(" + round_dec(RCSTneg:z,2) + "," + round_dec(RCSTpos:z,2) + ")".
+        " s(" + round_dec(RCSTneg:x,2) + "," + round_dec(RCSTpos:x,2) + ")" +
+        " t(" + round_dec(RCSTneg:y,2) + "," + round_dec(RCSTpos:y,2) + ")" +
+        " f(" + round_dec(RCSTneg:z,2) + "," + round_dec(RCSTpos:z,2) + ")".
 
     // Main Engine Stuff
     list engines in engine_list.
@@ -233,6 +219,10 @@ function ap_orb_steer_time {
     return MAX_STEER_TIME.
 }
 
+function ap_orb_rcs_dv {
+    return RCS_MAX_DV.
+}
+
 function ap_orb_nav_do {
     parameter vel_vec is AP_NAV_VEL. // defaults are globals defined in AP_NAV
     parameter acc_vec is AP_NAV_ACC.
@@ -241,34 +231,31 @@ function ap_orb_nav_do {
     set delta_v to (vel_vec - ship:velocity:orbit).
     set delta_a to (acc_vec - GRAV_ACC).
     
-
     if not SAS {
         ap_orb_lock_controls(true).
+
+        local head_error is (-ship:facing)*head_dir.
+        set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
+        set ALIGNED to total_head_align >= RCS_MIN_ALIGN and ship:angularvel:mag < 0.005.
+        set orb_steer_direction to head_dir.
         
         local me_delta_v is 0.
         if METvec:mag > 0 {
             set me_delta_v to (ship:facing*METvec:normalized)*delta_v.
         }
-        if not DO_BURN and me_delta_v > RCS_MAX_DV {
+        if not DO_BURN and me_delta_v > RCS_MAX_DV and ALIGNED {
             set DO_BURN to true.
-        } else if DO_BURN and me_delta_v <= 0 {
+        } else if DO_BURN and (me_delta_v <= 0 or not ALIGNED) {
             set DO_BURN to false.
-        } 
+        }
         set ship:control:mainthrottle to choose K_ORB_ENGINE_FORE*me_delta_v if DO_BURN else 0.
-        set orb_steer_direction to head_dir.
 
-        local head_error is (-ship:facing)*orb_steer_direction.
-        set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
-        
-        local STEER_RCS is USE_RCS_STEER and total_head_align < MIN_ALIGN.
-        local MOVE_RCS is not DO_BURN and delta_v:mag > 0.0005.
+        set STEER_RCS to USE_RCS_STEER and not ALIGNED.
+        set MOVE_RCS to not DO_BURN and delta_v:mag > 0.0005 and ALIGNED.
         
         set RCS to (MOVE_RCS or STEER_RCS).
-        if defined UTIL_HUD_ENABLED {
-            util_hud_push_left("ap_orb_nav_do", (choose "R" if RCS else "") +(choose "B" if MOVE_RCS else "") + (choose "S" if STEER_RCS else "") ).
-        }
 
-        if MOVE_RCS and (total_head_align >= RCS_MIN_ALIGN) {
+        if MOVE_RCS {
             local saturated_delta_v is delta_v:normalized*min(delta_v:mag,RCS_MAX_DV).
             set ship:control:translation to V(
                 pwm_alivezone(K_RCS_STARBOARD*(ship:facing:starvector*saturated_delta_v) ),
@@ -303,14 +290,19 @@ function ap_orb_lock_controls {
 function ap_orb_status_string {
     local hud_str is "".
 
-    if (true) {
-        set hud_str to hud_str + "align  " + round_dec(total_head_align,3) + char(10) + 
-            "dv "  + round_dec(delta_v:mag,3) + char(10) + (choose "B" if DO_BURN else " ")
+    set hud_str to hud_str +
+        "G "+ round_dec( get_applied_acc():mag/g0, 1) +
+        (choose "A" if not ALIGNED else "") +
+        (choose "M" if MOVE_RCS else "") +
+        (choose "S" if STEER_RCS else "") +
+        (choose "B" if DO_BURN else "").
+
+    if (false) {
+        set hud_str to hud_str +
+            "dv "  + round_dec(delta_v:mag,3) +
             + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
                 round_dec(ship:facing:topvector*delta_v,2) + "," +
-                round_dec(ship:facing:forevector*delta_v,2) +")" + char(10) + 
-                "G "+ round_dec( get_applied_acc()*ship:facing:vector/g0, 1).
+                round_dec(ship:facing:forevector*delta_v,2) +")" + char(10).
     }
-    
     return hud_str.
 }

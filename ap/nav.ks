@@ -330,6 +330,7 @@ local function srf_stick {
 // NAV ORB START
 
 local thrust_vector is V(0,0,1).
+local thrust_string is "x".
 // is a vector in the current ship:facing frame
 // note that controlpart alters ship:facing frame
 
@@ -338,11 +339,14 @@ local function orb_stick {
     if defined AP_MODE_ENABLED and AP_MODE_NAV {
         local delta is ship:control:pilottranslation.
         if (delta):mag > 0.5 and (delta-thrust_vector):mag > 0.5 {
-            print "set thrust_vector to " + 
-                char(10) + "  " +round_dec(delta:x,2) + " star" +
-                char(10) + "  " +round_dec(delta:y,2) + " top" +
-                char(10) + "  " +round_dec(delta:z,2) + " fore".
             set thrust_vector to delta:normalized.
+            set thrust_string to "" + 
+                (choose char(8592) if delta:x < -0.5 else "") +
+                (choose char(8594) if delta:x > 0.5 else "") +
+                (choose char(8595) if delta:y < -0.5 else "") +
+                (choose char(8593) if delta:y > 0.5 else "") +
+                (choose "o" if delta:z < -0.5 else "") +
+                (choose "x" if delta:z > 0.5 else "").
         }
     }
 }
@@ -356,17 +360,19 @@ local function orb_mannode {
 
     local steer_time is 10. // get from orb if possible
     local buffer_time is 1.
+    local no_steer_dv is 0.1.
     if ISACTIVEVESSEL and HASNODE {
         local mannode_delta_v is NEXTNODE:deltav:mag.
         if defined AP_ORB_ENABLED {
             set mannode_maneuver_time to ap_orb_maneuver_time(NEXTNODE:deltav,thrust_vector).
             set steer_time to ap_orb_steer_time(NEXTNODE:deltav).
+            set no_steer_dv to ap_orb_rcs_dv().
         }
 
         set AP_NAV_ACC to V(0,0,0).
         if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time {
             if mannode_delta_v < 0.01 {
-                print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3).
+                print "remaining node " + char(916) + "v " + round_fig(mannode_delta_v,3) + " m/s".
                 set mannode_maneuver_time to 0.
                 set AP_NAV_VEL to ship:velocity:orbit.
                 set AP_NAV_ATT to ship:facing.
@@ -374,7 +380,9 @@ local function orb_mannode {
             } else {
                 // do burn
                 set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
-                set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
+                if NEXTNODE:deltav:mag > no_steer_dv {
+                    set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
+                }
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
             // steer to burn direction
@@ -502,7 +510,7 @@ function ap_nav_display {
     } else if AP_NAV_IN_ORBIT and orb_mannode() {
         set DISPLAY_ORB to true.
         if (debug_vectors) {
-            set nav_debug_vec0:vec to 30*AP_NAV_VEL.
+            set nav_debug_vec0:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
             set nav_debug_vec1:vec to 10*AP_NAV_ATT:starvector.
             set nav_debug_vec2:vec to 10*AP_NAV_ATT:topvector.
             set nav_debug_vec3:vec to 20*AP_NAV_ATT:forevector.
@@ -574,26 +582,8 @@ function ap_nav_status_string {
     if DISPLAY_ORB {
         if mannode_maneuver_time <> 0 {
             set dstr to char(10) + char(916) + "v " +round_fig((AP_NAV_VEL-ship:velocity:orbit):mag,2)
-                + "|" + round_fig(mannode_maneuver_time,2) + "s"
+                + "|" + thrust_string + round_fig(mannode_maneuver_time,2) + "s " +
                 + (choose char(10) + "T " + round_fig(-NEXTNODE:eta,2) + "s" if HASNODE else "").
-        } else if ship:orbit:eccentricity < 1.0 {
-            if ship:orbit:trueanomaly >= 90 and ship:orbit:trueanomaly < 270{
-                local time_hud is eta:apoapsis - (choose 0 if ship:orbit:trueanomaly < 180 else ship:orbit:period).
-                set dstr to dstr+char(10)+"Ap "+round(ship:orbit:apoapsis) +
-                    char(10)+ " T " + round_fig(-time_hud,1)+"s".
-            } else {
-                local time_hud is eta:periapsis - (choose 0 if ship:orbit:trueanomaly > 180 else ship:orbit:period).
-                set dstr to dstr+char(10)+"Pe "+round(ship:orbit:periapsis) +
-                    char(10)+ " T " + round_fig(-time_hud,1)+"s".
-            }
-        } else {
-            if ship:orbit:hasnextpatch and ship:orbit:trueanomaly >= 0 {
-                set dstr to dstr+char(10)+"Esc " +
-                    char(10)+ " T " + round(ship:orbit:nextpatcheta)+"s".
-            } else{
-                set dstr to dstr+char(10)+"Pe "+round(ship:orbit:periapsis) +
-                    char(10)+ " T " + round(eta:periapsis)+"s".
-            }
         }
         set DISPLAY_ORB to false.
         set mode_str to mode_str + "o".

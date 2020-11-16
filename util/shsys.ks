@@ -149,7 +149,21 @@ local function setup_docking {
         if ship:dockingports:length > 0 {
             print "shsys controlling from docking port".
             ship:dockingports[0]:controlfrom().
-        } else {
+            wait 0.5.
+             if not (ship:controlpart:state = "Ready") and
+                    ship:controlpart:hasmodule("ModuleAnimateGeneric") and
+                    ship:controlpart:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
+                // try opening the shield
+                ship:controlpart:getmodule("ModuleAnimateGeneric"):doaction("toggle shield", true).
+                wait 2.5.
+            } else if not (ship:controlpart:state = "Ready") and
+                    ship:controlpart:hasmodule("ModuleAnimateGeneric") and
+                    ship:controlpart:getmodule("ModuleAnimateGeneric"):hasaction("toggle") {
+                // try opening the shield
+                ship:controlpart:getmodule("ModuleAnimateGeneric"):doaction("toggle", true).
+                wait 2.5.
+            }
+    } else {
             print "shsys ship does not have a docking port".
             return.
         }
@@ -165,13 +179,7 @@ local function setup_docking {
     } else if target_vessel:hassuffix("dockingports") {
         for they in target_vessel:dockingports {
             if they:state = "Ready" and they:nodetype = ship:controlpart:nodetype {
-                if not (ship:controlpart:state = "Ready") and
-                        ship:controlpart:hasmodule("ModuleAnimateGeneric") and
-                        ship:controlpart:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
-                    // try opening the shield
-                    ship:controlpart:getmodule("ModuleAnimateGeneric"):doaction("toggle shield", true).
-                    wait 1.5.
-                }
+               
                 if ship:controlpart:state = "Ready" {
                     set TARGET to they.
                     print "target:dockingport".
