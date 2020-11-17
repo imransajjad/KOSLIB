@@ -89,6 +89,8 @@ local function print_target_data {
     }
 }
 
+local scan_visual is VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),"", 1.0, false, 0.25, false ).
+clearvecdraws().
 local function do_scan {
     list targets in target_list.
     local removal_list is list().
@@ -110,6 +112,14 @@ local function do_scan {
     for i in target_list {
         //print i.
     }
+
+    set scan_visual:show to true.
+    for i in range(0,360,10) {
+        set scan_visual:start to 100*(ship:facing*LOOKUP_DIRECTION:vector).
+        set scan_visual:vec to 100*tan(max_angle)*(ship:facing*LOOKUP_DIRECTION*R(0,0,i)*V(1,0,0)).
+        wait 0.05.
+    }
+    set scan_visual:show to false.
 }
 
 function target_radar_update_target{
@@ -223,6 +233,7 @@ function target_radar_draw_picture {
         print " max range: " + round_dec(max_range/1000,2) +"k".
         print " max angle: " + round_dec(max_angle,2) +" deg".
         print " pitch: " + round_dec(-LOOKUP_DIRECTION:pitch,2) +" deg".
+        print " yaw: " + round_dec(LOOKUP_DIRECTION:yaw,2) +" deg".
     }
 
     // do_debug_print().
@@ -232,9 +243,23 @@ function target_radar_draw_picture {
 
 function util_radar_loop {
     local nAG is 0.
+    local nAG_final is 0.
+    local start_time is 0.
 
     on AG {
         set nAG to nAG+1.
+        
+        // start a timer to *collect* button presses
+        if start_time = 0 {
+            set start_time to time:seconds.
+            on (time:seconds > start_time+Ts) {
+                set nAG_final to nAG.
+                set nAG to 0.
+                set start_time to 0.
+                return false.
+            }
+        }
+
         if nAG >= 2 {
             return false.
         } else {
@@ -243,19 +268,16 @@ function util_radar_loop {
     }
 
     until false {
-        if nAG = 1 {
+        if nAG_final >= 2 {
+            CLEARSCREEN.
+            set_status("").
+            return.
+        } else if nAG_final = 1 {
             target_radar_update_target().
         }
         target_radar_draw_picture().
         scan_timeout_do().
-        // print_debug(nAG).
-        if nAG >= 2 {
-            CLEARSCREEN.
-            set_status("").
-            return.
-        } else {
-            set nAG to max(0,nAG-1).
-        }
+        set nAG_final to 0.
         wait Ts.
     }
 }
@@ -266,7 +288,7 @@ function util_radar_get_help_str {
         "UTIL_RADAR  running on "+core:tag,
         "radar   turn on radar",
         "radar(args)",
-        "args: beam_width,beam_angle",
+        "args: beam_width,beam_pitch,beam_yaw",
         "press AG twice to exit"
         ).
 }
@@ -285,8 +307,11 @@ function util_radar_parse_command {
                 set max_angle to max(0.5,min(45,args[0])).
                 set max_range to MAX_ENERGY/(max_angle^2).
             }
-            if args:length >= 2 {
-                set LOOKUP_DIRECTION to R(-args[1],0,0).
+            if args:length = 2 {
+                set LOOKUP_DIRECTION to R(-sat(args[1],30),0,0).
+            }
+            if args:length >= 3 {
+                set LOOKUP_DIRECTION to R(-sat(args[1],30),sat(args[2],30),0).
             }
         }
         util_radar_loop().

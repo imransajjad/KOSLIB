@@ -174,7 +174,7 @@ local function send_cargo_bay_delayed_ack {
 
     set last_cargo_bay_ack_time to time:seconds.
     when time:seconds > last_cargo_bay_ack_time + delay then {
-        util_shbus_tx_msg("SYS_REMOTE_CB_OPENED", list(), list(sender)).
+        util_shbus_tx_msg("SYS_SET_SPIN", list("bays","false"), list(sender)).
         // print "sent delayed ack to " + sender + "from " + last_cargo_bay_ack_time.
         set last_cargo_bay_ack_time to -1.
     }
@@ -398,9 +398,6 @@ function util_shsys_decode_rx_msg {
         wait 0.
         add_another_ship(data[0]).
         cargo_bay_do().
-    } else if opcode = "SYS_REMOTE_CB_OPENED" {
-        print "remote cb opened".
-        set SPIN_ON_REMOTE_BAYS to false.
     } else if opcode = "SYS_DO_ACTION" {
         if data:length = 1 {
             util_shsys_do_action(data[0]).
