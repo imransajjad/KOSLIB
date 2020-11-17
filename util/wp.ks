@@ -242,7 +242,7 @@ local function generate_landing_seq {
     list(alt_stp + flare_h +distance*tan(GSlope)/10, speed, p3[0], p3[1],-GSlope,runway_angle),
     list(alt_stp + flare_h, speed, p2f[0], p2f[1], -GSlope,runway_angle),
     list(alt_stp , flare_sd*speed,    p1td[0], p1td[1], -LSlope,runway_angle,flare_g),
-    list(alt_stp-1.0, 0, lat_stp, lng_stp, -0,runway_angle,flare_g)).
+    list(alt_stp-1.0, 2.45, lat_stp, lng_stp, -0,runway_angle,flare_g)).
 
     local gcas_gear_wp is -1.
     if GCAS_ALTITUDE > 0 {

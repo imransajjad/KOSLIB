@@ -1,9 +1,6 @@
 
 GLOBAL UTIL_SHSYS_ENABLED IS true.
 
-local cargo_bay_opened_count is 0.
-local other_ships is UNIQUESET().
-
 local PARAM is get_param(readJson("param.json"),"UTIL_SHSYS", lexicon()).
 
 local MAIN_ANTENNAS_NAME is get_param(PARAM, "MAIN_ANTENNAS_NAME", "").
@@ -21,6 +18,7 @@ local Q_SAFE is get_param(PARAM, "Q_SAFE", 0).
 local qsafe_last is true.
 
 local MIN_SEPARATION is get_param(PARAM, "MIN_SEPARATION", 3).
+local BAYS_DELAY is get_param(PARAM, "BAYS_DELAY", 0).
 local TARGET_CACHING is get_param(PARAM, "TARGET_CACHING", true).
 
 local dockingports is get_parts_tagged(get_param(PARAM, "DOCKING_PORT_NAME", "")).
@@ -52,6 +50,7 @@ local SPIN_ON_DECOUPLER is false.
 local SPIN_ON_DOCKINGPORT is false.
 local SPIN_ON_FARING is false.
 local SPIN_ON_SEPARATION is false.
+local SPIN_ON_REMOTE_BAYS is false.
 
 
 
@@ -126,20 +125,59 @@ local function iterate_spacecraft_system_state {
     }
 }
 
-
-local function get_another_ship {
+// these functions maintain a list of other ships and number of times
+// the cargo bay has been opened. If other ships are within a certain distance
+// or the cargo has been opened remotely but not closed, the cargo bay is opened
+// otherwise it is closed, see cargo_bay_do()
+local cargo_bay_opened_count is 0.
+local other_ships is UNIQUESET().
+local function add_another_ship {
     parameter namestr.
     list targets in target_list.
-    local found is false.
 
-    //until found {
-        for e in target_list {
-            if e:name = namestr and not other_ships:contains(e){
-                other_ships:add(e).
-                //set found to true.
+    for e in target_list {
+        if e:name = namestr and not other_ships:contains(e){
+            other_ships:add(e).
+        }
+    }
+}
+
+local function filter_other_ships {
+    if other_ships:length > 0 {
+        local oship_remove is 0.
+        for oship in other_ships {
+            if oship:distance > MIN_SEPARATION {
+                set oship_remove to oship.
             }
         }
-    //}
+        if not (oship_remove = 0) {
+            other_ships:remove(oship_remove).
+            cargo_bay_do().
+        }
+    }
+}
+
+local function cargo_bay_do {
+    if cargo_bay_opened_count = 0 and other_ships:length = 0 and BAYS {
+        set BAYS to false.
+        print "shsys closing BAYS".
+    } else if (cargo_bay_opened_count > 0 or other_ships:length > 0) and not BAYS {
+        set BAYS to true.
+        print "shsys opening BAYS".
+    }
+}
+
+local last_cargo_bay_ack_time is -1.
+local function send_cargo_bay_delayed_ack {
+    parameter sender.
+    parameter delay.
+
+    set last_cargo_bay_ack_time to time:seconds.
+    when time:seconds > last_cargo_bay_ack_time + delay then {
+        util_shbus_tx_msg("SYS_REMOTE_CB_OPENED", list(), list(sender)).
+        // print "sent delayed ack to " + sender + "from " + last_cargo_bay_ack_time.
+        set last_cargo_bay_ack_time to -1.
+    }
 }
 
 local function setup_docking {
@@ -266,7 +304,15 @@ local function shsys_check {
             set SPIN_ON_SEPARATION to false.
         }
     }
-    local do_spin is ( SPIN_ON_ENGINE or SPIN_ON_DECOUPLER or any_docked or SPIN_ON_FARING or SPIN_ON_SEPARATION).
+    if SPIN_ON_REMOTE_BAYS {
+        // can't do anything
+    }
+    local do_spin is (SPIN_ON_ENGINE or
+                SPIN_ON_DECOUPLER or
+                any_docked or
+                SPIN_ON_FARING or
+                SPIN_ON_SEPARATION or
+                SPIN_ON_REMOTE_BAYS).
 
     // send any safety messages to hud
     if Q_SAFE > 0 {
@@ -296,21 +342,8 @@ local function shsys_check {
     }
     // close cargo bay after deploying other ship
     // at a safe distance
-    if other_ships:length > 0 {
-        local oship_remove is 0.
-        for oship in other_ships {
-            if oship:distance > 3 {
-                set oship_remove to oship.
-            }
-        }
-        if not (oship_remove = 0) {
-            set cargo_bay_opened_count to max(0,cargo_bay_opened_count-1).
-            other_ships:remove(oship_remove).
-            if cargo_bay_opened_count = 0 and other_ships:length = 0 {
-                set bays to false.
-            }
-        }
-    }
+    filter_other_ships().
+
     if TARGET_CACHING {
         cache_target().
     }
@@ -354,13 +387,20 @@ function util_shsys_decode_rx_msg {
     }
 
     if opcode:startswith("SYS_CB_OPEN") {
-        set cargo_bay_opened_count to cargo_bay_opened_count + 1.
-        set bays to true.
+        set cargo_bay_opened_count to max(0,cargo_bay_opened_count+1).
+        cargo_bay_do().
+        send_cargo_bay_delayed_ack(sender, BAYS_DELAY).
     } else if opcode = "SYS_CB_CLOSE" {
-        set bays to false.
+        set cargo_bay_opened_count to max(0,cargo_bay_opened_count-1).
+        cargo_bay_do().
     } else if opcode = "SYS_PL_AWAY" {
-        wait 0.1.
-        get_another_ship(data[0]).
+        wait 0.
+        wait 0.
+        add_another_ship(data[0]).
+        cargo_bay_do().
+    } else if opcode = "SYS_REMOTE_CB_OPENED" {
+        print "remote cb opened".
+        set SPIN_ON_REMOTE_BAYS to false.
     } else if opcode = "SYS_DO_ACTION" {
         if data:length = 1 {
             util_shsys_do_action(data[0]).
@@ -475,6 +515,8 @@ function util_shsys_set_spin {
         set SPIN_ON_SEPARATION to set_state.
     } else if part_name = "dock" {
         set SPIN_ON_DOCKINGPORT to set_state.
+    } else if part_name = "bays" {
+        set SPIN_ON_REMOTE_BAYS to set_state.
     } else {
         print "could not find " + part_name.
         return false.

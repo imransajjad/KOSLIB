@@ -159,7 +159,8 @@ function util_shbus_tx_msg {
         set recipients to list(single_host_key).
     }
    
-    for key in recipients {
+    for recipient in recipients {
+        local key is resolve_name(recipient).
         if tx_hosts:haskey(key) and not (key = exclude_host_key){
             if not tx_hosts[key]:connection:sendmessage(list(sender,key,opcode,data)) {
                 print sender +" could not send message:" +
@@ -275,7 +276,7 @@ function util_shbus_ack{
     parameter ack_str.
     parameter sender. // is always ship:name+SEP+cpu:tag
     // data is [fullname of who ack is for, fullname of who is acking, ack_content]
-    util_shbus_tx_msg("ACK", list(sender, my_fullname, ack_str), list(resolve_name(sender))).
+    util_shbus_tx_msg("ACK", list(sender, my_fullname, ack_str), list(sender)).
 }
 
 // this function serves as a template for other receiving messages

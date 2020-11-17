@@ -99,6 +99,7 @@
         "UTIL_SHSYS",
         {
             "entries": [
+                "BAYS_DELAY", 2
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
