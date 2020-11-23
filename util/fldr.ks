@@ -150,7 +150,6 @@ local function get_info_string {
     char(10) + "lng  " + ship:GEOPOSITION:LNG +
     char(10) + "h    " + ship:ALTITUDE +
     char(10) + "vs   " + ship:AIRSPEED +
-    char(10) + "engine " + MAIN_ENGINE_NAME +
     char(10) + "logtag " + logtag.
 
     local Filelist is -1.

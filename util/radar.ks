@@ -5,7 +5,7 @@ GLOBAL UTIL_RADAR_ENABLED IS true.
 local PARAM is get_param(readJson("param.json"), "UTIL_RADAR", lexicon()).
 
 local max_angle is 20.
-local MAX_ENERGY is get_param(PARAM, "MAX_ENERGY", 50000000). // distance at 1 deg beam
+local MAX_ENERGY is get_param(PARAM, "MAX_ENERGY", 0). // distance at 1 deg beam
 local max_range is MAX_ENERGY/(max_angle^2).
 
 local LOOKUP_DIRECTION is R(0,0,0).
@@ -91,6 +91,16 @@ local function print_target_data {
 
 local scan_visual is VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),"", 1.0, false, 0.25, false ).
 clearvecdraws().
+local function scan_visual_show {
+    set scan_visual:show to true.
+    for i in range(0,360,10) {
+        set scan_visual:start to 100*(ship:facing*LOOKUP_DIRECTION:vector).
+        set scan_visual:vec to 100*tan(max_angle)*(ship:facing*LOOKUP_DIRECTION*R(0,0,i)*V(1,0,0)).
+        wait 0.
+    }
+    set scan_visual:show to false.
+}
+
 local function do_scan {
     list targets in target_list.
     local removal_list is list().
@@ -112,14 +122,15 @@ local function do_scan {
     for i in target_list {
         //print i.
     }
+    scan_visual_show().
+}
 
-    set scan_visual:show to true.
-    for i in range(0,360,10) {
-        set scan_visual:start to 100*(ship:facing*LOOKUP_DIRECTION:vector).
-        set scan_visual:vec to 100*tan(max_angle)*(ship:facing*LOOKUP_DIRECTION*R(0,0,i)*V(1,0,0)).
-        wait 0.05.
-    }
-    set scan_visual:show to false.
+local function unlock_target {
+    set_status("").
+    set TARGET TO "".
+    set target_list to list().
+    set next_lock_index to 0.
+    set scan_timeout to 0.
 }
 
 function target_radar_update_target{
@@ -134,18 +145,11 @@ function target_radar_update_target{
                 set_status("no tar").
             }
         } else {
-            set_status("").
-            set TARGET TO "".
-            set target_list to list().
-            set next_lock_index to 0.
+            unlock_target().
         }
     } else {
         if next_lock_index = target_list:length {
-            set_status("").
-            set TARGET TO "".
-            set target_list to list().
-            set scan_timeout to 0.
-            set next_lock_index to 0.
+            unlock_target().
         } else {
             set_status("locked" + char(10) + (next_lock_index+1)+"/" + target_list:length).
             if not target_list[next_lock_index]:isdead {
@@ -167,7 +171,7 @@ function scan_timeout_do {
 }
 
 
-function get_screen_position {
+local function get_screen_position {
     parameter dist.
     parameter bear.
     parameter min_dist.
@@ -226,10 +230,19 @@ function target_radar_draw_picture {
         print round_dec( (2^max_distance_log)/1000,1) AT(0,0).
         print round_dec( (2^min_distance_log)/1000,1) AT(0,view_height).
     } else if not HASTARGET {
+        if ship:control:pilottranslation:mag > 0 {
+            set LOOKUP_DIRECTION to R(
+                sat(LOOKUP_DIRECTION:pitch - ship:control:pilottop,30),
+                sat(LOOKUP_DIRECTION:yaw + ship:control:pilotstarboard,30),
+                0).
+            set max_angle to max(0.5,min(45,max_angle - 0.5*ship:control:pilotfore)).
+            set max_range to MAX_ENERGY/(max_angle^2).
+        }
         print "radar".
         print " use AG to scan".
         print " and cycle targets".
         print " use AG twice to exit".
+        print " translation to steer beam".
         print " max range: " + round_dec(max_range/1000,2) +"k".
         print " max angle: " + round_dec(max_angle,2) +" deg".
         print " pitch: " + round_dec(-LOOKUP_DIRECTION:pitch,2) +" deg".
@@ -259,19 +272,16 @@ function util_radar_loop {
                 return false.
             }
         }
-
-        if nAG >= 2 {
-            return false.
-        } else {
-            return true.
-        }
+        return true.
     }
 
     until false {
-        if nAG_final >= 2 {
+        if nAG_final >= 2 and target_list:length = 0 {
             CLEARSCREEN.
             set_status("").
             return.
+        } else if nAG_final = 2 {
+            unlock_target().
         } else if nAG_final = 1 {
             target_radar_update_target().
         }
@@ -302,6 +312,10 @@ function util_radar_parse_command {
     set scan_timeout to 0.
 
     if commtext = "radar" {
+        if MAX_ENERGY <= 0 {
+            print "radar not available".
+            return true.
+        }
         if not (args = -1) {
             if args:length >= 1 {
                 set max_angle to max(0.5,min(45,args[0])).
@@ -309,9 +323,10 @@ function util_radar_parse_command {
             }
             if args:length = 2 {
                 set LOOKUP_DIRECTION to R(-sat(args[1],30),0,0).
-            }
-            if args:length >= 3 {
+            } else if args:length >= 3 {
                 set LOOKUP_DIRECTION to R(-sat(args[1],30),sat(args[2],30),0).
+            } else {
+                set LOOKUP_DIRECTION to R(0,0,0).
             }
         }
         util_radar_loop().

@@ -291,7 +291,7 @@ function ap_orb_status_string {
     local hud_str is "".
 
     set hud_str to hud_str +
-        "G "+ round_dec( get_applied_acc():mag/g0, 1) +
+        "G "+ round_dec( max(get_applied_acc()*ship:facing:topvector, get_applied_acc()*ship:facing:forevector)/g0, 1) +
         (choose "A" if not ALIGNED else "") +
         (choose "M" if MOVE_RCS else "") +
         (choose "S" if STEER_RCS else "") +

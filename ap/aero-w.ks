@@ -456,7 +456,7 @@ function ap_aero_w_status_string {
 
     if (ship:q > MIN_AERO_Q) {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +
-        round_dec( get_applied_acc()*ship:facing:topvector/g0, 1) + 
+        round_dec( max(get_applied_acc()*ship:facing:topvector, get_applied_acc()*ship:facing:forevector)/g0, 1) + 
         char(10) + (choose "" if STICK_GAIN = STICK_GAIN_NOM else "S") +
         char(945) + " " + round_dec(alpha,1).
         if defined UTIL_FLDR_ENABLED {
