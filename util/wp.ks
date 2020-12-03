@@ -36,8 +36,8 @@ if PARAM:haskey("AP_AERO_W") and get_param(PARAM["AP_AERO_W"], "USE_GCAS", false
 
 local wp_queue is LIST(). // wp_queue is LIST of WAYPOINTS on *this core*
 
-if exists("wp_queue.json") {
-    set wp_queue to readJson("wp_queue.json").
+if exists("wp-queue.json") {
+    set wp_queue to readJson("wp-queue.json").
 }
 local cur_mode is "srf".
 
@@ -467,7 +467,7 @@ local function waypoint_queue_purge {
 
 function util_wp_done {
     util_wp_remove(0).
-    writeJson(wp_queue, "wp_queue.json"). // only other place wp updated
+    writeJson(wp_queue, "wp-queue.json"). // only other place wp updated
 }
 
 function util_wp_queue_length {
@@ -560,7 +560,7 @@ function util_wp_decode_rx_msg {
     }
     // since this is one of the only two ways to update the waypoint queue
     // we can write the waypoints to file here, even if they are incomplete.
-    writeJson(wp_queue, "wp_queue.json").
+    writeJson(wp_queue, "wp-queue.json").
     return true.
 }
 

@@ -89,3 +89,7 @@ function get_frame_accel {
 
     return ship:up:vector*(-1.0*g0).
 }
+
+function get_max_applied_acc {
+    return abs_max(get_applied_acc()*ship:facing:topvector, get_applied_acc()*ship:facing:forevector).
+}

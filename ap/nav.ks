@@ -215,7 +215,6 @@ local ROT_GNOM_LAT is get_param(PARAM,"ROT_GNOM_LAT",0.1).
 local ROT_GNOM_LONG is get_param(PARAM,"ROT_GNOM_LONG",1.0).
 local MIN_SRF_RAD is get_param(PARAM,"MIN_SRF_RAD",250).
 
-local TAIL_STRIKE is get_param(PARAM,"TAIL_STRIKE").
 local VSET_MAX is get_param(PARAM,"VSET_MAX").
 local GEAR_HEIGHT is get_param(PARAM,"GEAR_HEIGHT").
 

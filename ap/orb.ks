@@ -236,7 +236,7 @@ function ap_orb_nav_do {
 
         local head_error is (-ship:facing)*head_dir.
         set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
-        set ALIGNED to total_head_align >= RCS_MIN_ALIGN and ship:angularvel:mag < 0.005.
+        set ALIGNED to total_head_align >= RCS_MIN_ALIGN.
         set orb_steer_direction to head_dir.
         
         local me_delta_v is 0.
@@ -250,7 +250,7 @@ function ap_orb_nav_do {
         }
         set ship:control:mainthrottle to choose K_ORB_ENGINE_FORE*me_delta_v if DO_BURN else 0.
 
-        set STEER_RCS to USE_RCS_STEER and not ALIGNED.
+        set STEER_RCS to USE_RCS_STEER and (not ALIGNED or DO_BURN).
         set MOVE_RCS to not DO_BURN and delta_v:mag > 0.0005 and ALIGNED.
         
         set RCS to (MOVE_RCS or STEER_RCS).
@@ -291,7 +291,7 @@ function ap_orb_status_string {
     local hud_str is "".
 
     set hud_str to hud_str +
-        "G "+ round_dec( max(get_applied_acc()*ship:facing:topvector, get_applied_acc()*ship:facing:forevector)/g0, 1) +
+        "G "+ round_dec( get_max_applied_acc()/g0, 1) +
         (choose "A" if not ALIGNED else "") +
         (choose "M" if MOVE_RCS else "") +
         (choose "S" if STEER_RCS else "") +

@@ -45,13 +45,27 @@ local arm_parachutes is false.
 
 local initial_ship is ship.
 
-local SPIN_ON_ENGINE is false.
-local SPIN_ON_DECOUPLER is false.
-local SPIN_ON_DOCKINGPORT is false.
-local SPIN_ON_FARING is false.
-local SPIN_ON_SEPARATION is false.
-local SPIN_ON_REMOTE_BAYS is false.
+local SPIN_STATES to lexicon().
+if exists("spin-states.json") {
+    set SPIN_STATES to readJson("spin-states.json").
+}
 
+local SPIN_ON_ENGINE is get_param(SPIN_STATES, "SPIN_ON_ENGINE", false).
+local SPIN_ON_DECOUPLER is get_param(SPIN_STATES, "SPIN_ON_DECOUPLER", false).
+local SPIN_ON_DOCKINGPORT is get_param(SPIN_STATES, "SPIN_ON_DOCKINGPORT", false).
+local SPIN_ON_FARING is get_param(SPIN_STATES, "SPIN_ON_FARING", false).
+local SPIN_ON_SEPARATION is get_param(SPIN_STATES, "SPIN_ON_SEPARATION", false).
+local SPIN_ON_REMOTE_BAYS is get_param(SPIN_STATES, "SPIN_ON_REMOTE_BAYS", false).
+
+local function save_spin_states {
+    set SPIN_STATES["SPIN_ON_ENGINE"] to SPIN_ON_ENGINE.
+    set SPIN_STATES["SPIN_ON_DECOUPLER"] to SPIN_ON_DECOUPLER.
+    set SPIN_STATES["SPIN_ON_DOCKINGPORT"] to SPIN_ON_DOCKINGPORT.
+    set SPIN_STATES["SPIN_ON_FARING"] to SPIN_ON_FARING.
+    set SPIN_STATES["SPIN_ON_SEPARATION"] to SPIN_ON_SEPARATION.
+    set SPIN_STATES["SPIN_ON_REMOTE_BAYS"] to SPIN_ON_REMOTE_BAYS.
+    writeJson(SPIN_STATES, "spin-states.json").
+}
 
 
 // sets systems according to where spacecraft is
@@ -278,6 +292,7 @@ local function shsys_check {
         } else {
             set SPIN_ON_ENGINE to false.
         }
+        if not SPIN_ON_ENGINE { save_spin_states(). }
     }
     if SPIN_ON_DECOUPLER {
         local decoupler is core:part:decoupler.
@@ -286,7 +301,7 @@ local function shsys_check {
         } else {
             set SPIN_ON_DECOUPLER to false.
         }
-        if not SPIN_ON_DECOUPLER { print "unspin on decoupler".}
+        if not SPIN_ON_DECOUPLER { save_spin_states(). }
     }
     local any_docked is false.
     if SPIN_ON_DOCKINGPORT {
@@ -298,11 +313,13 @@ local function shsys_check {
     }
     if SPIN_ON_FARING {
         set SPIN_ON_FARING to false. // not implemented yet
+        if not SPIN_ON_FARING { save_spin_states(). }
     }
     if SPIN_ON_SEPARATION {
         if initial_ship:distance > MIN_SEPARATION {
             set SPIN_ON_SEPARATION to false.
         }
+        if not SPIN_ON_SEPARATION { save_spin_states(). }
     }
     if SPIN_ON_REMOTE_BAYS {
         // can't do anything
@@ -518,6 +535,7 @@ function util_shsys_set_spin {
         print "could not find " + part_name.
         return false.
     }
+    save_spin_states().
     print "spin on " + part_name + " set to " + set_state.
     return true.
 }

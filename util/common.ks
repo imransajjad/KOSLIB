@@ -42,6 +42,16 @@ function sign {
     if X < 0 { return -1.0.}
     return 0.
 }
+
+function abs_max {
+    parameter x,y.
+    if abs(x) > abs(y) {
+        return x.
+    } else {
+        return y.
+    }
+}
+
 function round_dec {
     parameter NUM.
     parameter FRAD_DIG.
