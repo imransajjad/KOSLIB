@@ -48,11 +48,11 @@ function util_wp_arg_lex {
     parameter wp_args. // has to be a list of numbers
     parameter wp_mode is "srf".
 
-    if wp_args[0] = "act" or
+    if wp_args:length > 0 and (wp_args[0] = "act" or
         wp_args[0] = "spin" or
         wp_args[0] = "srf" or
         // wp_args[0] = "orb" or
-        wp_args[0] = "tar" {
+        wp_args[0] = "tar") {
         set wp_mode to wp_args[0].
         wp_args:remove(0).
     }
@@ -167,6 +167,7 @@ function util_wp_get_help_str {
         "mode can always be provided as the first argument explicitly: ",
         "  WP = srf,alt,vel,lat,lng",
         "  WP = tar,speed,radius,offx,offy,offz",
+        "wp help        print help",
         "depends on UTIL_SHBUS, is a way to schedule waypoints and actions.",
         "Commands usually have a shortened version. Messages are received and possibly serviced by SHBUS hosts."
         ).
@@ -267,22 +268,22 @@ local function generate_landing_seq {
 // Otherwise it returns false.
 function util_wp_parse_command {
     parameter commtext.
-    parameter args is -1.
+    parameter args is list().
 
     // don't even try if it's not a wp command
     if commtext:startswith("wp") {
-        if not (args = -1) and args:length = 0 {
+        if not commtext = "wp help" and not (args = -1) and args:length = 0 {
             print "wp args expected but empty".
             return true.
         }
     } else {
         return false.
     }
-    if commtext = "wpo" or commtext = "wp overwrite" {
+    if commtext = "wpo" or commtext = "wp overwrite" and args:length >= 1 {
         overwrite_waypoint(-args[0]-1, util_wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext = "wpi" or commtext = "wp insert"  {
+    } else if commtext = "wpi" or commtext = "wp insert" and args:length >= 1 {
         insert_waypoint(-args[0]-2, util_wp_arg_lex(args:sublist(1,args:length-1), cur_mode) ).
-    } else if commtext = "wpr" or commtext = "wp remove"{
+    } else if commtext = "wpr" or commtext = "wp remove"  and args:length = 1 {
         remove_waypoint(-args[0]-1).
     } else if commtext = "wps" or commtext = "wp swap"{
         print "not implmented yet".
@@ -339,6 +340,8 @@ function util_wp_parse_command {
         and (args:length = 1 or args:length = 2) {
         util_shbus_tx_msg("WP_PURGE").
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
+    } else if commtext = "wp help" {
+        util_term_parse_command("help WP").
     } else {
         return false.
     }
@@ -427,7 +430,7 @@ function util_wp_update {
     parameter pos.
     parameter new_wp.
     if pos < 0 { set pos to pos+wp_queue:length.}
-    if wp_queue:length > pos {
+    if wp_queue:length > pos and pos >= 0 {
         set wp_queue[pos] to new_wp.
     }
 }

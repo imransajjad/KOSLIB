@@ -478,41 +478,39 @@ function util_hud_setting {
 function util_hud_get_help_str {
     return list(
         "UTIL_HUD running on "+core:tag,
-        "hudalign(elev,bear,roll) set align",
-        "hudcolor(r,g,b) set hud_color",
-        "hudsw [setting] toggle setting",
+        "hud align(elev,bear,roll)  set align",
+        "hud color(r,g,b)   set hud_color",
+        "hud sw [setting]   toggle setting",
         "    on",
         "    ladder",
         "    align",
         "    nav",
-        "    movable"
+        "    movable",
+        "hud help           print help"
         ).
 }
 
 function util_hud_parse_command {
     parameter commtext.
-    parameter args is -1.
+    parameter args is list().
 
-    if commtext:startswith("hud") {
-        if not (args = -1) and args:length = 0 {
-            print "hud args expected but empty".
-            return true.
-        }
+    if commtext:startswith("hud ") {
+        set commtext to commtext:remove(0,4).
     } else {
         return false.
     }
 
-    if commtext:startswith("hudsw ") {
+    if commtext:startswith("sw") and commtext:length > 3 {
         local newkey is commtext:split(" ")[1].
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
-    } else if commtext:startswith("hudalign") {
-        if not (args = -1) and (args:length = 2 or args:length = 3) {
+    } else if commtext = "align" and all_scalar(args) {
+        if (args:length = 2 or args:length = 3) {
             if args:length = 2 { args:add(0). }
             util_shbus_tx_msg("HUD_ALIGN_SET", args).
         } else {
             print "use args (pitch,bear) or (pitch,bear,roll)".
         }
-    } else if commtext:startswith("hudcolor") {
+    } else if commtext = "color" and all_scalar(args) {
         if (args:length = 3) {
             util_shbus_tx_msg("HUD_COLOR_SET", args).
         } else {

@@ -42,20 +42,21 @@ local function print_hosts {
 // terminal compatible functions
 function util_shbus_get_help_str {
     return list(
-        "UTIL_SHBUS  running on "+core:tag,
-        "host ask    ARG ask to send msgs",
-        "host unask  ARG stop send msgs",
-        "host list   list saved hosts",
-        "host tags   get tags from hosts",
-        "host only ARG toggle only send to (no ARG resets)",
-        "host excl ARG toggle exclude this (no ARG resets)",
-        "host all    reset host only and host excl",
-        "host hello  hello to hosts",
+        "UTIL_SHBUS running on "+core:tag,
+        "host ask       ARG ask to send msgs",
+        "host unask     ARG stop send msgs",
+        "host list      list saved hosts",
+        "host tags      get tags from hosts",
+        "host only ARG  toggle only send to (no ARG resets)",
+        "host excl ARG  toggle exclude this (no ARG resets)",
+        "host all       reset host only and host excl",
+        "host hello     hello to hosts",
         "host tx(OP,DATA)  custom command",
         " ARG=[core]            or",
         " ARG=target            or",
         " ARG=target [core]     or",
         " ARG=(index) from listhosts",
+        "host help      print help",
         "This utlility is a way to setup communication between utilities running on other cores or ships.",
         "Usual flow is askhost -> onlyhost(3) -> gettags -> do other commands -> unaskhost. For example, WP messages are sent by this utility and SHBUS on the receiving end dispatches them to WP."
         ).
@@ -63,7 +64,7 @@ function util_shbus_get_help_str {
 
 function util_shbus_parse_command {
     parameter commtext.
-    parameter args is -1.
+    parameter args is list().
 
     if not commtext:startswith("host "){
         return false.
@@ -72,7 +73,7 @@ function util_shbus_parse_command {
     }
 
     local arg_hostname is "".
-    if (args = -1) {
+    if (args:length = 0) {
         local sp_list to commtext:trim():split(" ").
         sp_list:remove(0).
         set arg_hostname to sp_list:join(" ").
@@ -142,7 +143,8 @@ function util_shbus_parse_command {
         } else {
             print "usage: host tx(OP_CODE, DATA)".
         }
-
+    } else if commtext = "help" {
+        util_term_parse_command("help SHBUS").
     } else {
         return false. // could not parse command
     }

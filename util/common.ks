@@ -74,14 +74,27 @@ function list_print {
     PRINT TOTAL_STRING.
 }
 
-function float_list_print {
+function round_dec_list {
     parameter arg_in.
-    parameter flen.
-    LOCAL TOTAL_STRING is "".
+    parameter FRAD_DIG.
+    local newlist is list().
     for e in arg_in{
-        SET TOTAL_STRING TO TOTAL_STRING+round_dec(e,flen)+ " ".
+        newlist:add(round_dec(e,FRAD_DIG)).
     }
-    PRINT TOTAL_STRING.
+    return newlist.
+}
+
+function all_scalar {
+    parameter args.
+    local allscalarargs is true.
+    for i in args {
+        if not (i:typename = "Scalar") {
+            set allscalarargs to false.
+            print "nonscalar arg: " + i.
+            break.
+        }
+    }
+    return allscalarargs.
 }
 
 function wrap_angle_until {

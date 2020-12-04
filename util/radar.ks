@@ -295,11 +295,10 @@ function util_radar_loop {
 // terminal compatible functions
 function util_radar_get_help_str {
     return list(
-        "UTIL_RADAR  running on "+core:tag,
-        "radar   turn on radar",
-        "radar(args)",
-        "args: beam_width,beam_pitch,beam_yaw",
-        "press AG twice to exit"
+        "UTIL_RADAR running on "+core:tag,
+        "radar  turn on radar",
+        "press AG once to cycle targets",
+        "press AG twice to go back"
         ).
 }
 
@@ -316,23 +315,13 @@ function util_radar_parse_command {
             print "radar not available".
             return true.
         }
-        if not (args = -1) {
-            if args:length >= 1 {
-                set max_angle to max(0.5,min(45,args[0])).
-                set max_range to MAX_ENERGY/(max_angle^2).
-            }
-            if args:length = 2 {
-                set LOOKUP_DIRECTION to R(-sat(args[1],30),0,0).
-            } else if args:length >= 3 {
-                set LOOKUP_DIRECTION to R(-sat(args[1],30),sat(args[2],30),0).
-            } else {
-                set LOOKUP_DIRECTION to R(0,0,0).
-            }
-        }
         util_radar_loop().
         print "radar exiting".
         return true.
+    } else if commtext = "radar help" {
+        util_term_parse_command("help RADAR").
+        return true.
     } else {
         return false.
-    }    
+    }
 }

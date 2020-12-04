@@ -26,8 +26,7 @@ local lock W to terminal:width.
 
 local function util_term_get_help_str {
     return list(
-        core:tag + " terminal",
-        ship:name,
+        "UTIL_TERM running on "+core:tag,
         "command syntax:",
         "...",
         "help        help page 0",
@@ -100,11 +99,11 @@ local function do_action_group_or_key {
     return false.
 }
 
-// util_term_parse_command function is named like a global function
+// util_term_parse_command function is named like a global function and is called from elsewhere
 // it should serve as a template for other utilities' parse_command functions
-local function util_term_parse_command {
+function util_term_parse_command {
     parameter commtext.
-    parameter args is -1.
+    parameter args is list().
 
     if commtext:startswith("help") {
         local tags is list("TERM").
@@ -176,18 +175,22 @@ local function util_term_parse_command {
 }
 
 // separates elements in parentheses from text portion of a command
+//  "arg text" -> list("arg text", list())
 //  "arg text(1,2,tag,3)ignored" -> list("arg text", list(1,2,"tag",3))
+// returned second element will always be a list of the arguments,
+// or empty if no arguments were found
 local function raw_input_to_args {
-    // will return a list of numbers, a list of strings or -1 (no args in command)
     parameter commtext.
+    local numlist is list().
+    
     if commtext:contains("(") AND commtext:contains(")") {
         local arg_start is commtext:FIND("(").
         local arg_end is commtext:FINDLAST(")").
+        local comm_only is commtext:substring(0,min(arg_start,arg_end)).
         if arg_end-arg_start <= 1 {
-            return list(commtext,-1).
+            return list(comm_only,numlist).
         }
         local arg_strings is commtext:SUBSTRING(arg_start+1, arg_end-arg_start-1):split(",").
-        local numlist is list().
         for i in arg_strings {
             local arg_as_num is i:toscalar(-9999999).
             if arg_as_num = -9999999 {
@@ -196,9 +199,9 @@ local function raw_input_to_args {
                 numlist:add(arg_as_num).
             }
         }
-        return list(commtext:substring(0,arg_start),numlist).
+        return list(comm_only,numlist).
     }
-    return list(commtext,-1).
+    return list(commtext,numlist).
 }
 
 
@@ -211,7 +214,7 @@ local function parse_command {
     for comm in commtextfull:split(";") {
 
         local parsed is raw_input_to_args(comm:trim()).
-        local commtext is parsed[0].
+        local commtext is parsed[0]:trim().
         local args is parsed[1].
 
         if util_term_parse_command(commtext,args) {

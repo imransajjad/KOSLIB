@@ -13,23 +13,8 @@ local Tdur is 0.0.
 local Tdel is 0.
 
 local logtag to "".
-local logdesc is "".
 
 local fldr_evt_data is list(0,"").
-
-list sensors in Slist.
-
-local ACC_enabled is false.
-local GRAV_enabled is false.
-
-for i in Slist {
-    if i:name = "sensorGravimeter"{
-        set GRAV_enabled to true.
-    }
-    if i:name = "sensorAccelerometer"{
-        set ACC_enabled to true.
-    }
-}
 
 list engines in MAIN_ENGINES.
 
@@ -44,57 +29,32 @@ local CORE_IS_TESTING is false.
 
 // Local Locks for data recording
 
-local lock h to ship:ALTITUDE.
-local lock m to ship:MASS.
+local lock locked_key_line to "t,u0,u1,u2,u3,u4,u5,u6,m,fx,fy,fz,q,lat,lng,h,svx,svy,svz,mu,opx,opy,opz,ovx,ovy,ovz,p,y,r,wp,wy,wr".
 
-local lock u0 to ship:control:mainthrottle.
-local lock u1 to ship:control:pitch.
-local lock u2 to ship:control:yaw.
-local lock u3 to ship:control:roll.
+local lock locked_data_line to ""+time:seconds+
+        ","+ship:control:mainthrottle+
+        ","+ship:control:pitch+","+ship:control:yaw+","+ship:control:roll+
+        ","+ship:control:starboard+","+ship:control:top+","+ship:control:fore+
+        ","+ship:mass+
+        ","+thrust:x+","+thrust:y+","+thrust:z+
+        ","+ship:dynamicpressure+
+        ","+ship:geoposition:lat+","+ship:geoposition:lng+","+ship:altitude+
+        ","+velocity:surface:x+","+velocity:surface:y+","+velocity:surface:z+
+        ","+ship:body:mu+
+        ","+ship:body:position:x+","+ship:body:position:y+","+ship:body:position:z+
+        ","+velocity:orbit:x+","+velocity:orbit:y+","+velocity:orbit:z+
+        ","+ship:facing:pitch*DEG2RAD+","+ship:facing:yaw*DEG2RAD+","+ship:facing:roll*DEG2RAD+
+        ","+ship:angularvel:x+","+ship:angularvel:y+","+ship:angularvel:z.
 
-local lock d1 to ship:control:starboard.
-local lock d2 to ship:control:top.
-local lock d3 to ship:control:fore.
-
-local lock vel to ship:AIRSPEED.
-local lock pitch_rate to (-ship:ANGULARVEL*ship:FACING:STARVECTOR).
-local lock yaw_rate to (ship:ANGULARVEL*ship:FACING:TOPVECTOR).
-local lock roll_rate to (-ship:ANGULARVEL*ship:FACING:FOREVECTOR).
-
-local lock DELTA_FACE_UP to R(90,0,0)*(-ship:UP)*(ship:FACING).
-local lock pitch to DEG2RAD*(mod(DELTA_FACE_UP:pitch+90,180)-90).
-local lock yaw to DEG2RAD*(360-DELTA_FACE_UP:yaw).
-local lock roll to DEG2RAD*(180-DELTA_FACE_UP:roll).
-
-local lock DELTA_SRFPRO_UP to R(90,0,0)*(-ship:UP)*(ship:SRFPROGRADE).
-local lock vel_pitch to DEG2RAD*(mod(DELTA_SRFPRO_UP:pitch+90,180)-90).
-local lock vel_bear to DEG2RAD*(360-DELTA_SRFPRO_UP:yaw).
 
 local get_thrust is {
-    local total_thrust is 0.
+    local total_thrust is V(0,0,0).
     for e in MAIN_ENGINES {
-        set total_thrust to total_thrust+e:MAXTHRUST.
+        set total_thrust to total_thrust+e:thrust*e:facing:forevector.
     }
     return total_thrust.
 }.
 local lock thrust to get_thrust().
-local lock thrust_vector to (get_thrust()/ship:MASS)*ship:FACING:FOREVECTOR.
-
-local lock dynamic_pres to ship:DYNAMICPRESSURE.
-
-
-local lock ship_vel to (-SHIP:FACING)*ship:srfprograde.
-local lock alpha to DEG2RAD*wrap_angle(ship_vel:pitch).
-local lock beta to DEG2RAD*wrap_angle(-ship_vel:yaw).
-
-local lock VEL_FROM_FACE to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE).
-
-local Aup is 0.
-local Afore is 0.
-local Alat is 0.
-
-local lock lat to ship:GEOPOSITION:LAT.
-local lock lng to ship:GEOPOSITION:LNG.
 
 // COMMON SECTION
 
@@ -127,7 +87,7 @@ local function send_stashed_logs {
         deletepath(basefilename).
         print "stashed log sent to " + fname.
     } else {
-        print basefilename+" does not exist".
+        print basefilename+" does not exist (send_stashed_logs)".
     }
 }
 
@@ -138,7 +98,7 @@ local function stash_last_log {
         deletepath(basefilename+".csv").
         print "log stashed to " + basefilename+"stashed.csv".
     } else {
-        print basefilename+".csv does not exist".
+        print basefilename+".csv does not exist (stash_last_log)".
     }
 }
 
@@ -146,11 +106,14 @@ local function get_info_string {
     set rstr to "time " + round_dec(time:seconds,3) +
     char(10) + "dur " + round_dec(Tdur,3) +
     char(10) + "dt  " + round_dec(Ts,3) +
-    char(10) + "lat  " + ship:GEOPOSITION:LAT +
-    char(10) + "lng  " + ship:GEOPOSITION:LNG +
-    char(10) + "h    " + ship:ALTITUDE +
-    char(10) + "vs   " + ship:AIRSPEED +
     char(10) + "logtag " + logtag.
+
+    local keys is locked_key_line:split(",").
+    local data is locked_data_line:split(",").
+    
+    for i in range(0,keys:length) {
+        set rstr to rstr + char(10) + "  " + keys[i] + ", " + data[i].
+    }
 
     local Filelist is -1.
     if exists("logs"){
@@ -174,23 +137,8 @@ local function log_one_step {
         stash_last_log().
         send_stashed_logs().
     }
-    if not SENDING_TO_BASE {
-        // return.
-    }
 
-    log time:seconds+","+u0+","+thrust+
-        ","+u1+","+u2+","+u3+
-        ","+pitch_rate+","+yaw_rate+","+roll_rate+
-        ","+pitch+","+yaw+","+roll+
-        ","+d1+","+d2+","+d3+
-        ","+m+","+dynamic_pres+
-        ","+h+","+lat+","+lng+
-        ","+vel+","+vel_pitch+","+vel_bear+
-        ","+ship:body:mu+
-        ","+velocity:orbit:x+","+velocity:orbit:y+","+velocity:orbit:z+
-        ","+ship:orbit:periapsis+","+ship:orbit:eccentricity+","+ship:orbit:argumentofperiapsis+
-        ","+ship:orbit:inclination+","+ship:orbit:longitudeofascendingnode	+","+ship:orbit:trueanomaly
-        to FILENAME.
+    log locked_data_line to FILENAME.
     // also check for messages while logging.
     // and record events sent by messages
     if not (fldr_evt_data[1] = "")
@@ -223,24 +171,13 @@ local function log_first_step {
     print "logging " + logdesc + " to " + FILENAME.
 
     log logdesc to FILENAME.
-    log "t,u0,ft,u1,u2,u3,y1,y2,y3,p,y,r,d1,d2,d3,m,q,h,lat,lng,y0,vp,vh,mu,ovx,ovy,ovz,pe,e,ap,inc,lan,theta" to FILENAME.
+    log locked_key_line to FILENAME.
     log "" to FILENAME.
 
     set fldr_evt_data[1] to "".
 
     set starttime to time:seconds.
-
-    if (GRAV_enabled and ACC_enabled) {
-        print "Logging with ACC".
-        lock Aup to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Y.
-        lock Afore to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):Z.
-        lock Alat to ship:MASS*(VEL_FROM_FACE*(ship:SENSORS:ACC-ship:SENSORS:GRAV-thrust_vector)):X.
-    } else {
-        lock Aup to 0.
-        lock Afore to 0.
-        lock Alat to 0.
-        print "No ACC data".
-    }
+    set time_logged to time:seconds.
 }
 
 local function check_for_stop_logging {
@@ -276,6 +213,7 @@ function util_fldr_start_logging {
         when time:seconds - last_log_time > Ts then {
             if check_for_stop_logging() {
                 print "log written to "+ FILENAME.
+                print " ".
                 set CORE_IS_LOGGING to false.
                 return false.
             } else {
@@ -290,6 +228,7 @@ function util_fldr_start_logging {
             wait Ts.
         }
         print "log written to "+ FILENAME.
+        print " ".
         set CORE_IS_LOGGING to false.
     }
 }
@@ -301,23 +240,24 @@ function util_fldr_start_logging {
 function util_fldr_get_help_str {
     return list(
         "UTIL_FLDR running on "+core:tag,
-        "logtime(T)   total log time=T",
-        "logdt(dt)    log interval =dt",
-        "logtag TAG   set log tag on all",
-        "log          start/stop logging on self",
-        "remotelog    start/stop logging on hosts",
-        "testlog      start test on hosts",
-        "listloginfo  list logs",
-        "remoteloginfo remote list logs",
-        "sendlogs     send logs",
-        "stashlog     save last log",
-        "logstp(SEQ)  set pulse_time(SEQ)",
-        "logsu0(SEQ)  set throttle_seq(SEQ)",
-        "logsu1(SEQ)  set pitch_seq(SEQ)",
-        "logsu2(SEQ)  set yaw_seq(SEQ)",
-        "logsu3(SEQ)  set roll_seq(SEQ)",
-        "logsupr.  print test sequences",
-        "  SEQ = sequence of num",
+        "log time(T)    total log time=T",
+        "log dt(dt)     log interval =dt",
+        "log tag TAG    set log tag on all",
+        "log start          start logging on self",
+        "log remote start   start/stop logging on hosts",
+        "log remote test    start test on hosts",
+        "log info       list some log info",
+        "log remote info    remote list logs",
+        "log send       send logs",
+        "log stash      save last log",
+        "log stp(SEQ)   set pulse_time(SEQ)",
+        "log su0(SEQ)   set throttle_seq(SEQ)",
+        "log su1(SEQ)   set pitch_seq(SEQ)",
+        "log su2(SEQ)   set yaw_seq(SEQ)",
+        "log su3(SEQ)   set roll_seq(SEQ)",
+        "log supr       print test sequences",
+        "   SEQ = sequence of num",
+        "log help       print help",
         "This utility records flight data on the this core",
         "Logging can be stopped via the log command if logging with trigger (not default) or using the registered action group or if communication state changes"
         ).
@@ -327,66 +267,70 @@ function util_fldr_get_help_str {
 // Otherwise it returns false.
 function util_fldr_parse_command {
     parameter commtext.
-    parameter args is -1.
+    parameter args is list().
 
     // don't even try if it's not a log command
-    if commtext:contains("log") {
-        if not (args = -1) and args:length = 0 {
-            print "fldr args expected but empty".
-            return true.
-        }
+    if commtext:startswith("log ") {
+        set commtext to commtext:remove(0,4).
     } else {
         return false.
     }
 
-
-    if commtext:startswith("logtime") {
-        set Tdur to args[0].
-        util_shbus_tx_msg("FLDR_SET_LOGTIME", list(Tdur)).
-    } else if commtext:startswith("logdt") {
-        set Ts to args[0].
-        util_shbus_tx_msg("FLDR_SET_LOGTS", list(Ts)).
-    } else if commtext:startswith("logtag") {
-        if commtext:length > 7 {
-            set logtag to commtext:replace("logtag",""):trim().
+    if commtext = "time" {
+        if args:length = 1 and all_scalar(args) and args[0] >= 0 {
+            set Tdur to args[0].
+            util_shbus_tx_msg("FLDR_SET_LOGTIME", list(Tdur)).
+        } else {
+            print "expected one nonnegative scalar arg".
+        }
+    } else if commtext = "dt" {
+        if args:length = 1 and all_scalar(args) and args[0] > 0 {
+            set Ts to args[0].
+            util_shbus_tx_msg("FLDR_SET_LOGTS", list(Ts)).
+        } else {
+            print "expected one positive scalar arg".
+        }
+    } else if commtext:startswith("tag") {
+        if commtext:length > 4 {
+            set logtag to commtext:replace("tag",""):trim().
         } else {
             set logtag to "".
         }
         util_shbus_tx_msg("FLDR_SET_LOGTAG", list(logtag)).
-    } else if commtext = "log" {
+    } else if commtext = "start" {
         util_fldr_start_logging().
-    } else if commtext = "remotelog" {
+    } else if commtext = "remote start" {
         util_shbus_tx_msg("FLDR_TOGGLE_LOGGING").
-    } else if commtext = "testlog" {
+    } else if commtext = "remote test" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
-    } else if commtext:startswith("listloginfo") {
+    } else if commtext = "info" {
         print get_info_string().
-    } else if commtext:startswith("remoteloginfo") {
+    } else if commtext = "remote info" {
         util_shbus_tx_msg("FLDR_LOGINFO").
-    } else if commtext:startswith("sendlogs") {
+    } else if commtext = "send" {
         send_stashed_logs().
-    } else if commtext:startswith("stashlog") {
+    } else if commtext = "stash"  {
         stash_last_log().
-    } else if commtext:startswith("logstp") {
+    } else if commtext = "stp" and all_scalar(args) {
         util_shbus_tx_msg("FLDR_SET_SEQ_TP", args).
-
-    } else if commtext:startswith("logsu0") {
+    } else if commtext = "su0" and all_scalar(args) {
         util_shbus_tx_msg("FLDR_SET_SEQ_U0", args).
-        print "Sent FLDR_SET_SEQ_U0 "+ args:join(" ").
-
-    } else if commtext:startswith("logsu1") {
+    } else if commtext = "su1" and all_scalar(args) {
         util_shbus_tx_msg("FLDR_SET_SEQ_U1", args).
-        print "Sent FLDR_SET_SEQ_U1 "+ args:join(" ").
-
-    } else if commtext:startswith("logsu2") {
+    } else if commtext = "su2" and all_scalar(args) {
         util_shbus_tx_msg("FLDR_SET_SEQ_U2", args).
-        print "Sent FLDR_SET_SEQ_U2 "+ args:join(" ").
-
-    } else if commtext:startswith("logsu3") {
+    } else if commtext = "su3" and all_scalar(args) {
         util_shbus_tx_msg("FLDR_SET_SEQ_U3", args).
-        print "Sent SET_SEQ_U3 "+ args:join(" ").
-    } else if commtext:startswith("logsupr") {
+    } else if commtext = "su4" and all_scalar(args) {
+        util_shbus_tx_msg("FLDR_SET_SEQ_U4", args).
+    } else if commtext = "su5" and all_scalar(args) {
+        util_shbus_tx_msg("FLDR_SET_SEQ_U5", args).
+    } else if commtext = "su6" and all_scalar(args) {
+        util_shbus_tx_msg("FLDR_SET_SEQ_U6", args).
+    } else if commtext = "supr" {
         util_shbus_tx_msg("FLDR_PRINT_TEST").
+    } else if commtext = "help" {
+        util_term_parse_command("help FLDR").
     } else {
         return false.
     }
@@ -407,21 +351,21 @@ function util_fldr_send_event {
 // RX SECTION
 
 // Test should not be run on TX side, so this is in the RX section
-set U_seq to LIST(LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0)).
+set U_seq to LIST(LIST(0,0,0,0,0)
+    ,LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0)
+    ,LIST(0,0,0,0,0),LIST(0,0,0,0,0),LIST(0,0,0,0,0)).
 set PULSE_TIMES to LIST(0,0,0,0,0).
 
 function print_sequences {
-    local pstr is "times" + char(10).
-    for t in PULSE_TIMES {
-        set pstr to pstr + round_dec(t,2) + " ".
-    }
-    set pstr to pstr + char(10) + "set sequences" + char(10).
-    for U in U_seq {
-        for ux in U {
-            set pstr to pstr + round_dec(ux,2) + " ".
-        }
-        set pstr to pstr + char(10).
-    }
+    local pstr is "tp: " + round_dec_list(PULSE_TIMES,2):join(",") +
+        char(10) + "u0: " + round_dec_list(U_seq[0],2):join(",") +
+        char(10) + "u1: " + round_dec_list(U_seq[1],2):join(",") +
+        char(10) + "u2: " + round_dec_list(U_seq[2],2):join(",") +
+        char(10) + "u3: " + round_dec_list(U_seq[3],2):join(",") +
+        char(10) + "u4: " + round_dec_list(U_seq[4],2):join(",") +
+        char(10) + "u5: " + round_dec_list(U_seq[5],2):join(",") +
+        char(10) + "u6: " + round_dec_list(U_seq[6],2):join(",").
+    
     print pstr.
     return pstr.
 }
@@ -437,9 +381,12 @@ function util_fldr_run_test {
     local u1_trim is ship:control:pitch.
     local u2_trim is ship:control:yaw.
     local u3_trim is ship:control:roll.
+    local u4_trim is ship:control:starboard.
+    local u5_trim is ship:control:top.
+    local u6_trim is ship:control:fore.
 
     // try and make sequence lengths equal to time
-    for i in range(0,4) {
+    for i in range(0,7) {
         if U_seq[i]:length > PULSE_TIMES:length {
             set U_seq[i]to U_seq[i]:sublist(0,PULSE_TIMES:length).
             // trim list if more
@@ -457,6 +404,9 @@ function util_fldr_run_test {
         set ship:control:pitch to u1_trim + U_seq[1][i].
         set ship:control:yaw to u2_trim + U_seq[2][i].
         set ship:control:roll to u3_trim + U_seq[3][i].
+        set ship:control:starboard to u4_trim + U_seq[4][i].
+        set ship:control:top to u5_trim + U_seq[5][i].
+        set ship:control:fore to u6_trim + U_seq[6][i].
         wait PULSE_TIMES[i].
         if AG <> PREV_AG  or not CORE_IS_TESTING {
             break.
@@ -481,7 +431,7 @@ function util_fldr_decode_rx_msg {
 
     if opcode:startswith("FLDR_SET_SEQ_U") {
         set Uindex to opcode[14]:tonumber(-1).
-        if Uindex >= 0 and Uindex < 4 {
+        if Uindex >= 0 and Uindex < 7 {
             set U_seq[Uindex] to data.
         }
 
@@ -500,7 +450,7 @@ function util_fldr_decode_rx_msg {
         util_shbus_ack(info_str, sender).
         print info_str.
     } else if opcode = "FLDR_TOGGLE_LOGGING" {
-        util_fldr_start_logging(true). // on rx side, test is always in trigger
+        util_fldr_start_logging(true). // on rx side, logging is always in trigger
     } else if opcode = "FLDR_PRINT_TEST" {
         util_shbus_ack(print_sequences(), sender).
     } else if opcode = "FLDR_EVENT" {
