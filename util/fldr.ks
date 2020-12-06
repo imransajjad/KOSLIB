@@ -164,10 +164,10 @@ local function log_first_step {
         }
     }
 
-    local logdesc is "log_"+string_acro(ship:NAME)+"_"+TIME:CALENDAR:replace(":","")+
-            "_"+TIME:CLOCK:replace(":","")+"_"+logtag.
+    local logdesc is "log-"+string_acro(ship:NAME)+"-"+TIME:CALENDAR:replace(":","")+
+            "-"+TIME:CLOCK:replace(":","")+"-"+logtag.
 
-    set logdesc to logdesc:replace(" ", "_"):replace(",", "").
+    set logdesc to logdesc:replace(" ", "-"):replace(",", "").
     print "logging " + logdesc + " to " + FILENAME.
 
     log logdesc to FILENAME.
