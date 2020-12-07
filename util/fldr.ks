@@ -16,8 +16,6 @@ local logtag to "".
 
 local fldr_evt_data is list(0,"").
 
-list engines in MAIN_ENGINES.
-
 // Locals for file logging naming etc
 local FILENAME is "?". // a character that's invalid on every filesystem
 local CORE_IS_LOGGING is false.
@@ -46,15 +44,15 @@ local lock locked_data_line to ""+time:seconds+
         ","+ship:facing:pitch*DEG2RAD+","+ship:facing:yaw*DEG2RAD+","+ship:facing:roll*DEG2RAD+
         ","+ship:angularvel:x+","+ship:angularvel:y+","+ship:angularvel:z.
 
-
+local thrust is V(0,0,0).
 local get_thrust is {
     local total_thrust is V(0,0,0).
+    list engines in MAIN_ENGINES.
     for e in MAIN_ENGINES {
         set total_thrust to total_thrust+e:thrust*e:facing:forevector.
     }
-    return total_thrust.
+    set thrust to total_thrust.
 }.
-local lock thrust to get_thrust().
 
 // COMMON SECTION
 
@@ -108,6 +106,8 @@ local function get_info_string {
     char(10) + "dt  " + round_dec(Ts,3) +
     char(10) + "logtag " + logtag.
 
+    get_thrust().
+
     local keys is locked_key_line:split(",").
     local data is locked_data_line:split(",").
     
@@ -138,6 +138,7 @@ local function log_one_step {
         send_stashed_logs().
     }
 
+    get_thrust().
     log locked_data_line to FILENAME.
     // also check for messages while logging.
     // and record events sent by messages

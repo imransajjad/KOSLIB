@@ -39,6 +39,7 @@ if main_engines:length = 0 {
 }
 
 local prev_status is "NA".
+local prev_stage is 99999.
 local arm_panels_and_antennas is false.
 local arm_for_reentry is false.
 local arm_parachutes is false.
@@ -136,6 +137,15 @@ local function iterate_spacecraft_system_state {
             set CHUTES to true.
             print "SHSYS: CHUTES".
         }
+    }
+
+    if not (prev_stage = STAGE:NUMBER) {
+        if (STAGE:NUMBER = prev_stage - 1) {
+            if defined UTIL_FLDR_ENABLED {
+                util_fldr_send_event("stage " + STAGE:NUMBER).
+            }
+        }
+        set prev_stage to STAGE:NUMBER.
     }
 }
 
