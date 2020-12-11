@@ -14,7 +14,7 @@ local Tdel is 0.
 
 local logtag to "".
 
-local fldr_evt_data is list(0,"").
+local fldr_evt_data is queue(). // list(0,"").
 
 // Locals for file logging naming etc
 local FILENAME is "?". // a character that's invalid on every filesystem
@@ -69,6 +69,13 @@ local function list_logs {
     }
 }
 
+// Only one stashed log file can exist on a core while it does not have a
+// connection to base. If connection is reestablished, this stashed log
+// is sent immediately.
+
+// On the base (archive), multiple files pertaining to the same log can exist.
+// If a file called 0:/logs/lastlog[N]sent.csv exists on the archive, the
+// stashed log is copied to 0:/logs/lastlog[N+1]send.csv
 local function send_stashed_logs {
     if not HOMECONNECTION:ISCONNECTED {
         print "send_logs: no connection to KSC".
@@ -99,6 +106,8 @@ local function stash_last_log {
         print basefilename+".csv does not exist (stash_last_log)".
     }
 }
+// The case of a crewed chip storing multiple logs through a single period of 
+// connection loss is not handled.
 
 local function get_info_string {
     set rstr to "time " + round_dec(time:seconds,3) +
@@ -142,10 +151,12 @@ local function log_one_step {
     log locked_data_line to FILENAME.
     // also check for messages while logging.
     // and record events sent by messages
-    if not (fldr_evt_data[1] = "")
+    until (fldr_evt_data:length = 0)
     {
-        log "event, " + fldr_evt_data[0] + ", "+ fldr_evt_data[1]:replace(char(10), "\n") to FILENAME.
-        set fldr_evt_data[1] to "".
+        local popped is fldr_evt_data:pop.
+        if popped:istype("list") and popped:length = 2 {
+            log "event, " + popped[0] + ", "+ popped[1]:replace(char(10), "\n") to FILENAME.
+        }
     }
     if time:seconds - time_logged > 15 {
         print "logged " + round(time:seconds - time_logged) + " seconds".
@@ -175,7 +186,7 @@ local function log_first_step {
     log locked_key_line to FILENAME.
     log "" to FILENAME.
 
-    set fldr_evt_data[1] to "".
+    fldr_evt_data:clear().
 
     set starttime to time:seconds.
     set time_logged to time:seconds.
@@ -341,7 +352,7 @@ function util_fldr_parse_command {
 function util_fldr_send_event {
     parameter str_in.
     if CORE_IS_LOGGING {
-        set fldr_evt_data to list(time:seconds, str_in).
+        fldr_evt_data:push(list(time:seconds, str_in)).
     } else if (defined UTIL_SHBUS_ENABLED) and UTIL_SHBUS_ENABLED {
         util_shbus_tx_msg("FLDR_EVENT", list(time:seconds, str_in)).
     }
@@ -455,7 +466,7 @@ function util_fldr_decode_rx_msg {
     } else if opcode = "FLDR_PRINT_TEST" {
         util_shbus_ack(print_sequences(), sender).
     } else if opcode = "FLDR_EVENT" {
-        set fldr_evt_data to data.
+        fldr_evt_data:push(data).
         print data[1].
     } else {
         util_shbus_ack("could not decode fldr rx msg", sender).

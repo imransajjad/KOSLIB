@@ -9,6 +9,7 @@ Contents of my Script/:
 boot/  
 koslib/  
 logs/  
+helpers/  
 param/
 
 Copy over the boot, param and term-scipts folders from boot-copy to the Script folder.

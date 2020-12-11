@@ -295,15 +295,15 @@ local function srf_stick {
         if increment <> 0 {
             set AP_NAV_VEL to ANGLEAXIS(-increment,ship:facing:starvector)*AP_NAV_VEL.
             local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
-            set stick_pitch to py_temp[0].
-            set stick_heading to py_temp[1].
+            set stick_pitch to round_dec(py_temp[0],1).
+            set stick_heading to round_dec(py_temp[1],1).
         }
         set increment to 2.0*deadzone(u3,0.25).
         if increment <> 0 {
             set AP_NAV_VEL to ANGLEAXIS(increment,ship:facing:topvector)*AP_NAV_VEL.
             local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
-            set stick_pitch to py_temp[0].
-            set stick_heading to py_temp[1].
+            set stick_pitch to round_dec(py_temp[0],1).
+            set stick_heading to round_dec(py_temp[1],1).
             // if increment > 0 and wrap_angle(AP_NAV_H_SET - vel_bear) > 175 {
             // } else if increment < 0 and wrap_angle(AP_NAV_H_SET - vel_bear) < -175 {
             // } else {
@@ -319,7 +319,7 @@ local function srf_stick {
         }
         set SRF_V_SET_DELTA to increment.
     }
-    set AP_NAV_VEL to AP_NAV_VEL:mag*heading(stick_heading, stick_pitch):vector.
+    set AP_NAV_VEL to round_dec(AP_NAV_VEL:mag,0)*heading(stick_heading, stick_pitch):vector.
     
     return true.
 }

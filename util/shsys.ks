@@ -137,15 +137,15 @@ local function iterate_spacecraft_system_state {
             set CHUTES to true.
             print "SHSYS: CHUTES".
         }
-    }
 
-    if not (prev_stage = STAGE:NUMBER) {
-        if (STAGE:NUMBER = prev_stage - 1) {
-            if defined UTIL_FLDR_ENABLED {
-                util_fldr_send_event("stage " + STAGE:NUMBER).
+        if not (prev_stage = STAGE:NUMBER) {
+            if (STAGE:NUMBER = prev_stage - 1) {
+                if defined UTIL_FLDR_ENABLED {
+                    util_fldr_send_event("stage " + STAGE:NUMBER).
+                }
             }
+            set prev_stage to STAGE:NUMBER.
         }
-        set prev_stage to STAGE:NUMBER.
     }
 }
 
@@ -343,13 +343,7 @@ local function shsys_check {
 
     // send any safety messages to hud
     if Q_SAFE > 0 {
-        if CLEANUP {
-            if defined UTIL_HUD_ENABLED {
-                util_hud_pop_left("shsys_q").
-            } else if defined UTIL_SHBUS_ENABLED {
-                util_shbus_tx_msg("HUD_POPL", list(core:tag+"shsys_q")).
-            }
-        } else if qsafe_last and (ship:q > Q_SAFE){
+        if qsafe_last and (ship:q > Q_SAFE){
             print "Q unsafe".
             set qsafe_last to false.
             if defined UTIL_HUD_ENABLED {
@@ -400,7 +394,11 @@ function util_shsys_spin_check {
 }
 
 function util_shsys_cleanup {
-    shsys_check(true).
+    if defined UTIL_HUD_ENABLED {
+        util_hud_pop_left("shsys_q").
+    } else if defined UTIL_SHBUS_ENABLED {
+        util_shbus_tx_msg("HUD_POPL", list(core:tag+"shsys_q")).
+    }
 }
 
 function util_shsys_decode_rx_msg {

@@ -110,15 +110,14 @@ function ap_missile_guide {
             wait Ts.
         }
         print "eta Ap: "+eta:apoapsis.
-        util_fldr_send_event("eta Ap: "+eta:apoapsis).
+        util_fldr_send_event("eta Ap: "+ round_dec(eta:apoapsis,1)).
         lock steering TO heading(vel_bear,vel_pitch,0).
         until (ship:liquidfuel <= 1) {
             wait Ts.
         }
         print "eta Ap: "+ eta:apoapsis.
-        util_fldr_send_event("eta Ap: "+ eta:apoapsis).
         print "Ap: "+ ship:ORBIT:apoapsis.
-        util_fldr_send_event("Ap: "+ ship:ORBIT:apoapsis).
+        util_fldr_send_event("Ap: "+ round_dec(ship:ORBIT:apoapsis,0) + ", eta: " + round_dec(eta:apoapsis,1)).
 
         until false {
             wait Ts.
