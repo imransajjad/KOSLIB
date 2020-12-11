@@ -2,9 +2,10 @@
     "entries": [
         "ship_name","Air Liner 3 Test",
         "ship_name_acro","al3t",
-        "AP_AERO_ROT",
+        "AP_AERO_W",
         {
             "entries": [
+                "STICK_GAIN", 2.0,
                 "GLIM_VERT", 3.5,
                 "GLIM_LAT",  0.75,
                 "GLIM_LONG", 5,
@@ -17,21 +18,32 @@
                 "PR_KP",2.5,
                 "PR_KI",3.1,
                 "PR_KD",0.01,
-                "YR_KP",1.0,
+                "YR_KP",1.5,
                 "YR_KI",0.0,
                 "YR_KD",0.0,
-                "RR_KP",0.15,
+                "RR_KP",0.075,
                 "RR_KI",0.0,
-                "RR_KD",0.0
+                "RR_KD",0.0,
+
+                "K_PITCH", 0.95,
+                "K_YAW", 0.95,
+                "K_ROLL", 0.75,
+
+                "USE_GCAS", true,
+                "GCAS_MARGIN", 30,
+                "GCAS_GAIN_MULTIPLIER", 3.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
-        "AP_ENGINES",
+        "AP_AERO_ENGINES",
         {
             "entries": [
                 "V_PID_KP", 0.05,
                 "V_PID_KI", 0.002,
                 "V_PID_KD", 0.00,
+                "AUTO_BRAKES", true,
+                "USE_GCAS", true,
+                "GCAS_SPEED", 300,
                 "MAIN_ENGINE_NAME", "turboFanSize2"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
@@ -43,19 +55,12 @@
                 "ROT_GNOM_LAT", 0.2,
                 "ROT_GNOM_LONG", 1,
                 
-                "K_PITCH", 0.95,
-                "K_YAW", 0.25,
-                "K_ROLL", 0.75,
                 "K_Q", 1.0,
                 "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 30,
                 "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 350,
-                "GEAR_HEIGHT", 3.8,
-                
-                "GCAS_ENABLED", true,
-                "GCAS_MARGIN", 30,
-                "GCAS_GAIN_MULTIPLIER", 5.0
+                "GEAR_HEIGHT", 3.8
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
@@ -72,46 +77,15 @@
         {
             "entries": [
                 "ON_START", true,
+                "LADDER_START", true,
+                "NAV_START", true,
                 "CAMERA_HEIGHT", 1.2,
                 "CAMERA_RIGHT", -0.4,
                 
                 "GSLOPE", 3.0,
                 "GHEAD", 90.4,
                 "PITCH_DIV", 5.0,
-                "FLARE_ALT", 40,
-                "SHIP_HEIGHT", 4.8
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_SHSYS",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_SHBUS",
-        {
-            "entries": [
-                "FLCS_PROC_TAG", "flcs"
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_TERM",
-        {
-            "entries": [
-                "STARTUP_COMMAND", "unask flcs;askhost flcs"
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_RADAR",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_WP",
-        {
-            "entries": [
+                "FLARE_ALT", 40
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

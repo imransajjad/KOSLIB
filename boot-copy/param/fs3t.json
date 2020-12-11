@@ -1,10 +1,9 @@
 {
     "entries": [
-        "ship_name", "Fighter Stealth 3 Test",
-        "ship_name_acro", "fs3t",
-        "AP_AERO_ROT",
+        "AP_AERO_W",
         {
             "entries": [
+                "STICK_GAIN", 3.0,
                 "GLIM_VERT", 12,
                 "GLIM_LAT",  4,
                 "GLIM_LONG", 5,
@@ -13,20 +12,28 @@
                 "START_MASS", 8.3,
                 "GAIN_SCHEDULE_ENABLED", true,
                 "PITCH_SPECIFIC_INERTIA", 28,
-                "MAX_ROLL", 630,
+                "MAX_ROLL", 360,
+
                 "PR_KP",1.0,
                 "PR_KI",1.8,
                 "PR_KD",0.1,
-                "YR_KP",3,
+                "YR_KP",6.75,
                 "YR_KI",0,
-                "YR_KD",0,
-                "RR_KP",0.05,
-                "RR_KI",0.01,
-                "RR_KD",0.02
+                "YR_KD",0.735,
+                "RR_KP",0.1,
+                "RR_KI",0.05,
+                "RR_KD",0.0025,
+
+                "K_PITCH", 0.5,
+                "K_YAW", 0.5,
+                "K_ROLL", 1.0,
+                "USE_GCAS", true,
+                "GCAS_MARGIN", 15,
+                "GCAS_GAIN_MULTIPLIER", 2.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
-        "AP_ENGINES",
+        "AP_AERO_ENGINES",
         {
             "entries": [
                 "TOGGLE_X", 0.80,
@@ -36,7 +43,9 @@
                 "V_PID_KI", 0.01,
                 "V_PID_KD", 0.0,
                 "AUTO_BRAKES", true,
-                "MAIN_ENGINE_NAME", "turboJet"
+                "MAIN_ENGINE_NAME", "turboJet",
+                "USE_GCAS", true,
+                "GCAS_SPEED", 350
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
@@ -46,20 +55,16 @@
                 "ROT_GNOM_VERT", 2.0,
                 "ROT_GNOM_LAT", 0.1,
                 "ROT_GNOM_LONG", 1,
-                
-                "K_PITCH", 0.5,
-                "K_YAW", 0.5,
-                "K_ROLL", 2.0,
+
                 "K_Q", 2.5,
                 "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 180,
                 "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 850,
-                "GEAR_HEIGHT", 1.3,
-                
-                "GCAS_ENABLED", true,
-                "GCAS_MARGIN", 15,
-                "GCAS_GAIN_MULTIPLIER", 4.0
+                "GEAR_HEIGHT", 1.8,
+
+                "MAX_STATION_KEEP_SPEED", 10,
+                "MAX_TARGET_INTERCEPT_DISTANCE", 25000
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
@@ -75,6 +80,8 @@
         {
             "entries": [
                 "ON_START", true,
+                "LADDER_START", false,
+                "NAV_START", true,
                 "CAMERA_HEIGHT", 0.803,
                 "CAMERA_RIGHT", 0.0,
                 
@@ -82,7 +89,6 @@
                 "GHEAD", 90.4,
                 "PITCH_DIV", 5.0,
                 "FLARE_ALT", 15.0,
-                "SHIP_HEIGHT", 1.65,
 
                 "COLOR_R", 0.5,
                 "COLOR_G", 1.0,
@@ -93,42 +99,24 @@
         "UTIL_SHSYS",
         {
             "entries": [
+                "BAYS_DELAY", 2
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
         "UTIL_SHBUS",
         {
             "entries": [
-                "FLCS_PROC_TAG", "flcs"
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_FLDR",
-        {
-            "entries": [
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_WP",
-        {
-            "entries": [
+                "SHIP_ROUTER_CORE_TAG", "flcs",
+                "RX_MSG_IN_TRIGGER", true
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
         "UTIL_RADAR",
         {
             "entries": [
-                "MAX_RANGE", 200000,
-                "MAX_ANGLE", 25,
+                "MAX_ENERGY", 50000000,
                 "DISPLAY_UPDATE_PERIOD", 0.25,
                 "TARGET_SCAN_TIMEOUT", 10
-            ],
-            "$type": "kOS.Safe.Encapsulation.Lexicon"
-        },
-        "UTIL_TERM",
-        {
-            "entries": [
-                "STARTUP_COMMAND", "unask flcs;askhost flcs"
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

@@ -3,13 +3,10 @@ GLOBAL UTIL_HUD_ENABLED IS true.
 
 local PARAM is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
 
-local USE_AP_AERO_ROT is false.
-local USE_AP_NAV is false.
-local USE_AP_MODE is false.
-local USE_UTIL_WP is false.
-local USE_UTIL_SHSYS is false.
-
 local ON_START is get_param(PARAM, "ON_START", false).
+local LADDER_START is get_param(PARAM, "LADDER_START", false).
+local NAV_START is get_param(PARAM, "NAV_START", false).
+
 local CAMERA_HEIGHT is get_param(PARAM, "CAMERA_HEIGHT", 0).
 local CAMERA_RIGHT is get_param(PARAM, "CAMERA_RIGHT", 0).
 
@@ -17,14 +14,29 @@ local PITCH_DIV is get_param(PARAM, "PITCH_DIV", 5).
 local FLARE_ALT is get_param(PARAM, "FLARE_ALT", 20).
 local SHIP_HEIGHT is get_param(PARAM, "SHIP_HEIGHT", 2).
 
+local PARAM_NAV is get_param(readJson("param.json"),"AP_NAV", lexicon()).
+if PARAM_NAV:haskey("GEAR_HEIGHT") {
+    set SHIP_HEIGHT to get_param(PARAM_NAV, "GEAR_HEIGHT", 2).
+}
+
+local PARAM is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
+
 CLEARVECDRAWS().
 
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
 local hud_setting_dict is lexicon("on", ON_START,
-        "ladder", true, "align", false, "nav", true,
+        "ladder", LADDER_START, "align", false, "nav", NAV_START,
         "movable", false).
+
+if exists("hud-settings.json") {
+    set hud_setting_dict to readJson("hud-settings.json").
+}
+
+local function hud_settings_save {
+    writeJson(hud_setting_dict, "hud-settings.json").
+}
 
 local hud_far is 30.0.
 local hud_color is RGB(
@@ -49,7 +61,7 @@ local function nav_vecdraw {
     local guide_size is guide_far*sin(0.5).
 
     if not nav_init_draw {
-        IF not USE_AP_NAV {
+        if not (defined AP_NAV_ENABLED) {
             return.
         }
 
@@ -72,11 +84,14 @@ local function nav_vecdraw {
         set guide_tri_tr:wiping to false.
 
     }
-    if hud_setting_dict["on"] and hud_setting_dict["nav"] and is_active_vessel() and not MAPVIEW and 
-       (( USE_UTIL_WP and util_wp_queue_length() > 0 ) or (AP_MODE_NAV)){
+    local nav_vel is ap_nav_get_hud_vel().
 
-        local nav_heading is ap_nav_get_direction().
-        local nav_vel_error is sat(ap_nav_get_vel():mag-vel,10)/10.
+    if hud_setting_dict["on"] and hud_setting_dict["nav"] and ISACTIVEVESSEL
+        and not MAPVIEW and nav_vel:mag > 0.3  {
+
+        local py_temp is pitch_yaw_from_dir(nav_vel:direction).
+        local nav_heading is heading(py_temp[1],py_temp[0]).
+        local nav_vel_error is sat(ap_nav_get_vel_err_mag(),10)/10.
         local camera_offset is camera_offset_vec.
 
         set guide_tri_ll:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
@@ -152,7 +167,7 @@ local function ladder_vec_draw {
             }
         }
     }
-    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and is_active_vessel() and not MAPVIEW and vel > 1.0 {
+    if hud_setting_dict["on"] and hud_setting_dict["ladder"] and ISACTIVEVESSEL and not MAPVIEW and ship:airspeed > 1.0 {
 
         local closest_pitch is sat(
             round(vel_pitch/PITCH_DIV)*PITCH_DIV,
@@ -224,7 +239,7 @@ local function align_marker_draw {
         set align_hori:wiping to false.
     }
 
-    if is_active_vessel() and hud_setting_dict["on"] and hud_setting_dict["align"] and not MAPVIEW {
+    if ISACTIVEVESSEL and hud_setting_dict["on"] and hud_setting_dict["align"] and not MAPVIEW {
         local camera_offset is camera_offset_vec.
         local ghead is heading(align_head,align_elev,-align_roll).
         
@@ -296,23 +311,47 @@ local function lr_text_info {
 
     }
 
-    if hud_setting_dict["on"] and not MAPVIEW and is_active_vessel() {
+    if hud_setting_dict["on"] and not MAPVIEW and ISACTIVEVESSEL {
 
-        local vel_displayed is 0.
-        local vel_type is "  ".
+        local vel_displayed is "".
+        local alt_head_str is "".
+
         if (NAVMODE = "ORBIT") {
-            set vel_displayed to ship:velocity:orbit:mag.
-            set vel_type to "  ".
+            set vel_displayed to "> " + round_dec(round_fig(ship:velocity:orbit:mag,2),2).
+            if ship:orbit:eccentricity < 1.0 {
+                if ship:orbit:trueanomaly >= 90 and ship:orbit:trueanomaly < 270{
+                    local time_hud is eta:apoapsis - (choose 0 if ship:orbit:trueanomaly < 180 else ship:orbit:period).
+                    set alt_head_str to "Ap "+round(ship:orbit:apoapsis) +
+                        char(10)+ " T " + round_fig(-time_hud,1)+"s".
+                } else {
+                    local time_hud is eta:periapsis - (choose 0 if ship:orbit:trueanomaly > 180 else ship:orbit:period).
+                    set alt_head_str to "Pe "+round(ship:orbit:periapsis) +
+                        char(10)+ " T " + round_fig(-time_hud,1)+"s".
+                }
+            } else {
+                if ship:orbit:hasnextpatch and ship:orbit:trueanomaly >= 0 {
+                    set alt_head_str to "Esc " +
+                        char(10)+ " T " + round(ship:orbit:nextpatcheta)+"s".
+                } else{
+                    set alt_head_str to "Pe "+round(ship:orbit:periapsis) +
+                        char(10)+ " T " + round(eta:periapsis)+"s".
+                }
+            }
+            set alt_head_str to alt_head_str + char(10) + "e " +  + round_fig(ship:orbit:eccentricity,2).
         } else if (NAVMODE = "SURFACE") {
-            set vel_displayed to ship:velocity:surface:mag.
-            set vel_type to " >".
+            set vel_displayed to ">> " + round_dec(round_fig(ship:velocity:surface:mag,2),2).
+            
+            local ground_alt is ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT.
+            set alt_head_str to (choose round_dec(ground_alt,1) +" ^_"
+                    if (ground_alt < FLARE_ALT ) else round_dec(SHIP:ALTITUDE,0)+" <|" ) +
+                    char(10) + round_dec(vel_bear,0) +" -O ".
         } else if (NAVMODE = "TARGET") and HASTARGET {
             local target_ship is TARGET.
             if not TARGET:hassuffix("velocity") {
                 set target_ship to TARGET:ship.
             }
-            set vel_displayed to (target_ship:velocity:orbit-ship:velocity:orbit):mag.
-            set vel_type to " +".
+            set vel_displayed to "+> " + round_dec(round_fig((target_ship:velocity:orbit-ship:velocity:orbit):mag,2),2).
+            set alt_head_str to round_dec(round_fig((target_ship:position):mag,2),2) + "+|".
         }
 
         if hud_setting_dict["movable"] {
@@ -326,18 +365,17 @@ local function lr_text_info {
         // no status string should have a char(10) or newline as the first
         // or last character
         set hud_left_label:text to ""+
-            ( choose ap_mode_get_str()+char(10) if USE_AP_MODE else "") +
-            vel_type+"> " + round(vel_displayed) +
-            ( choose ap_nav_status_string()+char(10) if USE_AP_NAV else "" ) +
-            ( choose ap_AERO_rot_status_string()+char(10) if USE_AP_AERO_ROT else "") +
+            ( choose ap_mode_get_str()+char(10) if defined AP_MODE_ENABLED else "") +
+            ( vel_displayed ) + ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
+            ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
+            ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
-            ( choose util_shsys_status_string()+char(10) if USE_UTIL_SHSYS else "") +
-            round_dec(SHIP:ALTITUDE,0) +" <| " + char(10) +
-            round_dec(vel_bear,0) +" -O " + char(10) +
-            ( choose util_wp_status_string()+char(10) if USE_UTIL_WP else "") +
+            ( choose util_shsys_status_string()+char(10) if defined UTIL_SHSYS_ENABLED else "") +
+            alt_head_str+char(10) +
+            ( choose util_wp_status_string()+char(10) if defined UTIL_WP_ENABLED else "") +
             hud_text_dict_right:values:join(char(10)).
 
         set hud_left_label:style:textcolor to hud_color.
@@ -364,7 +402,7 @@ local function control_part_vec_draw {
         //set control_part_vec:wiping to false.
         set control_part_vec_init_draw to true.
     }
-    if is_active_vessel() and hud_setting_dict["on"] and not MAPVIEW {
+    if ISACTIVEVESSEL and hud_setting_dict["on"] and not MAPVIEW {
 
         set control_part_vec:vec to SHIP:CONTROLPART:position + CAMERA_HEIGHT*ship:facing:topvector.
         set control_part_vec:show to true.
@@ -373,27 +411,9 @@ local function control_part_vec_draw {
     }
 }
 
-local got_hud_enabled_flags is false.
-local function get_hud_enabled_flags {
-    if not got_hud_enabled_flags {
-        set USE_AP_AERO_ROT to defined AP_AERO_ROT_ENABLED.
-        set USE_AP_NAV to defined AP_NAV_ENABLED.
-        set USE_AP_MODE to defined AP_MODE_ENABLED.
-        set USE_UTIL_WP to defined UTIL_WP_ENABLED.
-        set USE_UTIL_SHSYS to defined UTIL_SHSYS_ENABLED.
-        set got_hud_enabled_flags to true.
-    }
-}
-
-// main function of HUD
-function util_hud_init {
-    get_hud_enabled_flags().
-}
-
 local hud_interval is 2.
 local hud_i is 0.
 function util_hud_info {
-    get_hud_enabled_flags().
     set hud_i to hud_i+1.
     if hud_i = hud_interval {
         set hud_i to 0.
@@ -443,48 +463,63 @@ function util_hud_pop_right {
     }
 }
 
+// set key to value in setting dictionary
+// if value not given, toggle
+function util_hud_setting {
+    parameter key.
+    parameter value is -1.
+
+    if hud_setting_dict:haskey(key) {
+        if value = -1 {
+            set hud_setting_dict[key] to not hud_setting_dict[key].
+        } else {
+            set hud_setting_dict[key] to value.
+        }
+        hud_settings_save().
+        return true.
+    }
+    return false.
+}
+
 // shbus_tx compatible send messages
 // TX_SECTION
 
 function util_hud_get_help_str {
     return list(
-        " ",
         "UTIL_HUD running on "+core:tag,
-        "hudalign(elev,bear,roll) set align",
-        "hudcolor(r,g,b) set hud_color",
-        "hudsw [setting] toggle setting",
+        "hud align(elev,bear,roll)  set align",
+        "hud color(r,g,b)   set hud_color",
+        "hud sw [setting]   toggle setting",
         "    on",
         "    ladder",
         "    align",
         "    nav",
-        "    movable"
+        "    movable",
+        "hud help           print help"
         ).
 }
 
 function util_hud_parse_command {
     parameter commtext.
-    parameter args is -1.
+    parameter args is list().
 
-    if commtext:startswith("hud") {
-        if not (args = -1) and args:length = 0 {
-            print "hud args expected but empty".
-            return true.
-        }
+    if commtext:startswith("hud ") {
+        set commtext to commtext:remove(0,4).
     } else {
         return false.
     }
 
-    if commtext:startswith("hudsw") {
-        local newkey is args.
+    if commtext:startswith("sw") and commtext:length > 3 {
+        local newkey is commtext:split(" ")[1].
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
-    } else if commtext:startswith("hudalign(") {
+    } else if commtext = "align" and all_scalar(args) {
         if (args:length = 2 or args:length = 3) {
             if args:length = 2 { args:add(0). }
             util_shbus_tx_msg("HUD_ALIGN_SET", args).
         } else {
             print "use args (pitch,bear) or (pitch,bear,roll)".
         }
-    } else if commtext:startswith("hudcolor(") {
+    } else if commtext = "color" and all_scalar(args) {
         if (args:length = 3) {
             util_shbus_tx_msg("HUD_COLOR_SET", args).
         } else {
@@ -521,10 +556,8 @@ function util_hud_decode_rx_msg {
     } else if opcode = "HUD_POPR" {
         hud_text_dict_right:remove(data[0]).
     } else if opcode = "HUD_SETTING_TOGGLE" {
-        if data[0] = "off" {set data[0] to "on".}
-        if hud_setting_dict:haskey(data[0]) {
-            set hud_setting_dict[data[0]] to (not hud_setting_dict[data[0]]).
-        } else {
+        if data[0] = "off" {set data[0] to "on".}        
+        if not util_hud_setting(data[0]) {
             util_shbus_ack("util hud setting not found", sender).
 
         }

@@ -4,13 +4,9 @@ local Ts is 0.04.
 local minimum_intercept is 100.
 local parent is ship.
 
-local lock DELTA_TARGET TO R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
-local lock target_pitch TO (mod(DELTA_TARGET:pitch+90,180)-90).
-local lock target_bear TO (360-DELTA_TARGET:yaw).
-
-local lock DELTA_ALPHA to R(0,0,RAD2DEG*roll)*(-ship:SRFPROGRADE)*(ship:FACING).
-local lock alpha to -(mod(DELTA_ALPHA:pitch+180,360)-180).
-local lock beta to  (mod(DELTA_ALPHA:yaw+180,360)-180).
+local lock ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
+local lock alpha to wrap_angle(ship_vel:pitch).
+local lock beta to wrap_angle(-ship_vel:yaw).
 
 local function get_true_intercept_error {
     parameter cur_target.
@@ -38,12 +34,12 @@ local function get_true_intercept_error {
     }
 }
 
-local target_vessel is -1.
+// local target_vessel is -1.
 function ap_missile_cache_target {
-    if is_active_vessel() and HASTARGET {
-        set target_vessel to TARGET.
-        print "target locked: "+ target_vessel:NAME.
-    }
+//     if ISACTIVEVESSEL and HASTARGET {
+//         set target_vessel to TARGET.
+//         print "target locked: "+ target_vessel:NAME.
+//     }
 }
 
 function ap_missile_setup_separate {
@@ -86,38 +82,64 @@ local my_throttle is 0.0.
 function ap_missile_guide {
 
     sas off.
+    local PARAM is lexicon().
+    if true {
+    set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
+    set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
+    set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
+
+    set STEERINGMANAGER:YAWPID:KP to get_param(PARAM, "Y_KP", 8.0).
+    set STEERINGMANAGER:YAWPID:KI to get_param(PARAM, "Y_KI", 8.0).
+    set STEERINGMANAGER:YAWPID:KD to get_param(PARAM, "Y_KD", 12.0).
+
+    set STEERINGMANAGER:ROLLPID:KP to get_param(PARAM, "R_KP", 8.0).
+    set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
+    set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
+    print "got gains".
+}
 
     lock throttle to my_throttle.
     set my_throttle to 1.0.
+    local target_vessel is util_shsys_get_target().
     if target_vessel = -1 {
         print "trying for 30 sec eta apoapsis".
+        util_fldr_send_event("trying for 30 sec eta apoapsis").
         set yaw_init to yaw.
         lock steering TO heading(yaw_init,30,0).
         until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) {
             wait Ts.
         }
         print "eta Ap: "+eta:apoapsis.
+        util_fldr_send_event("eta Ap: "+ round_dec(eta:apoapsis,1)).
         lock steering TO heading(vel_bear,vel_pitch,0).
         until (ship:liquidfuel <= 1) {
             wait Ts.
         }
         print "eta Ap: "+ eta:apoapsis.
         print "Ap: "+ ship:ORBIT:apoapsis.
+        util_fldr_send_event("Ap: "+ round_dec(ship:ORBIT:apoapsis,0) + ", eta: " + round_dec(eta:apoapsis,1)).
 
         until false {
             wait Ts.
         }
 
-    } else {
+    } else if target_vessel:status = "LANDED" or target_vessel:status = "SPLASHED" {
+        local lock DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
+        local lock target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
+        local lock target_bear to (360-DELTA_TARGET:yaw).
+
         print "entering guidance loop 1".
+        util_fldr_send_event("entering guidance loop 1").
         lock steering TO heading(target_bear,30,0).
         until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) 
         OR (get_true_intercept_error(target_vessel) < minimum_intercept) {
             wait Ts.
         }
         print "Intercept Error: "+get_true_intercept_error(target_vessel).
+        util_fldr_send_event("Intercept Error: "+get_true_intercept_error(target_vessel)).
 
         print "entering guidance loop 2".
+        util_fldr_send_event("entering guidance loop 2").
         lock steering TO heading(target_bear,vel_pitch,0).
         until (get_true_intercept_error(target_vessel) < minimum_intercept) {
             wait Ts.
@@ -125,6 +147,7 @@ function ap_missile_guide {
         set my_throttle to 0.0.
 
         print "entering guidance loop 3".
+        util_fldr_send_event("entering guidance loop 3").
         lock steering TO heading(target_bear,vel_pitch,0).
         until ((vectorangle(ship:facing:vector,target_vessel:DIRECTION:vector) < 5) OR
             (target_vessel:DISTANCE < 2500)) {
@@ -132,12 +155,36 @@ function ap_missile_guide {
         }
 
         print "entering terminal guidance".
+        util_fldr_send_event("entering terminal guidance").
+        // unlock throttle.
+        // unlock steering.
+        // return.
 
         lock steering TO heading(target_bear,target_pitch+alpha,0).
-        set my_throttle to 1.0.
+        
 
         until FALSE{
+            set my_throttle to (choose 1.0 if ship:q < 0.7 else 0.0).
             wait Ts.
         }
+    } else if target_vessel:status = "FLYING" or target_vessel:status = "SUB ORBITAL" {
+        
+        local lock DELTA_TARGET to R(90,0,0)*(-SHIP:UP)*(target_vessel:direction).
+        local lock target_pitch to (mod(DELTA_TARGET:pitch+90,180)-90).
+        local lock target_bear to (360-DELTA_TARGET:yaw).
+
+        print "entering guidance loop 1".
+        util_fldr_send_event("entering guidance loop 1").
+        lock steering TO heading(target_bear,30,0).
+        until ((eta:apoapsis >= 30) AND (eta:apoapsis < 90)) OR (ship:liquidfuel <= 1) 
+        OR (get_true_intercept_error(target_vessel) < minimum_intercept) {
+            wait Ts.
+        }
+
+        print "entering terminal guidance".
+        util_fldr_send_event("entering terminal guidance").
+        unlock throttle.
+        unlock steering.
+        return.
     }
 }
