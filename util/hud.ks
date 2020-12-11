@@ -30,6 +30,14 @@ local hud_setting_dict is lexicon("on", ON_START,
         "ladder", LADDER_START, "align", false, "nav", NAV_START,
         "movable", false).
 
+if exists("hud-settings.json") {
+    set hud_setting_dict to readJson("hud-settings.json").
+}
+
+local function hud_settings_save {
+    writeJson(hud_setting_dict, "hud-settings.json").
+}
+
 local hud_far is 30.0.
 local hud_color is RGB(
         get_param(PARAM, "COLOR_R", 0),
@@ -467,6 +475,7 @@ function util_hud_setting {
         } else {
             set hud_setting_dict[key] to value.
         }
+        hud_settings_save().
         return true.
     }
     return false.
