@@ -464,6 +464,7 @@ function ap_aero_w_status_string {
         if defined UTIL_FLDR_ENABLED {
             if abs(alpha) > 45 and not departure {
                 util_fldr_send_event("aero_w departure").
+                print "aero_w departure".
                 set departure to true.
             } else if abs(alpha) < 20 and departure {
                 set departure to false.

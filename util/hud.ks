@@ -28,7 +28,8 @@ local hud_text_dict_right is lexicon().
 set SETTINGS["on"] to get_param(SETTINGS, "ON_START", false).
 set SETTINGS["ladder"] to get_param(SETTINGS, "LADDER_START", false).
 set SETTINGS["nav"] to get_param(SETTINGS, "NAV_START", false).
-set SETTINGS["alpha"] to get_param(SETTINGS, "ALPHA_START", 0).
+set SETTINGS["alpha"] to false.
+set SETTINGS["ALPHA_DEG"] to 7.5.
 set SETTINGS["align"] to false.
 set SETTINGS["ALIGN_ELEV"] to -2.5.
 set SETTINGS["ALIGN_HEAD"] to 90.4.
@@ -36,7 +37,10 @@ set SETTINGS["ALIGN_ROLL"] to 0.
 set SETTINGS["movable"] to false.
 
 if exists("hud-settings.json") {
-    set SETTINGS to readJson("hud-settings.json").
+    local PREV_SETTINGS is readJson("hud-settings.json").
+    for key in PREV_SETTINGS:keys {
+        set SETTINGS[key] to PREV_SETTINGS[key].
+    }
     set CAMERA_HEIGHT to SETTINGS["CAMERA_HEIGHT"].
     set CAMERA_RIGHT to SETTINGS["CAMERA_RIGHT"].
     set HUD_COLOR to SETTINGS["HUD_COLOR"].
@@ -297,10 +301,10 @@ local function alpha_bracket_draw {
         set alpha_bracket_vec:wiping to false.
     }
 
-    if ISACTIVEVESSEL and SETTINGS["on"] and (SETTINGS["alpha"] <> 0) and not MAPVIEW {
+    if ISACTIVEVESSEL and SETTINGS["on"] and SETTINGS["alpha"] and not MAPVIEW {
         local camera_offset is camera_offset_vec.
 
-        local alpha_vec is angleaxis(-SETTINGS["alpha"],ship:facing:starvector)*ship:srfprograde:vector.
+        local alpha_vec is angleaxis(-SETTINGS["ALPHA_DEG"],ship:facing:starvector)*ship:srfprograde:vector.
         set alpha_bracket_vec:start to camera_offset+far*alpha_vec.
         set alpha_bracket_vec:vec to 0.5*long*ship:facing:starvector.
         
@@ -500,13 +504,16 @@ function util_hud_pop_right {
 // if value not given, toggle
 function util_hud_setting {
     parameter key.
-    parameter value is -99999999.
+    parameter value is "reserved_toggle".
 
     if SETTINGS:haskey(key) {
-        if value = -99999999 {
+        if value = "reserved_toggle" and SETTINGS[key]:typename = "Boolean" {
             set SETTINGS[key] to not SETTINGS[key].
-        } else {
+        } else if SETTINGS[key]:typename = value:typename {
             set SETTINGS[key] to value.
+        } else {
+            print "cannot set " + value.
+            return false.
         }
         return true.
     }
@@ -527,6 +534,7 @@ function util_hud_get_help_str {
         "hud sw [setting]   toggle setting",
         "    on",
         "    ladder",
+        "    alpha",
         "    align",
         "    nav",
         "    movable",
@@ -548,11 +556,11 @@ function util_hud_parse_command {
         local newkey is commtext:split(" ")[1].
         util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
     } else if commtext = "align" and all_scalar(args) {
-        if (args:length = 2 or args:length = 3) {
+        if (args:length = 0 or args:length = 2 or args:length = 3) {
             if args:length = 2 { args:add(0). }
             util_shbus_tx_msg("HUD_ALIGN_SET", args).
         } else {
-            print "use args (pitch,bear) or (pitch,bear,roll)".
+            print "use args (pitch,bear) or (pitch,bear,roll) or no args (off)".
         }
     } else if commtext = "color" and all_scalar(args) {
         if (args:length = 3) {
@@ -567,7 +575,7 @@ function util_hud_parse_command {
             print "use args (top,star)".
         }
     } else if commtext = "alpha" and all_scalar(args) {
-        if (args:length = 1) {
+        if (args:length = 0) or (args:length = 1) {
             util_shbus_tx_msg("HUD_ALPHA_SET", args).
         } else {
             print "use args (deg)".
@@ -617,12 +625,22 @@ function util_hud_decode_rx_msg {
         set HUD_COLOR to RGB(data[0],data[1],data[2]).
         hud_settings_save().
     } else if opcode = "HUD_ALIGN_SET" {
-        util_hud_setting("ALIGN_ELEV",data[0]).
-        util_hud_setting("ALIGN_HEAD",data[1]).
-        util_hud_setting("ALIGN_ROLL",data[2]).
+        if data:length = 0 {
+            util_hud_setting("align",false).
+        } else {
+            util_hud_setting("align",true).
+            util_hud_setting("ALIGN_ELEV",data[0]).
+            util_hud_setting("ALIGN_HEAD",data[1]).
+            util_hud_setting("ALIGN_ROLL",data[2]).
+        }
         hud_settings_save().
     } else if opcode = "HUD_ALPHA_SET" {
-        util_hud_setting("alpha",data[0]).
+        if data:length = 0 {
+            util_hud_setting("alpha",false).
+        } else {
+            util_hud_setting("alpha",true).
+            util_hud_setting("ALPHA_DEG",data[0]).
+        }
         hud_settings_save().
     } else if opcode = "HUD_CAM_MOVE" {
         set CAMERA_HEIGHT to CAMERA_HEIGHT + data[0].

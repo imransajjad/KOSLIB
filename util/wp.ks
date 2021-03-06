@@ -149,7 +149,7 @@ function util_wp_get_help_str {
         "wp first(WP)       [wpf] add wp to first ",
         "wp add(WP)         [wpa] add wp to last ",
         "wp update(WP)      [wpu] first wp write",
-        "wp target(WP)      [wpt] vessel/nav target wp",
+        "wp catch(WP)       [wpc] vessel/nav target wp",
         "wp home(alt,vel)   [wpk] go home (srf)",
         "wp takeoff(distance,heading) [wpto] takeoff (srf)",
         "wp land(distance,vel,GSlope,heading) [wpl] landing (srf)",
@@ -308,21 +308,21 @@ function util_wp_parse_command {
         insert_waypoint(-1, util_wp_arg_lex(args, cur_mode) ).
     } else if commtext = "wpu" or commtext = "wp update"{
         overwrite_waypoint(0, util_wp_arg_lex(args, cur_mode) ).
-    } else if (commtext = "wpt"  or commtext = "wp target")
-        and args:length = 2 {
+    } else if (commtext = "wpc"  or commtext = "wp catch")
+        and args:length >= 2 {
         if ISACTIVEVESSEL and HASTARGET {
             print "Found Target.".
-            insert_waypoint(-1,
-                util_wp_arg_lex(list(args[0],args[1],TARGET:GEOPOSITION:LAT,
-                    TARGET:GEOPOSITION:LNG), cur_mode) ).
+            args:insert(2,TARGET:geoposition:lat).
+            args:insert(3,TARGET:geoposition:lng).
+            insert_waypoint(-1, util_wp_arg_lex(args, cur_mode) ).
             return true.
         } else if ISACTIVEVESSEL {
             for WP_TAR in ALLWAYPOINTS() {
                 if (WP_TAR:ISSELECTED) {
                     print "Found navigation waypoint".
-                    insert_waypoint(-1,
-                    util_wp_arg_lex(list(args[0],args[1],WP_TAR:GEOPOSITION:LAT,
-                        WP_TAR:GEOPOSITION:LNG), cur_mode) ).
+                    args:insert(2,WP_TAR:geoposition:lat).
+                    args:insert(3,WP_TAR:geoposition:lng).
+                    insert_waypoint(-1, util_wp_arg_lex(args, cur_mode) ).
                     return true.
                 }
             }
