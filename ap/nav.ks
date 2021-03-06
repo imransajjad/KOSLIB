@@ -262,22 +262,22 @@ local function srf_wp_guide {
     set AP_NAV_ACC to align_data[1].
     set AP_NAV_ATT to ship:facing.
 
-    set stick_heading to vel_bear. // remove these from here
-    set stick_pitch to vel_pitch. // somehow
-
     return true.
 }
 
 local SRF_V_SET_DELTA is 0.
 local stick_heading is vel_bear.
 local stick_pitch is vel_pitch.
+local stick_vel is ship:airspeed.
 local function srf_stick {
     parameter u0 is SHIP:CONTROL:PILOTMAINTHROTTLE. // throttle input
     parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch input
     parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw input
     parameter u3 is SHIP:CONTROL:PILOTROLL. // roll input
-    local increment is 0.0.
-    local VSET_MAN is FALSE.
+    local vel_increment is 0.0.
+    local elev_increment is 0.0.
+    local heading_increment is 0.0.
+    local VSET_MAN is false.
 
     if not (defined AP_MODE_ENABLED) {
         return false.
@@ -291,35 +291,23 @@ local function srf_stick {
         set stick_pitch to vel_pitch.
         set VSET_MAN to true.
     } else if AP_MODE_NAV {
-        set increment to 2.0*deadzone(u1,0.25).
-        if increment <> 0 {
-            set AP_NAV_VEL to ANGLEAXIS(-increment,ship:facing:starvector)*AP_NAV_VEL.
+        set elev_increment to 2.0*deadzone(u1,0.25).
+        set heading_increment to 2.0*deadzone(u3,0.25).
+        if elev_increment <> 0 or heading_increment <> 0 {
             local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
-            set stick_pitch to round_dec(py_temp[0],1).
-            set stick_heading to round_dec(py_temp[1],1).
-        }
-        set increment to 2.0*deadzone(u3,0.25).
-        if increment <> 0 {
-            set AP_NAV_VEL to ANGLEAXIS(increment,ship:facing:topvector)*AP_NAV_VEL.
-            local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
-            set stick_pitch to round_dec(py_temp[0],1).
-            set stick_heading to round_dec(py_temp[1],1).
-            // if increment > 0 and wrap_angle(AP_NAV_H_SET - vel_bear) > 175 {
-            // } else if increment < 0 and wrap_angle(AP_NAV_H_SET - vel_bear) < -175 {
-            // } else {
-            //     set AP_NAV_H_SET To wrap_angle(AP_NAV_H_SET + increment).
-            // }
+            set stick_pitch to round_dec(py_temp[0] + elev_increment,1).
+            set stick_heading to round_dec(py_temp[1] + heading_increment,1).
         }
         set VSET_MAN to true.
     }
     if VSET_MAN and ISACTIVEVESSEL {
-        set increment to 2.7*deadzone(2*u0-1,0.1).
-        if increment <> 0 {
-            set AP_NAV_VEL To MIN(MAX(AP_NAV_VEL:mag+increment,MIN_NAV_SRF_VEL),VSET_MAX)*AP_NAV_VEL:normalized.
+        set vel_increment to 2.7*deadzone(2*u0-1,0.1).
+        if vel_increment <> 0 {
+            set stick_vel to round(min(max(AP_NAV_VEL:mag+vel_increment,MIN_NAV_SRF_VEL),VSET_MAX)).
         }
-        set SRF_V_SET_DELTA to increment.
+        set SRF_V_SET_DELTA to vel_increment.
     }
-    set AP_NAV_VEL to round_dec(AP_NAV_VEL:mag,0)*heading(stick_heading, stick_pitch):vector.
+    set AP_NAV_VEL to stick_vel*heading(stick_heading, stick_pitch):vector.
     
     return true.
 }

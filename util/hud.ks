@@ -234,11 +234,11 @@ local function align_marker_draw {
 
         set align_init_draw to true.
         set align_vert to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-            "", 1.0, true, width, FALSE ).
+            "", 1.0, true, width, false ).
         set align_hori to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-            "", 1.0, true, width, FALSE ).
+            "", 1.0, true, width, false ).
         set align_invis to vecdraw(V(0,0,0), V(0,0,0), RGB(0,1,0),
-            "", 1.0, true, 0.25, FALSE ).
+            "", 1.0, true, 0.25, false ).
         set align_vert:wiping to false.
         set align_hori:wiping to false.
     }
@@ -623,6 +623,7 @@ function util_hud_decode_rx_msg {
         hud_settings_save().
     } else if opcode = "HUD_ALPHA_SET" {
         util_hud_setting("alpha",data[0]).
+        hud_settings_save().
     } else if opcode = "HUD_CAM_MOVE" {
         set CAMERA_HEIGHT to CAMERA_HEIGHT + data[0].
         set CAMERA_RIGHT to CAMERA_RIGHT + data[1].

@@ -13,7 +13,7 @@ GLOBAL UTIL_SHBUS_ENABLED IS true.
 
 local PARAM is get_param(readJson("param.json"),"UTIL_SHBUS", lexicon()).
 local SHIP_ROUTER_CORE is (get_param(PARAM, "SHIP_ROUTER_CORE_TAG", "flcs") = core:tag).
-local RX_MSG_IN_TRIGGER is get_param(PARAM, "RX_MSG_IN_TRIGGER", false).
+local RX_MSG_IN_TRIGGER is get_param(PARAM, "RX_MSG_IN_TRIGGER", true).
 print "shbus rx msg in interrupt:" + RX_MSG_IN_TRIGGER.
 
 local tx_hosts is lexicon().
