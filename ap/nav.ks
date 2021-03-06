@@ -303,11 +303,21 @@ local function srf_stick {
     if VSET_MAN and ISACTIVEVESSEL {
         set vel_increment to 2.7*deadzone(2*u0-1,0.1).
         if vel_increment <> 0 {
-            set stick_vel to round(min(max(AP_NAV_VEL:mag+vel_increment,MIN_NAV_SRF_VEL),VSET_MAX)).
+            set stick_vel to min(max(stick_vel+vel_increment,MIN_NAV_SRF_VEL),VSET_MAX).
         }
         set SRF_V_SET_DELTA to vel_increment.
     }
-    set AP_NAV_VEL to stick_vel*heading(stick_heading, stick_pitch):vector.
+    local new_vel is round(stick_vel)*heading(stick_heading, stick_pitch):vector.
+    if abs(new_vel:mag-AP_NAV_VEL:mag) > 2.7 {
+        set stick_vel to AP_NAV_VEL:mag.
+    } else {
+        set AP_NAV_VEL to new_vel.
+    }
+    if vectorangle(new_vel,AP_NAV_VEL) > 4 {
+        local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
+        set stick_pitch to py_temp[0].
+        set stick_heading to py_temp[1].
+    }
     
     return true.
 }
