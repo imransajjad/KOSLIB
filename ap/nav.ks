@@ -78,6 +78,7 @@ local function get_vessel_vel {
 // both in ship raw frame
 local on_circ_feedforward is false.
 local function nav_align {
+    parameter final_speed. // final speed upon approach
     parameter vec_final. // position vector to target
     parameter head_final. // desired heading upon approach
     parameter frame_vel. // a velocity vector in this frame
@@ -148,35 +149,38 @@ local function nav_align {
             char(10) + "ax:"+round_fig(alpha_x,1)).
     }
 
-    return list(new_arc_vector, acc_mag*centripetal_vector).
+    return list(final_speed*new_arc_vector, acc_mag*centripetal_vector).
 }
 
-
 local function nav_q_target {
+    parameter final_speed. // final speed upon approach
     parameter target_altitude.
-    parameter target_vel.
     parameter target_heading.
     parameter target_distance is 99999999999. // assume target is far away
     parameter radius is 0. // a turning radius.
 
     set FOLLOW_MODE_Q to true.
 
-    local sin_max_vangle is 0.5. // sin(30).
-    local qtar is simple_q(target_altitude,target_vel).
+    local qtar is simple_q(target_altitude,final_speed).
     local q_simp is simple_q(ship:altitude,ship:airspeed).
 
-    local etar is simple_E(target_altitude,target_vel).
-    local e_simp is simple_E(ship:altitude,ship:airspeed).
+    local e_zero is simple_E(0,0).
+    local etar is (simple_E(target_altitude,final_speed)-e_zero)/1000.
+    local e_simp is (simple_E(ship:altitude,ship:airspeed)-e_zero)/1000.
     
     set AP_NAV_TIME_TO_WP to target_distance/max(1,ship:airspeed).
-    // util_hud_push_right("simple_q_simp", ""+round_dec(q_simp,3)+"/"+round_dec(qtar,3)).
 
-    local elev is arcsin(sat(-K_Q*(qtar-q_simp), sin_max_vangle)).
-    set elev to max(elev, -arcsin(min(1.0,ship:altitude/ship:airspeed/5))).
+    local Fv is K_E*(etar-e_simp)/max(MIN_NAV_SRF_VEL, ship:airspeed).
+
+    local sin_elev is ( 2*Fv - K_Q*(qtar-q_simp)*(ship:airspeed/q_simp) )/(2*g0+ship:airspeed^2/5000).
+    local elev is arcsin( sat( sin_elev, 0.5 )). // restrict climb/descent to +-30 degrees
+    // util_hud_push_left("nav_q_target", "qt/"+ char(916)+" " + round_dec(qtar,3) + "/" + round_dec(qtar-q_simp,3) + char(10) + 
+    //                                 "Et/" + char(916) + " " + round_dec(etar,2) + "/" + round_dec(etar-e_simp,2)).
 
     local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),abs(elev)).
     set elev_diff to arctan2(2*tan(elev_diff),1).
-    return list(heading(target_heading+elev_diff,elev):vector, V(0,0,0)).
+    local new_vel_vector is heading(target_heading+elev_diff,elev):vector.
+    return list(ship:airspeed*new_vel_vector, (Fv - g0*sin_elev)*new_vel_vector).
 }
 
 local function nav_check_done {
@@ -248,17 +252,18 @@ local function srf_wp_guide {
         if wp:haskey("elev") and (wp_vec:mag < 9*final_radius) { 
             // do final alignment
             nav_check_done(wp_vec, heading(wp["head"],wp["elev"]), ship:velocity:surface, final_radius).
-            set align_data to nav_align(wp_vec, heading(wp["head"],wp["elev"]), ship:velocity:surface, final_radius).
+            set align_data to nav_align(wp["vel"],wp_vec, heading(wp["head"],wp["elev"]), ship:velocity:surface, final_radius).
         } else {
             // do q_follow for height and wp heading
             nav_check_done(wp_vec, ship:facing, ship:velocity:surface, final_radius).
-            set align_data to nav_q_target(wp["alt"],wp["vel"],latlng(wp["lat"],wp["lng"]):heading, geo_distance, final_radius).
+            set align_data to nav_q_target(wp["vel"],wp["alt"],latlng(wp["lat"],wp["lng"]):heading, geo_distance, final_radius).
         }
     } else {
         // do q_follow for height and current heading
-        set align_data to nav_q_target(wp["alt"],wp["vel"],vel_bear).
+        set align_data to nav_q_target(wp["vel"],wp["alt"],vel_bear).
+        set align_data[0] to align_data[0].
     }
-    set AP_NAV_VEL to max(MIN_NAV_SRF_VEL,wp["vel"])*align_data[0].
+    set AP_NAV_VEL to align_data[0].
     set AP_NAV_ACC to align_data[1].
     set AP_NAV_ATT to ship:facing.
 
@@ -312,6 +317,9 @@ local function srf_stick {
         set stick_vel to AP_NAV_VEL:mag.
     } else {
         set AP_NAV_VEL to new_vel.
+        set AP_NAV_ACC to V(0,0,0).
+        set AP_NAV_ATT to ship:facing.
+
     }
     if vectorangle(new_vel,AP_NAV_VEL) > 4 {
         local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
@@ -456,7 +464,7 @@ local function tar_wp_guide {
             set approach_speed to sat(position:mag/radius, 1)*abs(approach_speed).
         }
 
-        local align_data is nav_align(position, final_head, relative_velocity, radius).
+        local align_data is nav_align(approach_speed, position, final_head, relative_velocity, radius).
 
         set AP_NAV_VEL to approach_speed*align_data[0]+get_vessel_vel(target_ship).
         set AP_NAV_ACC to align_data[1].

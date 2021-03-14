@@ -38,9 +38,9 @@
         "AP_AERO_ENGINES",
         {
             "entries": [
-                "V_PID_KP", 0.05,
-                "V_PID_KI", 0.002,
-                "V_PID_KD", 0.00,
+                "K_V", 0.25,
+                "A_PID_KP", 0.1,
+                "A_PID_KI", 0.01,
                 "AUTO_BRAKES", true,
                 "USE_GCAS", true,
                 "GCAS_SPEED", 300,
@@ -55,7 +55,8 @@
                 "ROT_GNOM_LAT", 0.2,
                 "ROT_GNOM_LONG", 1,
                 
-                "K_Q", 1.0,
+                "K_Q", 0.1,
+                "K_E", 15.0,
                 "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 30,
                 "TAIL_STRIKE", 7.5,
@@ -79,8 +80,8 @@
                 "ON_START", true,
                 "LADDER_START", true,
                 "NAV_START", true,
-                "CAMERA_HEIGHT", 1.2,
-                "CAMERA_RIGHT", -0.4,
+                "CAMERA_HEIGHT", 1.111,
+                "CAMERA_RIGHT", -0.43,
                 
                 "GSLOPE", 3.0,
                 "GHEAD", 90.4,

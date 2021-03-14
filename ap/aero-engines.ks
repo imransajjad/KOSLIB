@@ -6,10 +6,11 @@ local PARAM is get_param(readJson("param.json"), "AP_AERO_ENGINES", lexicon()).
 
 local TOGGLE_X is get_param(PARAM,"TOGGLE_X", 0).
 local TOGGLE_Y is get_param(PARAM,"TOGGLE_Y", 0).
-local TOGGLE_VEL is get_param(PARAM,"TOGGLE_VEL", 0).
-local V_PID_KP is get_param(PARAM,"V_PID_KP", 0.01).
-local V_PID_KI is get_param(PARAM,"V_PID_KI", 0.004).
-local V_PID_KD is get_param(PARAM,"V_PID_KD", 0).
+
+local K_V is get_param(PARAM,"K_V", 0.25).
+local A_PID_KP is get_param(PARAM,"A_PID_KI", 0.1).
+local A_PID_KI is get_param(PARAM,"A_PID_KI", 0.01).
+local A_PID_KD is get_param(PARAM,"A_PID_KD", 0).
 local AUTO_BRAKES is get_param(PARAM,"AUTO_BRAKES", false).
 local MAIN_ENGINE_NAME is get_param(PARAM,"MAIN_ENGINE_NAME", "").
 
@@ -35,12 +36,11 @@ local lock vel to ship:airspeed.
 
 local my_throttle is 0.0.
 
-local vpid is PIDLOOP(
-    V_PID_KP,
-    V_PID_KI,
-    V_PID_KD,
+local apid is PIDLOOP(
+    A_PID_KP,
+    A_PID_KI,
+    A_PID_KD,
     -0.1, 1.1).
-
 
 
 function ap_aero_engines_get_total_thrust {
@@ -48,7 +48,7 @@ function ap_aero_engines_get_total_thrust {
     for e in MAIN_ENGINES {
         set total_thrust to total_thrust+e:MAXTHRUST.
     }
-    return total_thrust.
+    return max(0.0001,total_thrust).
 }
 
 // initial generic maps / auto throttles
@@ -60,9 +60,13 @@ local function no_map {
 }
 
 local function generic_throttle_auto {
-    parameter v_set.
-    set vpid:setpoint to v_set.
-    set my_throttle to vpid:update(time:seconds, vel).
+    parameter vel_r.
+    parameter acc_r is 0.
+
+    local forward_a is get_acc()*ship:srfprograde:vector.
+    set apid:setpoint to acc_r + K_V*(vel_r - vel).
+    set my_throttle to (apid:setpoint)/MAX_TMR + apid:update(time:seconds, forward_a).
+
     return max(my_throttle,0.001).
 }
 
@@ -72,14 +76,15 @@ local function generic_common {
 
 local auto_brakes_used is false.
 local function apply_auto_brakes {
-    parameter v_set.
+    parameter vel_r.
+    parameter acc_r.
     if AUTO_BRAKES and not (GEAR and ship:status = "flying") {
         set auto_brakes_used to true.
         if BRAKES {
-            set BRAKES to ( vpid:output < 0.05  ) and 
+            set BRAKES to ( my_throttle < 0.05  ) and 
                 ship:facing:vector*ship:srfprograde:vector > 0.990. //~cos(2.5d)
         } else {
-            set BRAKES to ( vpid:output < -0.05  ) and 
+            set BRAKES to ( my_throttle < -0.05  ) and 
                 ship:facing:vector*ship:srfprograde:vector > 0.990.
         }
     } else if auto_brakes_used {
@@ -117,18 +122,30 @@ local function turbojet_throttle_map {
     return max(my_throttle,0.0).
 }
 
+local last_dry_tmr is 0.5.
+local last_wet_tmr is 1.0.
 local function turbojet_throttle_auto {
-    parameter v_set.
-    if not (MAIN_ENGINES:length = 0){
-        if (v_set > TOGGLE_VEL or vpid:output > 1.05) and MAIN_ENGINES[0]:MODE = "Dry"
-        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
-        if not (v_set > TOGGLE_VEL or vpid:output > 0.95) and MAIN_ENGINES[0]:MODE = "Wet"
-        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
-    }
+    parameter vel_r.
+    parameter acc_r is 0.
 
-    set vpid:setpoint to v_set.
-    set my_throttle to vpid:update(time:seconds, vel).
+    local forward_a is get_acc()*ship:srfprograde:vector.
+    set apid:setpoint to acc_r + K_V*(vel_r - vel).
+    set my_throttle to (apid:setpoint)/MAX_TMR + apid:update(time:seconds, forward_a).
     
+    // util_hud_push_left("turbojet_throttle_auto", "a_set " + round_dec(forward_a,2) + "/" + round_dec(apid:setpoint,2) + char(10) + "TMR " + round_dec(MAX_TMR,2)).
+    
+    if not (MAIN_ENGINES:length = 0){
+        if (my_throttle > 1.05) and MAIN_ENGINES[0]:MODE = "Dry"
+        {
+            for e in MAIN_ENGINES {e:TOGGLEMODE().}
+            set last_wet_tmr to MAX_TMR.
+            }
+        if (my_throttle < last_dry_tmr/last_wet_tmr ) and MAIN_ENGINES[0]:MODE = "Wet"
+        {
+            for e in MAIN_ENGINES {e:TOGGLEMODE().}
+            set last_dry_tmr to MAX_TMR.
+        }
+    }
     return max(my_throttle,0.001).
 }
 
@@ -155,6 +172,8 @@ local function turbofan_common {
     }
 }
 
+// will try to achieve vel_r and acc_r in the engine/prograde direction.
+// pass in vel_r = ship:airspeed for acceleration only control
 function ap_aero_engine_throttle_auto {
     parameter vel_r is AP_NAV_VEL. // defaults are globals defined in AP_NAV
     parameter acc_r is AP_NAV_ACC.
@@ -163,9 +182,9 @@ function ap_aero_engine_throttle_auto {
     if USE_GCAS and (ap_gcas_check()) {
         set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(GCAS_SPEED).
     } else {
-        set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag).
+        set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func:call(vel_r:mag, acc_r*ship:srfprograde:vector).
     }
-    apply_auto_brakes(vel_r:mag).
+    apply_auto_brakes(vel_r*ship:srfprograde:vector, acc_r*ship:srfprograde:vector).
     common_func().
 }
 

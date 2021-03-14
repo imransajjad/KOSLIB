@@ -408,7 +408,7 @@ function ap_aero_w_nav_do {
         set current_nav_velocity to ship:velocity:orbit.
     }
 
-    
+    set acc_vec to vectorexclude(vel_vec, acc_vec).
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
     local cur_pro is (-ship:facing)*current_nav_velocity:direction.

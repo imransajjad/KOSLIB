@@ -1,7 +1,6 @@
 
 // Required Dependencies
-// UTIL_SHBUS_TX_ENABLED (for tx commands)
-// UTIL_SHBUS_RX_ENABLED (for rx commands)
+// UTIL_SHBUS_ENABLED (for tx/rx commands)
 
 global UTIL_FLDR_ENABLED is true.
 
@@ -9,7 +8,8 @@ local Ts is 0.04.
 local Tdur is 0.0.
 local Tdel is 0.
 
-local logtag to "".
+local logtag is "".
+local logdesc is "".
 
 local fldr_evt_data is queue(). // list(0,"").
 
@@ -18,7 +18,6 @@ local FILENAME is "?". // a character that's invalid on every filesystem
 local CORE_IS_LOGGING is false.
 local SENDING_TO_BASE is false.
 local CORE_IS_TESTING is false.
-local last_sender is "".
 
 // Local Locks for data recording
 
@@ -172,11 +171,10 @@ local function log_first_step {
         }
     }
 
-    local logdesc is "log-"+string_acro(ship:NAME)+"-"+TIME:CALENDAR:replace(":","")+
+    set logdesc to "log-"+string_acro(ship:NAME)+"-"+TIME:CALENDAR:replace(":","")+
             "-"+TIME:CLOCK:replace(":","")+"-"+logtag.
 
     set logdesc to logdesc:replace(" ", "-"):replace(",", "").
-    util_shbus_ack("logging " + logdesc + " to " + FILENAME, last_sender).
     print "started logging".
 
     log logdesc to FILENAME.
@@ -189,29 +187,45 @@ local function log_first_step {
     set time_logged_15 to time:seconds.
 }
 
-function util_fldr_start_logging {
-    
-    if CORE_IS_LOGGING {
-        // this function serves as its own inverse
+function util_fldr_logging {
+    parameter command.
+    parameter sender.
+
+    if command = "stop" {
         set CORE_IS_LOGGING to false.
         return.
     }
-    set CORE_IS_LOGGING to true.
-    set SENDING_TO_BASE to HOMECONNECTION:ISCONNECTED.
-
-    log_first_step(). // log the first step outside interrupt
-
-    local last_log_time is 0.
-    when time:seconds - last_log_time > Ts then {
-        if ((time:seconds-starttime > Tdur) and (Tdur > 0)) or not CORE_IS_LOGGING {
-            util_shbus_ack("log written to "+ FILENAME + char(10), last_sender).
-            print "stopped logging".
-            set CORE_IS_LOGGING to false.
-            return false.
+    if command = "status" {
+        if CORE_IS_LOGGING {
+            util_shbus_ack("logging " + logdesc + " to " + FILENAME, sender).
         } else {
-            log_one_step().
-            set last_log_time to time:seconds.
-            return true.
+            util_shbus_ack("not logging" + char(10), sender).
+        }
+        return.
+    }
+    if command = "start" and CORE_IS_LOGGING {
+        util_shbus_ack("already logging" + char(10), sender).
+        return.
+    }
+    if command = "start" and not CORE_IS_LOGGING {
+        set CORE_IS_LOGGING to true.
+        set SENDING_TO_BASE to HOMECONNECTION:ISCONNECTED.
+
+        log_first_step(). // log the first step outside interrupt
+        util_shbus_ack("logging " + logdesc + " to " + FILENAME, sender).
+
+        local last_log_time is 0.
+        when time:seconds - last_log_time > Ts then {
+            if ((time:seconds-starttime > Tdur) and (Tdur > 0)) or not CORE_IS_LOGGING {
+                util_shbus_ack("log written to "+ FILENAME + char(10), sender).
+                print "stopped logging".
+                set CORE_IS_LOGGING to false.
+                return false.
+            } else {
+                log_one_step().
+                set last_log_time to time:seconds.
+                return true.
+            }
         }
     }
 }
@@ -226,7 +240,9 @@ function util_fldr_get_help_str {
         "log time(T)    total log time=T",
         "log dt(dt)     log interval =dt",
         "log tag TAG    set log tag on hosts",
-        "log start      start/stop logging on hosts",
+        "log start      start logging on hosts",
+        "log stop       stop logging on hosts",
+        "log status     report logging status",
         "log test       start test on hosts",
         "log info       list some log info",
         "log send       send logs",
@@ -278,8 +294,8 @@ function util_fldr_parse_command {
             set logtag to "".
         }
         util_shbus_tx_msg("FLDR_SET_LOGTAG", list(logtag)).
-    } else if commtext = "start" {
-        util_shbus_tx_msg("FLDR_TOGGLE_LOGGING").
+    } else if commtext = "start" or commtext = "stop" or commtext = "status" {
+        util_shbus_tx_msg("FLDR_LOG", list(commtext)).
     } else if commtext = "test" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
     } else if commtext = "info" {
@@ -424,9 +440,8 @@ function util_fldr_decode_rx_msg {
         local info_str is get_info_string().
         util_shbus_ack(info_str, sender).
         print info_str.
-    } else if opcode = "FLDR_TOGGLE_LOGGING" {
-        set last_sender to sender.
-        util_fldr_start_logging().
+    } else if opcode = "FLDR_LOG" {
+        util_fldr_logging(data[0], sender).
     } else if opcode = "FLDR_PRINT_TEST" {
         util_shbus_ack(print_sequences(), sender).
     } else {

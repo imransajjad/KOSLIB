@@ -331,7 +331,7 @@ function simple_q {
     parameter height.
     parameter velocity.
 
-    return 0.00000840159*max(constant:e^(-height/5000),10*constant:e^(-height/500))*velocity^2.
+    return 0.00000840159*constant:e^(-height/5000)*velocity^2.
 }
 
 function simple_q_root {
