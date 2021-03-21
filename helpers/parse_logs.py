@@ -175,15 +175,15 @@ def plot_log_math(D,**kwargs):
     #     P = new_plot()
     #     plot_from_keys(P,D,"t",y_keys)
     
-    y_keys = ["faerox_vel","faeroy_vel","faeroz_vel","p_faerox_vel","p_faeroy_vel","p_faeroz_vel"]
+    y_keys = ["faerox_vel","faeroy_vel","faeroz_vel","p_faerox_vel","p_faeroy_vel","p_faeroz_vel","p_area_faerox_vel","p_area_faeroy_vel","p_area_faeroz_vel"]
     if all(key in D for key in y_keys):
         P = new_plot()
         plot_from_keys(P,D,"t",y_keys)
 
-    y_keys = ["pe_faerox_vel","pe_faeroy_vel","pe_faeroz_vel"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["pe_faerox_vel","pe_faeroy_vel","pe_faeroz_vel"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
 
     y_keys = ["q_simp","E_srf_s","alpha","q"]
     if all(key in D for key in y_keys):

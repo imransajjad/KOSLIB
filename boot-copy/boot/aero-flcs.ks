@@ -38,6 +38,11 @@ when true then {
         (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
     set vel_pitch to (mod(DELTA_PRO_UP:pitch+90,180)-90).
     set vel_bear to (360-DELTA_PRO_UP:yaw).
+
+    set ship_vel_dir to LOOKDIRUP(ship:velocity:surface, ship:facing:topvector).
+    set alpha_beta_dir to (-ship:facing*ship_vel_dir).
+    set alpha to wrap_angle(alpha_beta_dir:pitch).
+    set beta to wrap_angle(-alpha_beta_dir:yaw).
     
     return true.
 }
@@ -65,6 +70,7 @@ until false {
     util_shbus_rx_msg().
     util_shsys_spin_check().
     util_fldr_run_test().
+    util_phys_update().
 
     ap_mode_update().
     ap_nav_display().

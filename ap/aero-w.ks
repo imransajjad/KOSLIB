@@ -69,10 +69,6 @@ local roll_rate is -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 local LATOFS is (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
 local LONGOFS is (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
 
-local ship_vel is (-SHIP:FACING)*ship:velocity:surface:direction.
-local alpha is wrap_angle(ship_vel:pitch). // how to get alpha and beta
-local beta is wrap_angle(-ship_vel:yaw).
-
 when true then {
     set vel to ship:airspeed.
 
@@ -86,10 +82,6 @@ when true then {
 
     set LATOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:STARVECTOR.
     set LONGOFS to (SHIP:POSITION-SHIP:CONTROLPART:POSITION)*SHIP:FACING:VECTOR.
-
-    set ship_vel to (-SHIP:FACING)*ship:velocity:surface:direction.
-    set alpha to wrap_angle(ship_vel:pitch). // how to get alpha and beta
-    set beta to wrap_angle(-ship_vel:yaw).
 
     return true.
 }
@@ -161,7 +153,7 @@ local function gain_schedule {
     }
 
     local loadfactor is max(ship:q,MIN_SEA_Q)/ship:mass.
-    local alsat is sat(wrap_angle(ship_vel:pitch),35). // alpha = ship_vel:pitch
+    local alsat is sat(alpha,35).
     local airflow_c_u is cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
         cd_sched(max(50,vel))*(2*cos(alsat)*sin(alsat)^2).
 
@@ -242,13 +234,13 @@ function ap_aero_w_do {
             set rratePD:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
             set rrateI:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
         } else if direct_mode {
-            local omega_v is R(-alpha,beta,0)*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
+            local omega_v is -alpha_beta_dir*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
             set pratePID:SETPOINT to omega_v:x.
             set yratePID:SETPOINT to omega_v:y.
             set rratePD:SETPOINT to omega_v:z.
             set rrateI:SETPOINT to omega_v:z.
         } else {
-            local omega_v is R(-alpha,beta,0)*V(prate_max*sat(STICK_GAIN*u1,1.0),yrate_max*sat(STICK_GAIN*u2,1.0),rrate_max*sat(STICK_GAIN*u3,1.0)).
+            local omega_v is -alpha_beta_dir*V(prate_max*sat(STICK_GAIN*u1,1.0),yrate_max*sat(STICK_GAIN*u2,1.0),rrate_max*sat(STICK_GAIN*u3,1.0)).
             set pratePID:SETPOINT to omega_v:x.
             set yratePID:SETPOINT to omega_v:y.
             set rratePD:SETPOINT to omega_v:z.

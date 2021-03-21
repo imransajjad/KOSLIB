@@ -171,15 +171,19 @@ local function nav_q_target {
     set AP_NAV_TIME_TO_WP to target_distance/max(1,ship:airspeed).
 
     local Fv is K_E*(etar-e_simp)/max(MIN_NAV_SRF_VEL, ship:airspeed).
+    local Fv_actual is min(Fv,get_applied_acc()*ship:srfprograde:vector).
+    if Fv < 0 {
+        set Fv_actual to Fv.
+    }
 
-    local sin_elev is ( 2*Fv - K_Q*(qtar-q_simp)*(ship:airspeed/q_simp) )/(2*g0+ship:airspeed^2/5000).
+    local sin_elev is ( 2*Fv_actual - K_Q*(qtar-q_simp)*(ship:airspeed/q_simp) )/(2*g0+ship:airspeed^2/5000).
     local elev is arcsin( sat( sin_elev, 0.5 )). // restrict climb/descent to +-30 degrees
     // util_hud_push_left("nav_q_target", "qt/"+ char(916)+" " + round_dec(qtar,3) + "/" + round_dec(qtar-q_simp,3) + char(10) + 
-    //                                 "Et/" + char(916) + " " + round_dec(etar,2) + "/" + round_dec(etar-e_simp,2)).
+                                    // "Et/" + char(916) + " " + round_dec(etar,2) + "/" + round_dec(etar-e_simp,2)).
 
     local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),abs(elev)).
     set elev_diff to arctan2(2*tan(elev_diff),1).
-    local new_vel_vector is heading(target_heading+elev_diff,elev):vector.
+    local new_vel_vector is heading(target_heading,elev):vector.
     return list(ship:airspeed*new_vel_vector, (Fv - g0*sin_elev)*new_vel_vector).
 }
 

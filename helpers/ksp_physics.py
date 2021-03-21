@@ -259,9 +259,13 @@ def do_vel_math(A):
     A["p_faeroz_vel"] = -A["q"]*cd(A["y0"])*sin(A["alpha"])*sin(A["alpha"])
 
 
-    A["p_faerox_vel"] = np.dot(A["p_faerox_vel"],A["faerox_vel"])/np.dot(A["p_faerox_vel"],A["p_faerox_vel"])*A["p_faerox_vel"]
-    A["p_faeroy_vel"] = np.dot(A["p_faeroy_vel"],A["faeroy_vel"])/np.dot(A["p_faeroy_vel"],A["p_faeroy_vel"])*A["p_faeroy_vel"]
-    A["p_faeroz_vel"] = np.dot(A["p_faeroz_vel"],A["faeroz_vel"])/np.dot(A["p_faeroz_vel"],A["p_faeroz_vel"])*A["p_faeroz_vel"]
+    A["p_faerox_area"] = np.dot(A["p_faerox_vel"],A["faerox_vel"])/np.dot(A["p_faerox_vel"],A["p_faerox_vel"]) 
+    A["p_faeroy_area"] = np.dot(A["p_faeroy_vel"],A["faeroy_vel"])/np.dot(A["p_faeroy_vel"],A["p_faeroy_vel"])
+    A["p_faeroz_area"] = np.dot(A["p_faeroz_vel"],A["faeroz_vel"])/np.dot(A["p_faeroz_vel"],A["p_faeroz_vel"])
+
+    A["p_faerox_vel"] = A["p_faerox_area"]*A["p_faerox_vel"]
+    A["p_faeroy_vel"] = A["p_faeroy_area"]*A["p_faeroy_vel"]
+    A["p_faeroz_vel"] = A["p_faeroz_area"]*A["p_faeroz_vel"]
 
     A["pe_faerox_vel"] = A["faerox_vel"]-A["p_faerox_vel"]
     A["pe_faeroy_vel"] = A["faeroy_vel"]-A["p_faeroy_vel"]
@@ -272,25 +276,30 @@ def do_vel_math(A):
 
 
 def do_area_estimate(A):
-    A["Area_fues"] = []
-    A["Area_wing"] = []
+    A["Area_fues"] = 0*A["t"]
+    A["Area_wing"] = 0*A["t"]
+    A["p_area_faerox_vel"] = 0*A["t"]
+    A["p_area_faeroy_vel"] = 0*A["t"]
+    A["p_area_faeroz_vel"] = 0*A["t"]
+    
     for i,_ in enumerate(A["t"]):
-        if A["q"][i] > 0.003:
+        if A["q"][i] > 0.00003:
             alpha_i = A["alpha"][i]
             vel_i = A["sv"][i]
 
-            e_fues = A["q"][i]*np.array([0, -cd(vel_i)*cos(alpha_i)**2, -cl(vel_i)*cos(alpha_i)*sin(alpha_i) ])
-            e_wing = A["q"][i]*np.array([0, -cd(vel_i)*sin(alpha_i)**2, cl(vel_i)*cos(alpha_i)*sin(alpha_i) ])
+            e_fues = A["q"][i]*np.array([0, -cl(vel_i)*cos(alpha_i)*sin(alpha_i), -cd(vel_i)*cos(alpha_i)**2 ])
+            e_wing = A["q"][i]*np.array([0, cl(vel_i)*cos(alpha_i)*sin(alpha_i), -cd(vel_i)*sin(alpha_i)**2 ])
             
             X = np.transpose(np.matrix( [e_fues, e_wing] ))
             y = np.matrix([[A["faerox_vel"][i]], [A["faeroy_vel"][i]], [A["faeroz_vel"][i]]])
-            a = rls(X, y, ffactor=0.75)
-            A["Area_fues"].append(np.asscalar(a[0]))
-            A["Area_wing"].append(np.asscalar(a[1]))
-        else:
-            A["Area_fues"].append(0)
-            A["Area_wing"].append(0)
+            a = rls(X, y, ffactor=0.9)
+            A["Area_fues"][i] = np.asscalar(a[0])
+            A["Area_wing"][i] = np.asscalar(a[1])
 
+            f_predicted = e_fues*np.asscalar(a[0]) + e_wing*np.asscalar(a[1])
+            A["p_area_faerox_vel"][i] = f_predicted[0]
+            A["p_area_faeroy_vel"][i] = f_predicted[1]
+            A["p_area_faeroz_vel"][i] = f_predicted[2]
 
 
 
