@@ -39,7 +39,7 @@ def new_plot():
 new_plot.i = 0
 new_plot.max_cols = 3
 
-def plot_from_keys(p,D,x_key,y_keys,x_map=lambda x: x, y_maps=[lambda y: y]):
+def plot_from_keys(p,D,x_key,y_keys,x_map=lambda x: x, y_maps=[lambda y: y], markers=False):
     """
     plot D[y_keys] against D[x_key] on p
     x_map, y_maps can be provided if needed
@@ -49,6 +49,8 @@ def plot_from_keys(p,D,x_key,y_keys,x_map=lambda x: x, y_maps=[lambda y: y]):
     p.setLabel("bottom",text=x_key)
     for i,(key,y_map) in enumerate(zip(y_keys,y_maps)):
         p.plot(x_map(D[x_key]), y_map(D[key]), pen=(i,8), name=key)
+        if markers:
+            p.addItem(pg.ScatterPlotItem(x_map(D[x_key])[::10], y_map(D[key])[::10], pen=None,brush=(0,255,0), symbol='x')) 
 
 def plot_events(p,D,x_key, y_key, x_map=lambda x: x, y_map=lambda y: y):
     x_pts = []
@@ -93,31 +95,43 @@ def plot_log_math(D,**kwargs):
         plot_events(P,D,"y0","h")
 
         vel = np.arange(10,2500,10)
-        for q in np.logspace(-2,0.5,10):
+        for q in np.logspace(-5,0.1,10):
             P.plot(vel, 5000*np.log(0.00000840159/2/q*vel*vel))
 
-        for E in np.logspace(6.4,6.8,20):
+        for E in np.logspace(6.5,6.8,20):
             P.plot(vel, (3.5316e12)/(0.5*vel**2 - (-E)) - 600e3, pen=(1,3))
         P.plot(vel, (-600e3 + (3.5316e12)/(vel**2)), pen=(2,3))
         P.plot(vel, (-600e3 + (3.5316e12)/(2*vel**2)), pen=(2,3))
         P.setXRange(min(D["y0"]), max(D["y0"]))
         P.setYRange(0, 80000)
 
-    y_keys = ["h","y0"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
-        plot_events(P,D,"t","y0")
-
-    y_keys = ["u1","u2","u3"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["q","E_srf_s","q_simp"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"E_srf_s",["q", "q_simp"])
+    #     plot_events(P,D,"E_srf_s","q")
     
-    y_keys = ["u0","u4","u5","u6"]
+    y_keys = ["q","q_simp","E_srf_s"]
     if all(key in D for key in y_keys):
         P = new_plot()
         plot_from_keys(P,D,"t",y_keys)
+        plot_events(P,D,"t","q")
+
+    # y_keys = ["h","y0"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
+    #     plot_events(P,D,"t","y0")
+
+    # y_keys = ["u1","u2","u3"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
+    
+    # y_keys = ["u0","u4","u5","u6"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
     
     y_keys = ["y1","y2","y3"]
     if all(key in D for key in y_keys):
@@ -131,30 +145,60 @@ def plot_log_math(D,**kwargs):
         plot_from_keys(P,D,"t",y_keys, y_maps=[lambda y: rad2deg(y)])
         plot_events(P,D,"t","alpha", y_map=lambda y: rad2deg(y))
 
-    y_keys = ["gx_ship","gy_ship","gz_ship"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["gx_att","gy_att","gz_att"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
 
-    y_keys = ["accx_ship","accy_ship","accz_ship"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["accx_att","accy_att","accz_att"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
 
-    y_keys = ["fx_ship","fy_ship","fz_ship"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["fx_att","fy_att","fz_att"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
     
-    y_keys = ["faerox_ship","faeroy_ship","faeroz_ship"]
+    # y_keys = ["fx_vel","fy_vel","fz_vel"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
+    
+    # y_keys = ["faerox_att","faeroy_att","faeroz_att"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
+    
+    # y_keys = ["faerox_vel","faeroy_vel","faeroz_vel"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
+    
+    y_keys = ["faerox_vel","faeroy_vel","faeroz_vel","p_faerox_vel","p_faeroy_vel","p_faeroz_vel"]
     if all(key in D for key in y_keys):
         P = new_plot()
         plot_from_keys(P,D,"t",y_keys)
 
-    y_keys = ["acc","g","acc_g_angle"]
+    y_keys = ["pe_faerox_vel","pe_faeroy_vel","pe_faeroz_vel"]
     if all(key in D for key in y_keys):
         P = new_plot()
         plot_from_keys(P,D,"t",y_keys)
+
+    y_keys = ["q_simp","E_srf_s","alpha","q"]
+    if all(key in D for key in y_keys):
+        P = new_plot()
+        plot_from_keys(P,D,"y0",y_keys)
+    
+    y_keys = ["Area_fues","Area_wing"]
+    if all(key in D for key in y_keys):
+        P = new_plot()
+        plot_from_keys(P,D,"t",y_keys)
+
+    # y_keys = ["acc","g","acc_g_angle","acc_diff"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
     
     # y_keys = ["acc","g","acc_ratio"]
     # if all(key in D for key in y_keys):
@@ -190,7 +234,9 @@ def main():
 
     for fname in fnames:
         D = kspp.parse_log_to_dict(fname)
-        kspp.do_srf_math(D)
+        kspp.do_ship_math(D)
+        kspp.do_vel_math(D)
+        kspp.do_area_estimate(D)
         plot_log_math(D)
 
 

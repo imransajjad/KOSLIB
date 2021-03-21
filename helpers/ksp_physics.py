@@ -23,6 +23,7 @@ def cl(v):
     # print("cl")
     # linear_eqs(v_s,cl_s)
 
+    # return 0*v + 0.5
     return np.interp(v, v_s, cl_s)
 
 def cd(v):
@@ -32,6 +33,7 @@ def cd(v):
     # print("cd")
     # linear_eqs(v_s,cd_s)
 
+    # return 0*v + 0.5
     return np.interp(v, v_s, cd_s)
 
 def mu1(v,alpha):
@@ -125,6 +127,22 @@ def derivative2(t,x):
 def derivative(t,x):
     return derivative1(t,x)
 
+
+def rls(X,y, ffactor=0.98):
+    """
+    Do recursive least squares solution of X*a=y
+    """
+   
+    rls.XX = ffactor*rls.XX + np.transpose(X)*X
+    rls.a = rls.a + np.linalg.solve(rls.XX, np.transpose(X)*y - np.transpose(X)*X*rls.a)
+    return rls.a
+
+def rls_reset(n=2):
+    rls.XX = np.identity(n)
+    rls.a = np.array( [[1]]*n )
+
+rls_reset(2)
+
 # functions to help with saved logs
 
 def _unused_do_aero_math(A):
@@ -149,7 +167,7 @@ def _unused_do_aero_math(A):
     A["cl_est"] = clip(A["aup"]/A["q"]/geo_lift, -c_max, c_max)
     # A["clbycd_est"] = A["cl_est"]/A["cd_est"]
 
-def do_srf_math(A):
+def do_ship_math(A):
     """
     Adds more keyed data to A after some ship-raw frame to ship-facing frame
     conversions mainly
@@ -170,54 +188,110 @@ def do_srf_math(A):
     A["sv"] = np.sqrt(A["svx"]**2 + A["svy"]**2 + A["svz"]**2)
     A["y0"] = A["sv"]
 
-    # rotate things on to ship frame
-    rotate_inv = ksp_rotation(A["p"],A["y"],A["r"]).inv()
-    sv_ship = rotate_inv.apply( np.array([A["svx"],A["svy"],A["svz"]]).T )
-    f_ship = rotate_inv.apply( np.array([A["fx"],A["fy"],A["fz"]]).T )
-    acc_ship = rotate_inv.apply( np.array([A["accx"],A["accy"],A["accz"]]).T )
-    g_ship = rotate_inv.apply( np.array([A["gx"],A["gy"],A["gz"]]).T )
-    w_ship = rotate_inv.apply( np.array([A["wp"],A["wy"],A["wr"]]).T )
+    # rotate things on to att frame
+    A["rotate_raw_to_att"] = ksp_rotation(A["p"],A["y"],A["r"]).inv()
+    sv_att = A["rotate_raw_to_att"].apply( np.array([A["svx"],A["svy"],A["svz"]]).T )
+    f_att = A["rotate_raw_to_att"].apply( np.array([A["fx"],A["fy"],A["fz"]]).T )
+    acc_att = A["rotate_raw_to_att"].apply( np.array([A["accx"],A["accy"],A["accz"]]).T )
+    g_att = A["rotate_raw_to_att"].apply( np.array([A["gx"],A["gy"],A["gz"]]).T )
+    w_att = A["rotate_raw_to_att"].apply( np.array([A["wp"],A["wy"],A["wr"]]).T )
 
     # angular rates
-    A["wx_ship"] = w_ship[:,0]
-    A["wy_ship"] = w_ship[:,1]
-    A["wz_ship"] = w_ship[:,2]
-    A["w"] = np.sqrt(A["wx_ship"]**2 + A["wy_ship"]**2 + A["wz_ship"]**2)
+    A["wx_att"] = w_att[:,0]
+    A["wy_att"] = w_att[:,1]
+    A["wz_att"] = w_att[:,2]
+    A["w"] = np.sqrt(A["wx_att"]**2 + A["wy_att"]**2 + A["wz_att"]**2)
     
-    A["y1"] = -A["wx_ship"]
-    A["y2"] = +A["wy_ship"]
-    A["y3"] = -A["wz_ship"]
+    A["y1"] = -A["wx_att"]
+    A["y2"] = +A["wy_att"]
+    A["y3"] = -A["wz_att"]
     
     # engine force
-    A["fx_ship"] = f_ship[:,0]
-    A["fy_ship"] = f_ship[:,1]
-    A["fz_ship"] = f_ship[:,2]
+    A["fx_att"] = f_att[:,0]
+    A["fy_att"] = f_att[:,1]
+    A["fz_att"] = f_att[:,2]
     A["ft"] = np.sqrt(A["fx"]**2 + A["fy"]**2 + A["fz"]**2)
 
     # gravity "force"
-    A["gx_ship"] = g_ship[:,0]
-    A["gy_ship"] = g_ship[:,1]
-    A["gz_ship"] = g_ship[:,2]
-    A["g"] = np.sqrt(A["gx_ship"]**2 + A["gy_ship"]**2 + A["gz_ship"]**2)
+    A["gx_att"] = g_att[:,0]
+    A["gy_att"] = g_att[:,1]
+    A["gz_att"] = g_att[:,2]
+    A["g"] = np.sqrt(A["gx_att"]**2 + A["gy_att"]**2 + A["gz_att"]**2)
 
     # linear acc
-    A["accx_ship"] = acc_ship[:,0]
-    A["accy_ship"] = acc_ship[:,1]
-    A["accz_ship"] = acc_ship[:,2]
-    A["acc"] = np.sqrt(A["accx_ship"]**2 + A["accy_ship"]**2 + A["accz_ship"]**2)
+    A["accx_att"] = acc_att[:,0]
+    A["accy_att"] = acc_att[:,1]
+    A["accz_att"] = acc_att[:,2]
+    A["acc"] = np.sqrt(A["accx_att"]**2 + A["accy_att"]**2 + A["accz_att"]**2)
 
-    A["alpha"] = -arcsin(sv_ship[:,1]/A["y0"])
-    A["beta"] = -arctan2(sv_ship[:,0],sv_ship[:,2])
+    A["alpha"] = -arcsin(sv_att[:,1]/A["y0"])
+    A["beta"] = -arctan2(sv_att[:,0],sv_att[:,2])
 
     # get aero force in kN (mass in tonnes, engine force in kN)
-    A["faerox_ship"] = (A["m"]*(acc_ship[:,0] - g_ship[:,0]) - A["fx_ship"])
-    A["faeroy_ship"] = (A["m"]*(acc_ship[:,1] - g_ship[:,1]) - A["fy_ship"])
-    A["faeroz_ship"] = (A["m"]*(acc_ship[:,2] - g_ship[:,2]) - A["fz_ship"])
-    A["faero"] = np.sqrt(A["faerox_ship"]**2 + A["faeroy_ship"]**2 + A["faeroz_ship"]**2)
+    A["faerox_att"] = (A["m"]*(acc_att[:,0] - g_att[:,0]) - A["fx_att"])
+    A["faeroy_att"] = (A["m"]*(acc_att[:,1] - g_att[:,1]) - A["fy_att"])
+    A["faeroz_att"] = (A["m"]*(acc_att[:,2] - g_att[:,2]) - A["fz_att"])
+    A["faero"] = np.sqrt(A["faerox_att"]**2 + A["faeroy_att"]**2 + A["faeroz_att"]**2)
 
-    A["acc_g_angle"] = arccos( np.clip((A["accx_ship"]*A["gx_ship"] + A["accy_ship"]*A["gy_ship"] + A["accz_ship"]*A["gz_ship"])/(A["acc"]*A["g"]),-1,1))
+    A["acc_g_angle"] = arccos( np.clip((A["accx_att"]*A["gx_att"] + A["accy_att"]*A["gy_att"] + A["accz_att"]*A["gz_att"])/(A["acc"]*A["g"]),-1,1))
     A["acc_ratio"] = (A["acc"]/A["g"])
     A["acc_diff"] = (A["acc"]-A["g"])
+
+def do_vel_math(A):
+    """
+    Adds more keyed data to A after some ship-facing frame to ship-vel frame
+    conversions mainly
+    """
+    A["rotate_att_to_vel"] = ksp_rotation(-A["alpha"],-A["beta"],0*A["beta"])
+
+    faero_vel = A["rotate_att_to_vel"].apply( np.array([A["faerox_att"],A["faeroy_att"],A["faeroz_att"]]).T )
+    A["faerox_vel"] = faero_vel[:,0]
+    A["faeroy_vel"] = faero_vel[:,1]
+    A["faeroz_vel"] = faero_vel[:,2]
+
+    f_vel = A["rotate_att_to_vel"].apply( np.array([A["fx_att"],A["fy_att"],A["fz_att"]]).T )
+    A["fx_vel"] = f_vel[:,0]
+    A["fy_vel"] = f_vel[:,1]
+    A["fz_vel"] = f_vel[:,2]
+
+    A["p_faerox_vel"] = A["q"]*cl(A["y0"])*sin(A["beta"])*cos(A["beta"])
+    A["p_faeroy_vel"] = A["q"]*cl(A["y0"])*sin(A["alpha"])*cos(A["alpha"])
+    A["p_faeroz_vel"] = -A["q"]*cd(A["y0"])*sin(A["alpha"])*sin(A["alpha"])
+
+
+    A["p_faerox_vel"] = np.dot(A["p_faerox_vel"],A["faerox_vel"])/np.dot(A["p_faerox_vel"],A["p_faerox_vel"])*A["p_faerox_vel"]
+    A["p_faeroy_vel"] = np.dot(A["p_faeroy_vel"],A["faeroy_vel"])/np.dot(A["p_faeroy_vel"],A["p_faeroy_vel"])*A["p_faeroy_vel"]
+    A["p_faeroz_vel"] = np.dot(A["p_faeroz_vel"],A["faeroz_vel"])/np.dot(A["p_faeroz_vel"],A["p_faeroz_vel"])*A["p_faeroz_vel"]
+
+    A["pe_faerox_vel"] = A["faerox_vel"]-A["p_faerox_vel"]
+    A["pe_faeroy_vel"] = A["faeroy_vel"]-A["p_faeroy_vel"]
+    A["pe_faeroz_vel"] = A["faeroz_vel"]-A["p_faeroz_vel"]
+
+    A["E_srf_s"] = (0.5*A["y0"]**2 + 9.81*A["h"])/1000000
+    A["q_simp"] = 0.00000840159*np.exp(-A["h"]/5000)*A["y0"]**2
+
+
+def do_area_estimate(A):
+    A["Area_fues"] = []
+    A["Area_wing"] = []
+    for i,_ in enumerate(A["t"]):
+        if A["q"][i] > 0.003:
+            alpha_i = A["alpha"][i]
+            vel_i = A["sv"][i]
+
+            e_fues = A["q"][i]*np.array([0, -cd(vel_i)*cos(alpha_i)**2, -cl(vel_i)*cos(alpha_i)*sin(alpha_i) ])
+            e_wing = A["q"][i]*np.array([0, -cd(vel_i)*sin(alpha_i)**2, cl(vel_i)*cos(alpha_i)*sin(alpha_i) ])
+            
+            X = np.transpose(np.matrix( [e_fues, e_wing] ))
+            y = np.matrix([[A["faerox_vel"][i]], [A["faeroy_vel"][i]], [A["faeroz_vel"][i]]])
+            a = rls(X, y, ffactor=0.75)
+            A["Area_fues"].append(np.asscalar(a[0]))
+            A["Area_wing"].append(np.asscalar(a[1]))
+        else:
+            A["Area_fues"].append(0)
+            A["Area_wing"].append(0)
+
+
 
 
 def parse_log_to_dict(fname):
