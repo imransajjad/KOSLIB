@@ -403,19 +403,17 @@ function ap_aero_w_nav_do {
     set acc_vec to vectorexclude(vel_vec, acc_vec).
     local wff is -vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
 
-    local cur_pro is (-ship:facing)*current_nav_velocity:direction.
-    local target_pro is (-ship:facing)*vel_vec:direction.
-
-    local ship_frame_error is 
-        V(-wrap_angle(target_pro:pitch-cur_pro:pitch),
-        wrap_angle(target_pro:yaw-cur_pro:yaw),
-        0 ).
+    local vel_frame_error_dir is (-ship_vel_dir)*vel_vec:direction.
+    local vel_frame_error is
+        V(-wrap_angle(vel_frame_error_dir:pitch),
+        wrap_angle(vel_frame_error_dir:yaw),
+        0).
 
     local WGM is 1.0/kuniverse:timewarp:rate.
 
     // omega applied by us
-    local w_us is wff + WGM*K_PITCH*ship_frame_error:x*ship:facing:starvector +
-                            -WGM*K_YAW*ship_frame_error:y*ship:facing:topvector.
+    local w_us is wff + WGM*K_PITCH*vel_frame_error:x*ship_vel_dir:starvector +
+                            -WGM*K_YAW*vel_frame_error:y*ship_vel_dir:topvector.
     
     // omega applied by us including gravity for deciding roll
     local w_us_w_g is w_us-RAD2DEG*wg.
@@ -424,15 +422,15 @@ function ap_aero_w_nav_do {
     //     char(10)+ "w_g: (p,y): " + round_dec(w_g*ship:facing:starvector,2) + "," + round_dec(-w_g*ship:facing:topvector,2) +
     //     char(10)+ "w_us: (p,y): " + round_dec(w_us*ship:facing:starvector,2) + "," + round_dec(-w_us*ship:facing:topvector,2)).
     
-    local have_roll_pre is haversine(0,0,w_us_w_g*ship:facing:starvector, -w_us_w_g*ship:facing:topvector).
+    local have_roll_pre is haversine(0,0,w_us_w_g*ship_vel_dir:starvector, -w_us_w_g*ship_vel_dir:topvector).
     local roll_w is sat(have_roll_pre[1]/2.5,1.0).
 
     if ship:status = "LANDED" {
         set roll_w to 0.
     }
 
-    local p_rot is w_us*ship:facing:starvector.
-    local y_rot is -w_us*ship:facing:topvector.
+    local p_rot is w_us*ship_vel_dir:starvector.
+    local y_rot is convex(-w_us*ship_vel_dir:topvector, 0, roll_w).
     local r_rot is K_ROLL*convex(0-roll, wrap_angle(have_roll_pre[0]), roll_w).
 
     // util_hud_push_right("nav_w", ""+ round_dec(w_us*ship:facing:starvector,3) +
@@ -440,7 +438,7 @@ function ap_aero_w_nav_do {
     //                             char(10)+round_dec(w_us*ship:facing:forevector,3) +
     //                             char(10)+"rt:"+round_dec(have_roll_pre[0],1)).
 
-    ap_aero_w_do(p_rot, y_rot, r_rot ,true).
+    ap_aero_w_do(p_rot, y_rot, r_rot, true).
 }
 
 local departure is false.
@@ -452,6 +450,7 @@ function ap_aero_w_status_string {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +
         round_dec( get_max_applied_acc()/g0, 1) + 
         char(10) + (choose "" if STICK_GAIN = STICK_GAIN_NOM else "S") +
+        (choose "D" if departure else "") +
         char(945) + " " + round_dec(alpha,1).
         if defined UTIL_FLDR_ENABLED {
             if abs(alpha) > 45 and not departure {

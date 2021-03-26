@@ -17,7 +17,7 @@
                 "PR_KP",1.0,
                 "PR_KI",1.8,
                 "PR_KD",0.1,
-                "YR_KP",6.75,
+                "YR_KP",5.0,
                 "YR_KI",0,
                 "YR_KD",0.735,
                 "RR_KP",0.1,
@@ -26,7 +26,7 @@
 
                 "K_PITCH", 0.5,
                 "K_YAW", 0.5,
-                "K_ROLL", 1.00,
+                "K_ROLL", 0.5,
                 "USE_GCAS", true,
                 "GCAS_MARGIN", 15,
                 "GCAS_GAIN_MULTIPLIER", 2.0
@@ -54,7 +54,7 @@
                 "ROT_GNOM_LONG", 1,
 
                 "K_Q", 0.1,
-                "K_E", 15.0,
+                "K_E", 0.1,
                 "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 180,
                 "TAIL_STRIKE", 7.5,

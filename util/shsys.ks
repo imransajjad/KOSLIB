@@ -270,6 +270,24 @@ function util_shsys_get_target {
     return target_vessel.
 }
 
+local warn_string is "".
+local last_resources is lexicon().
+local function display_resource_state {
+    local new_warn_string is "".
+    for i in ship:resources {
+        if i:amount < 0.05*i:capacity {
+            if i:amount < get_param(last_resources, i:name, 0) {
+                set new_warn_string to new_warn_string + char(10)+"("+i:name+")".
+            }
+            set last_resources[i:name] to i:amount.
+        }
+    }
+    if not (warn_string = new_warn_string) {
+        print new_warn_string.
+    }
+    set warn_string to new_warn_string.
+}
+
 // main function for ship systems
 // returns true if sys is not blocked.
 local function shsys_check {
@@ -369,6 +387,7 @@ local function shsys_check {
         cache_target().
     }
 
+    display_resource_state().
     iterate_spacecraft_system_state().
 
     if CLEANUP {
@@ -567,5 +586,5 @@ function util_shsys_status_string {
     if RCS {
         stat_list:add("R").
     }
-    return stat_list:join("").
+    return stat_list:join("") + warn_string.
 }

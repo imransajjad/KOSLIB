@@ -120,7 +120,7 @@ function util_phys_update {
     // e = ( A_fues*e_fues + A_wing*e_wing ) - aero_forces
     // e_fues is a a vector pointing in the direction of fueselage aero force
     // e_wing is a a vector pointing in the direction of wing aero force
-    if ship:q > 0.0003 and not BRAKES {
+    if ship:q > 0.0003 and not BRAKES and alpha > 0 and alpha < 45 {
         local e_fues is ship:q/ship:mass*V(0, -cl_sched(ship:airspeed)*sin(alpha)*cos(alpha), -cd_sched(ship:airspeed)*cos(alpha)^2).
         local e_wing is ship:q/ship:mass*V(0, cl_sched(ship:airspeed)*sin(alpha)*cos(alpha), -cd_sched(ship:airspeed)*sin(alpha)^2).
 
@@ -144,13 +144,13 @@ function util_phys_update {
         set A_wing to A_wing + (-A_21_12*diff1 + A_11*diff2)/disc.
 
         if debug_vectors {
-            local error is ( A_fues*e_fues + A_wing*e_wing) - (-ship_vel_dir)*get_aero_acc().
-            util_hud_push_left("get_pre_aero_acc", "eA " + round_dec(error:x,0) + "," + round_dec(error:y,0) + "," + round_dec(error:z,0)).
-            util_hud_push_left("util_phys_update", "A f/w " + round_dec(A_fues,0) + "/" + round_dec(A_wing,0)).
-            set phys_debug_vec0 to VECDRAW(V(0,0,0), 30*(ship_vel_dir*error), RGB(0,0,1),
-                        "", 1.0, true, 0.25, true ).
+            local error is (-ship_vel_dir)*get_aero_acc() - ( A_fues*e_fues + A_wing*e_wing).
+            util_hud_push_left("get_pre_aero_acc", "eA " + round_dec(error:x,2) + "," + round_dec(error:y,2) + "," + round_dec(error:z,2) +
+                char(10) + "A f/w " + round_dec(A_fues,0) + "/" + round_dec(A_wing,0)).
+            set phys_debug_vec0 to VECDRAW((ship_vel_dir*( A_fues*e_fues + A_wing*e_wing)), (ship_vel_dir*error), RGB(0,0,1),
+                        "", 1.0, true, 0.125, true ).
             set phys_debug_vec1 to VECDRAW(V(0,0,0), (ship_vel_dir*( A_fues*e_fues + A_wing*e_wing)), RGB(0,1,1),
-                        "", 1.0, true, 0.25, true ).
+                        "", 1.0, true, 0.125, true ).
         }
 
     }
@@ -174,4 +174,24 @@ function get_pre_aero_acc {
     local e_wing is q/m*V(0, cl_sched(v)*sin(a)*cos(a), -cd_sched(v)*sin(a)^2).
 
     return ship_vel_dir*( A_fues*e_fues + A_wing*e_wing).
+}
+
+function get_sus_turn_rate {
+    parameter v is ship:airspeed.
+    parameter a is alpha.
+    parameter q is ship:q.
+    parameter m is ship:mass.
+
+    local Tmax is (choose ap_aero_engines_get_max_thrust() if defined AP_AERO_ENGINES_ENABLED else 0 ).
+    local qcl is q*cl_sched(v).
+    local Eta is (Tmax/(q*cd_sched(v)) - A_wing)/(A_fues-A_wing).
+    print Eta.
+
+    if Eta > 0 and Eta < 1 {
+        local phys_deg_per_sec is q*cl_sched(v)*(A_wing-A_fues)*sqrt(Eta*(1-Eta))/(m*v)*RAD2DEG.
+        util_hud_push_left("get_sus_turn_rate", "phpmax " + round_dec(phys_deg_per_sec,1) ).
+        return phys_deg_per_sec.
+    } else {
+        return 2*g0/v*RAD2DEG.
+    }
 }

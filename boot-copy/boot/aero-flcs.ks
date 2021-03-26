@@ -26,6 +26,7 @@ if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     print "loaded resources from base".
 }
 
+run once "util-common".
 // Global plane data
 
 when true then {
@@ -48,7 +49,6 @@ when true then {
 }
 wait 0.
 
-run once "util-common".
 
 run once "util-wp".
 run once "util-fldr".

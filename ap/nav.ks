@@ -169,17 +169,26 @@ local function nav_q_target {
     local e_simp is (simple_E(ship:altitude,ship:airspeed)-e_zero)/1000.
     
     set AP_NAV_TIME_TO_WP to target_distance/max(1,ship:airspeed).
-
-    local Fv is K_E*(etar-e_simp)/max(MIN_NAV_SRF_VEL, ship:airspeed).
-    local Fv_actual is min(Fv,get_applied_acc()*ship:srfprograde:vector).
-    if Fv < 0 {
-        set Fv_actual to Fv.
+    
+    local Fv is K_E*(etar-e_simp).
+    local current_drag is get_pre_aero_acc()*ship_vel_dir:vector.
+    set Fv to max(Fv, current_drag).
+    if defined AP_AERO_ENGINES_ENABLED {
+        local max_thrust is ap_aero_engines_get_max_thrust()/ship:mass.
+        if max_thrust > 0.001 {
+            set Fv to min(Fv, max_thrust + current_drag).
+        } else {
+            // we don't have engine power, only force we apply is drag
+            set Fv to 0.95*current_drag.
+            // 0.95 causes ~0.02 q error but prevents excessive brakes, fix later
+            // look at how brakes are being applied to possibly fix
+        }
     }
-
-    local sin_elev is ( 2*Fv_actual - K_Q*(qtar-q_simp)*(ship:airspeed/q_simp) )/(2*g0+ship:airspeed^2/5000).
+    
+    local sin_elev is ( 2*Fv - K_Q*(qtar-q_simp)*(ship:airspeed/q_simp) )/(2*g0+ship:airspeed^2/5000).
     local elev is arcsin( sat( sin_elev, 0.5 )). // restrict climb/descent to +-30 degrees
-    // util_hud_push_left("nav_q_target", "qt/"+ char(916)+" " + round_dec(qtar,3) + "/" + round_dec(qtar-q_simp,3) + char(10) + 
-                                    // "Et/" + char(916) + " " + round_dec(etar,2) + "/" + round_dec(etar-e_simp,2)).
+    // util_hud_push_left("nav_q_target", "qt/"+ char(916)+" " + round_dec(qtar,3) + "/" + round_dec(qtar-q_simp,5) + char(10) + 
+                                    // "Et/Fv " + round_dec(etar,2) + "/" + round_dec(Fv,4)).
 
     local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),abs(elev)).
     set elev_diff to arctan2(2*tan(elev_diff),1).

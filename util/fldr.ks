@@ -21,7 +21,7 @@ local CORE_IS_TESTING is false.
 
 // Local Locks for data recording
 
-local lock locked_key_line to "t,u0,u1,u2,u3,u4,u5,u6,m,fx,fy,fz,q,lat,lng,h,svx,svy,svz,mu,opx,opy,opz,ovx,ovy,ovz,p,y,r,wp,wy,wr".
+local lock locked_key_line to "t,u0,u1,u2,u3,u4,u5,u6,m,fx,fy,fz,pres,tem,q,lat,lng,h,svx,svy,svz,mu,opx,opy,opz,ovx,ovy,ovz,p,y,r,wp,wy,wr".
 
 local lock locked_data_line to ""+time:seconds+
         ","+ship:control:mainthrottle+
@@ -29,6 +29,7 @@ local lock locked_data_line to ""+time:seconds+
         ","+ship:control:starboard+","+ship:control:top+","+ship:control:fore+
         ","+ship:mass+
         ","+thrust:x+","+thrust:y+","+thrust:z+
+        ","+ship:body:atm:altitudepressure(ship:altitude)+","+ship:body:atm:altitudetemperature(ship:altitude)+
         ","+ship:dynamicpressure+
         ","+ship:geoposition:lat+","+ship:geoposition:lng+","+ship:altitude+
         ","+velocity:surface:x+","+velocity:surface:y+","+velocity:surface:z+
