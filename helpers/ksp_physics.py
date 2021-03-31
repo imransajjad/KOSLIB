@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.spatial.transform import Rotation as scipyR
+from scipy import integrate
 from numpy import sin,cos,tan, pi, arcsin,arccos,arctan2, sqrt, round, logspace, clip
 from fractions import Fraction
 import itertools
@@ -189,7 +190,7 @@ def do_ship_math(A):
     A["y0"] = A["sv"]
 
     # rotate things on to att frame
-    A["rotate_raw_to_att"] = ksp_rotation(A["p"],A["y"],A["r"]).inv()
+    A["rotate_raw_to_att"] = ksp_rotation(A["p"],A["y"],A["r"]).inv() # ~= (-ship:facing)*
     sv_att = A["rotate_raw_to_att"].apply( np.array([A["svx"],A["svy"],A["svz"]]).T )
     f_att = A["rotate_raw_to_att"].apply( np.array([A["fx"],A["fy"],A["fz"]]).T )
     acc_att = A["rotate_raw_to_att"].apply( np.array([A["accx"],A["accy"],A["accz"]]).T )
@@ -226,6 +227,9 @@ def do_ship_math(A):
 
     A["alpha"] = -arcsin(sv_att[:,1]/A["y0"])
     A["beta"] = -arctan2(sv_att[:,0],sv_att[:,2])
+    op_dir = np.matrix([A["opx"],A["opy"],A["opz"]])/np.sqrt(A["opx"]**2 + A["opy"]**2 + A["opz"]**2)
+    sv_dir = np.matrix([A["svx"],A["svy"],A["svz"]])/np.sqrt(A["svx"]**2 + A["svy"]**2 + A["svz"]**2)
+    A["gamma"] = arccos(np.diag(np.transpose(op_dir)*sv_dir) )- pi/2
 
     # get aero force in kN (mass in tonnes, engine force in kN)
     A["faerox_att"] = (A["m"]*(acc_att[:,0] - g_att[:,0]) - A["fx_att"])
@@ -302,6 +306,35 @@ def do_area_estimate(A):
             A["p_area_faeroz_vel"][i] = f_predicted[2]
 
 
+def do_glide_prediction(A, N=10, tstart=500):
+    g0 = 9.81
+    k = 5000
+    A["glide_paths"] = []
+    t_start_i = [ i for i,t in enumerate(A["t"]) if t > tstart][0]
+    print(t_start_i)
+    t_stride_i = int((len(A["t"]) - t_start_i)/N)
+    for i,_ in itertools.islice(enumerate(A["t"]), t_start_i, None, t_stride_i):
+        t0 = float(A["t"][i])
+        v0 = float(A["y0"][i])
+        Fv = A["faeroz_vel"][i]/A["m"][i]
+        h0 = A["h"][i]
+        lng0 = A["lng"][i]
+        
+        G = {"t": A["t"], "evts": [ [t0, "y0="+str(round(v0))] ] }
+
+        # G["y0"] = v0 + Fv/(1 + 2*k*g0/(v0**2))*(A["t"]-t0)
+
+        c0 = v0 - 2*k*g0/v0  - Fv*t0
+        G["y0"] = 0.5*( sqrt( (Fv*G["t"] + c0)**2 + 8*k*g0 )  + Fv*G["t"] + c0)
+        G["gamma"] = arcsin( sat(Fv/g0/(1+ G["y0"]**2/(2*k*g0)), 0.5) )
+
+        # G["h"] = integrate.cumulative_trapezoid(G["y0"]*sin(G["gamma"]), A["t"], initial=0)
+        G["h"] = 2*k*np.log( G["y0"]/v0 )
+        G["h"] += (h0-G["h"][i])
+        G["lng"] = integrate.cumulative_trapezoid(G["y0"]*cos(G["gamma"]), A["t"], initial=0)/(600000)*180/np.pi
+        G["lng"] += (lng0-G["lng"][i])
+
+        A["glide_paths"].append(G)
 
 def parse_log_to_dict(fname):
     """

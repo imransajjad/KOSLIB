@@ -39,7 +39,7 @@ def new_plot():
 new_plot.i = 0
 new_plot.max_cols = 3
 
-def plot_from_keys(p,D,x_key,y_keys,x_map=lambda x: x, y_maps=[lambda y: y], markers=False):
+def plot_from_keys(p,D,x_key,y_keys,x_map=lambda x: x, y_maps=[lambda y: y], markers=False, pen_i=0):
     """
     plot D[y_keys] against D[x_key] on p
     x_map, y_maps can be provided if needed
@@ -48,7 +48,7 @@ def plot_from_keys(p,D,x_key,y_keys,x_map=lambda x: x, y_maps=[lambda y: y], mar
 
     p.setLabel("bottom",text=x_key)
     for i,(key,y_map) in enumerate(zip(y_keys,y_maps)):
-        p.plot(x_map(D[x_key]), y_map(D[key]), pen=(i,8), name=key)
+        p.plot(x_map(D[x_key]), y_map(D[key]), pen=(i+pen_i,8), name=key)
         if markers:
             p.addItem(pg.ScatterPlotItem(x_map(D[x_key])[::10], y_map(D[key])[::10], pen=None,brush=(0,255,0), symbol='x')) 
 
@@ -84,10 +84,47 @@ def plot_log_math(D,**kwargs):
         plot_from_keys(P, D, "lng", ["lat"])
         plot_events(P, D, "lng", "lat")
 
-    if all(key in D for key in ["lng","h"]):
+    y_keys = ["h"]
+    if all(key in D for key in y_keys):
         P = new_plot()
-        plot_from_keys(P,D,"lng",["h"], x_map=lambda x: deg2rad(x)*600000)
-        plot_events(P,D,"lng","h", x_map=lambda x: deg2rad(x)*600000)
+        plot_from_keys(P,D,"t",y_keys)
+        plot_events(P,D,"t","h")
+    
+    if all(key in D for key in y_keys):
+        for i,g in enumerate(D["glide_paths"]):
+            plot_from_keys(P,g,"t",y_keys, pen_i=i+1)
+            plot_events(P,g,"t","h")
+    
+    y_keys = ["y0"]
+    if all(key in D for key in y_keys):
+        P = new_plot()
+        plot_from_keys(P,D,"t",y_keys)
+    
+    if all(key in D for key in y_keys):
+        for i,g in enumerate(D["glide_paths"]):
+            plot_from_keys(P,g,"t",y_keys, pen_i=i+1)
+            plot_events(P,g,"t", y_keys[0])
+    
+    y_keys = ["lng"]
+    if all(key in D for key in y_keys):
+        P = new_plot()
+        plot_from_keys(P,D,"t",y_keys)
+    
+    if all(key in D for key in y_keys):
+        for i,g in enumerate(D["glide_paths"]):
+            plot_from_keys(P,g,"t",y_keys, pen_i=i+1)
+            plot_events(P,g,"t", y_keys[0])
+    
+    y_keys = ["h"]
+    if all(key in D for key in y_keys):
+        P = new_plot()
+        plot_from_keys(P,D,"lng",y_keys)
+        plot_events(P,D,"lng","h")
+    
+    if all(key in D for key in y_keys):
+        for i,g in enumerate(D["glide_paths"]):
+            plot_from_keys(P,g,"lng",y_keys, pen_i=i+1)
+            plot_events(P,g,"lng","h")
 
     if all(key in D for key in ["y0","h","q"]):
         P = new_plot()
@@ -111,11 +148,21 @@ def plot_log_math(D,**kwargs):
     #     plot_from_keys(P,D,"E_srf_s",["q", "q_simp"])
     #     plot_events(P,D,"E_srf_s","q")
     
-    y_keys = ["q","q_simp","E_srf_s"]
+    y_keys = ["q","q_simp","E_srf_s","y0"]
     if all(key in D for key in y_keys):
         P = new_plot()
         plot_from_keys(P,D,"t",y_keys)
         plot_events(P,D,"t","q")
+
+    # y_keys = ["q","q_simp","E_srf_s"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"y0",y_keys)
+
+    # y_keys = ["q","q_simp", "E_srf_s"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"h",y_keys)
 
     # y_keys = ["h","y0"]
     # if all(key in D for key in y_keys):
@@ -133,13 +180,13 @@ def plot_log_math(D,**kwargs):
     #     P = new_plot()
     #     plot_from_keys(P,D,"t",y_keys)
     
-    y_keys = ["y1","y2","y3"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys, y_maps=[lambda y: rad2deg(y)])
-        plot_events(P,D,"t","y1")
+    # y_keys = ["y1","y2","y3"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys, y_maps=[lambda y: rad2deg(y)])
+    #     plot_events(P,D,"t","y1")
 
-    y_keys = ["alpha","beta"]
+    y_keys = ["alpha","beta", "gamma"]
     if all(key in D for key in y_keys):
         P = new_plot()
         plot_from_keys(P,D,"t",y_keys, y_maps=[lambda y: rad2deg(y)])
@@ -175,25 +222,20 @@ def plot_log_math(D,**kwargs):
     #     P = new_plot()
     #     plot_from_keys(P,D,"t",y_keys)
     
-    y_keys = ["faerox_vel","faeroy_vel","faeroz_vel","p_faerox_vel","p_faeroy_vel","p_faeroz_vel","p_area_faerox_vel","p_area_faeroy_vel","p_area_faeroz_vel"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["faerox_vel","faeroy_vel","faeroz_vel","p_area_faerox_vel","p_area_faeroy_vel","p_area_faeroz_vel"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
 
     # y_keys = ["pe_faerox_vel","pe_faeroy_vel","pe_faeroz_vel"]
     # if all(key in D for key in y_keys):
     #     P = new_plot()
     #     plot_from_keys(P,D,"t",y_keys)
 
-    y_keys = ["q_simp","E_srf_s","alpha","q"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"y0",y_keys)
-    
-    y_keys = ["Area_fues","Area_wing"]
-    if all(key in D for key in y_keys):
-        P = new_plot()
-        plot_from_keys(P,D,"t",y_keys)
+    # y_keys = ["Area_fues","Area_wing"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"t",y_keys)
 
     # y_keys = ["acc","g","acc_g_angle","acc_diff"]
     # if all(key in D for key in y_keys):
@@ -226,6 +268,12 @@ def plot_log_math(D,**kwargs):
     #     P = new_plot()
     #     plot_from_keys(P,D,"t",y_keys)
 
+    # D["rho_pre"] = 1.0*np.exp(-D["h"]/5000)
+    # y_keys = ["rho","rho_pre"]
+    # if all(key in D for key in y_keys):
+    #     P = new_plot()
+    #     plot_from_keys(P,D,"h",y_keys, y_maps=[lambda x : np.log(x)])
+
 
 def main():
     fnames = list(sys.argv[1:])
@@ -237,6 +285,7 @@ def main():
         kspp.do_ship_math(D)
         kspp.do_vel_math(D)
         kspp.do_area_estimate(D)
+        kspp.do_glide_prediction(D, tstart=580)
         plot_log_math(D)
 
 
