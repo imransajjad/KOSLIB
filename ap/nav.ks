@@ -585,7 +585,11 @@ function ap_nav_status_string {
         local AP_NAV_E_SET is py_temp[0].
         local AP_NAV_H_SET is py_temp[1].
 
-        set dstr to "/"+round_dec(vel_mag,0).
+        if FOLLOW_MODE_Q {
+            set dstr to "/" + char(916) + round_dec(AP_NAV_ACC*AP_NAV_VEL:normalized,1).
+        } else {
+            set dstr to "/"+round_dec(vel_mag,0).
+        }.
         if (SRF_V_SET_DELTA > 0){
             set dstr to dstr + "+".
         } else if (SRF_V_SET_DELTA < 0){

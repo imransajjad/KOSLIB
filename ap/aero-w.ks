@@ -396,7 +396,7 @@ function ap_aero_w_nav_do {
     // 
     // this omega is fed to the haversine and we get a bearing and magnitude
     // like information about the pitch and yaw components of omega. Then
-    // omega_roll = -K*have_roll_pre[0]
+    // omega_roll = -K*g_hav[0]
     // uses roll to minimze the bearing in the ship frame so that most omega is
     // applied by pitch and not by yaw
 
@@ -434,23 +434,23 @@ function ap_aero_w_nav_do {
     local w_us is wff + werr.
     // omega applied by us compensating for gravity for deciding roll
     local w_usg is w_us - wg.
-    local have_roll_pre is haversine(0,0, -w_usg:x, w_usg:y).
-    local roll_py_w is sat(have_roll_pre[1]/2.5, 1).
+    local g_hav is haversine(0,0, -w_usg:x, w_usg:y).
     // if compensating for gravity+frame requires omega >= 2.5 deg/s,
-    // completely ignore roll error, roll_py_w = 1
-
+    // completely ignore roll error
+    // if pitch rate omega >= 1.5 deg/s,
+    // completely ignore yaw error
     local p_rot is -w_us:x.
     local y_rot is convex(w_us:y, 0, sat(abs(w_us:x)/1.5,1.0) ).
-    local r_rot is convex(w_us:z, K_ROLL*wrap_angle(have_roll_pre[0]), roll_py_w).
+    local r_rot is convex(0-roll, K_ROLL*wrap_angle(g_hav[0]), sat(g_hav[1]/1.5,1.0)).
 
-    if true { // nav debug
+    if false { // nav debug
         util_hud_push_right("nav_w",
             // "w_err(p,y,r): " + round_dec(werr:x,2) + "," + round_dec(werr:y,2) + "," + round_dec(werr:z,2) +
             // char(10)+ "w_ff(p,y): " + char(10)+ round_dec(wff:x,2) + "," + round_dec(wff:y,2) +
             // char(10)+ "w_g(p,y): " + char(10)+ round_dec(wg:x,2) + "," + round_dec(wg:y,2) +
             // char(10)+ "w_us(p,y): " + char(10)+ round_dec(w_us:x,2) + "," + round_dec(w_us:y,2) +
             // char(10)+ "w_usg(p,y): " + char(10)+ round_dec(w_usg:x,2) + "," + round_dec(w_usg:y,2) +
-            char(10)+ "ha(r,e): " + char(10)+ round_dec(have_roll_pre[0],2) + "," + + round_dec(have_roll_pre[1],2) +
+            char(10)+ "ha(r,e): " + char(10)+ round_dec(g_hav[0],2) + "," + + round_dec(g_hav[1],2) +
             char(10)+ "pyr (" + round_dec(p_rot,1) + "," + round_dec(y_rot,1) + "," + round_dec(r_rot,1) + ")").
         
         set aero_debug_vec0 to VECDRAW(V(0,0,0), 10*target_dir:starvector, RGB(0,0,1),
