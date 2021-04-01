@@ -23,11 +23,6 @@ local DO_BURN is false.
 local STEER_RCS is false.
 local MOVE_RCS is false.
 
-local delta_v is V(0,0,0).
-local delta_a is V(0,0,0).
-
-
-
 local RCSTpos is V(-1,-1,-1). // not really a vector but a list of max
 local RCSTneg is V(+1,+1,+1). // and min values in ship relative axes
 local RCSIsp is -1.
@@ -228,8 +223,8 @@ function ap_orb_nav_do {
     parameter acc_vec is AP_NAV_ACC.
     parameter head_dir is AP_NAV_ATT.
 
-    set delta_v to (vel_vec - ship:velocity:orbit).
-    set delta_a to (acc_vec - GRAV_ACC).
+    local delta_v is (vel_vec - ship:velocity:orbit).
+    local delta_a is (acc_vec - GRAV_ACC).
     
     if not SAS {
         ap_orb_lock_controls(true).
@@ -264,6 +259,14 @@ function ap_orb_nav_do {
         } else {
             set ship:control:translation to V(0,0,0).
         }
+
+        if (false) {
+            util_hud_push_left( "ap_orb_nav_do",
+                "dv "  + round_dec(delta_v:mag,3) +
+                + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
+                    round_dec(ship:facing:topvector*delta_v,2) + "," +
+                    round_dec(ship:facing:forevector*delta_v,2) +")" + char(10) ).
+        }
     } else {
         ap_orb_lock_controls(false).
     }
@@ -288,21 +291,9 @@ function ap_orb_lock_controls {
 }
 
 function ap_orb_status_string {
-    local hud_str is "".
-
-    set hud_str to hud_str +
-        "G "+ round_dec( get_max_applied_acc()/g0, 1) +
+    return "G "+ round_dec( get_max_applied_acc()/g0, 1) +
         (choose "A" if not ALIGNED else "") +
         (choose "M" if MOVE_RCS else "") +
         (choose "S" if STEER_RCS else "") +
         (choose "B" if DO_BURN else "").
-
-    if (false) {
-        set hud_str to hud_str +
-            "dv "  + round_dec(delta_v:mag,3) +
-            + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
-                round_dec(ship:facing:topvector*delta_v,2) + "," +
-                round_dec(ship:facing:forevector*delta_v,2) +")" + char(10).
-    }
-    return hud_str.
 }

@@ -337,16 +337,16 @@ local function util_shbus_decode_rx_msg {
     return true.
 }
 
-when RX_MSG_IN_TRIGGER then {
-    rx_msg().
-    return true. // make the trigger persist
-}
-
+local trigger_started is false.
 // check for any new messages and run any commands immediately
 // return whether a message was received
 function util_shbus_rx_msg {
-    if RX_MSG_IN_TRIGGER {
-        // do nothing, interrupt will handle this
+    if RX_MSG_IN_TRIGGER and not trigger_started {
+        set trigger_started to true.
+        when RX_MSG_IN_TRIGGER then {
+            rx_msg().
+            return true. // make the trigger persist
+        }
         return false. // did not "receive message" in this case
     } else {
         return rx_msg(). // call the local function directly

@@ -504,12 +504,10 @@ function util_hud_pop_right {
 // if value not given, toggle
 function util_hud_setting {
     parameter key.
-    parameter value is "reserved_toggle".
+    parameter value.
 
     if SETTINGS:haskey(key) {
-        if value = "reserved_toggle" and SETTINGS[key]:typename = "Boolean" {
-            set SETTINGS[key] to not SETTINGS[key].
-        } else if SETTINGS[key]:typename = value:typename {
+        if SETTINGS[key]:typename = value:typename {
             set SETTINGS[key] to value.
         } else {
             print "cannot set " + value.
@@ -518,6 +516,15 @@ function util_hud_setting {
         return true.
     }
     return false.
+}
+
+// clear the hud temporarily, but don't change any settings
+// i.e. next time util_hud_info is called, it will work the same
+function util_hud_clear {
+    local saved_setting is SETTINGS["on"].
+    set SETTINGS["on"] to false.
+    util_hud_info().
+    set SETTINGS["on"] to saved_setting.
 }
 
 // shbus_tx compatible send messages
@@ -531,13 +538,13 @@ function util_hud_get_help_str {
         "hud cam(top,star)  move hud position",
         "hud alpha(deg)     alpha marker",
         "hud reset          remove stored changes",
-        "hud sw [setting]   toggle setting",
-        "    on",
-        "    ladder",
-        "    alpha",
-        "    align",
-        "    nav",
-        "    movable",
+        "hud [on/off]       turn hud on or off",
+        "hud [setting] [on/off] set setting",
+        "     ladder",
+        "     alpha",
+        "     align",
+        "     nav",
+        "     movable",
         "hud help           print help"
         ).
 }
@@ -552,9 +559,14 @@ function util_hud_parse_command {
         return false.
     }
 
-    if commtext:startswith("sw") and commtext:length > 3 {
-        local newkey is commtext:split(" ")[1].
-        util_shbus_tx_msg("HUD_SETTING_TOGGLE", list(newkey)).
+    if commtext:endswith("on") or commtext:endswith("off") {
+        local words is commtext:split(" ").
+        if words:length > 2 {
+            print "usage: hud [setting] [on/off] or hud [on/off]".
+        } else {
+            local key is (choose words[0] if words:length = 2 else "on").
+            util_shbus_tx_msg("HUD_SETTING_SET", list(key, commtext:endswith("on") ) ).
+        }
     } else if commtext = "align" and all_scalar(args) {
         if (args:length = 0 or args:length = 2 or args:length = 3) {
             if args:length = 2 { args:add(0). }
@@ -614,9 +626,8 @@ function util_hud_decode_rx_msg {
         hud_text_dict_left:remove(data[0]).
     } else if opcode = "HUD_POPR" {
         hud_text_dict_right:remove(data[0]).
-    } else if opcode = "HUD_SETTING_TOGGLE" {
-        if data[0] = "off" {set data[0] to "on".}        
-        if not util_hud_setting(data[0]) {
+    } else if opcode = "HUD_SETTING_SET" {
+        if not util_hud_setting(data[0],data[1]) {
             util_shbus_ack("util hud setting not found", sender).
         } else {
             hud_settings_save().

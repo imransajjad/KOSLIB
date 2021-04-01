@@ -479,7 +479,7 @@ local function tar_wp_guide {
 
         local align_data is nav_align(approach_speed, position, final_head, relative_velocity, radius).
 
-        set AP_NAV_VEL to approach_speed*align_data[0]+get_vessel_vel(target_ship).
+        set AP_NAV_VEL to align_data[0]+get_vessel_vel(target_ship).
         set AP_NAV_ACC to align_data[1].
         set AP_NAV_ATT to final_head*R(0,0,-relative_roll).
 

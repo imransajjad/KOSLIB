@@ -405,8 +405,7 @@ function util_shsys_spin_check {
             ap_orb_lock_controls(false).
         }
         if defined UTIL_HUD_ENABLED {
-            util_hud_setting("on",false).
-            util_hud_info().
+            util_hud_clear().
         }
         wait 0.02.
     }

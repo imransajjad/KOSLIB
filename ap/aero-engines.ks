@@ -38,6 +38,14 @@ local function get_total_tmr {
     return max_thrust/SHIP:MASS.
 }
 
+local function attempt_restart {
+    for e in MAIN_ENGINES {
+        if not e:ignition {
+            e:activate.
+        }
+    }
+}
+
 // initial generic maps / auto throttles
 
 local function no_map {
@@ -172,6 +180,7 @@ function ap_aero_engine_throttle_auto {
     parameter head_r is AP_NAV_ATT.
     // this function depends on AP_NAV_ENABLED
     if USE_GCAS and (ap_gcas_check()) {
+        attempt_restart().
         set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func(GCAS_SPEED).
     } else {
         set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func(vel_r:mag, acc_r*ship:srfprograde:vector).
@@ -183,6 +192,7 @@ function ap_aero_engine_throttle_auto {
 function ap_aero_engine_throttle_map {
     parameter input_throttle is SHIP:CONTROL:PILOTMAINTHROTTLE.
     if USE_GCAS and (ap_gcas_check()) {
+        attempt_restart().
         set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func(GCAS_SPEED).
     } else {
         set SHIP:CONTROL:MAINTHROTTLE TO mapped_throttle_func(input_throttle).

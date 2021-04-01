@@ -248,6 +248,7 @@ function util_fldr_get_help_str {
         "log info       list some log info",
         "log send       send logs",
         "log stash      save last log",
+        "log event STR  log STR as an event",
         "log stp(SEQ)   set pulse_time(SEQ)",
         "log su0(SEQ)   set throttle_seq(SEQ)",
         "log su1(SEQ)   set pitch_seq(SEQ)",
@@ -297,6 +298,8 @@ function util_fldr_parse_command {
         util_shbus_tx_msg("FLDR_SET_LOGTAG", list(logtag)).
     } else if commtext = "start" or commtext = "stop" or commtext = "status" {
         util_shbus_tx_msg("FLDR_LOG", list(commtext)).
+    } else if commtext:startswith("event") {
+        util_shbus_tx_msg("FLDR_EVENT", list(commtext)).
     } else if commtext = "test" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
     } else if commtext = "info" {
@@ -443,6 +446,8 @@ function util_fldr_decode_rx_msg {
         print info_str.
     } else if opcode = "FLDR_LOG" {
         util_fldr_logging(data[0], sender).
+    } else if opcode = "FLDR_EVENT" {
+        util_fldr_send_event(data[0]).
     } else if opcode = "FLDR_PRINT_TEST" {
         util_shbus_ack(print_sequences(), sender).
     } else {
