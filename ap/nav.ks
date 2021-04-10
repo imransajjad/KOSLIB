@@ -170,7 +170,7 @@ local function nav_q_target {
     
     set AP_NAV_TIME_TO_WP to target_distance/max(1,ship:airspeed).
     
-    local Fv is K_E*(etar-e_simp).
+    local Fv is K_E*(etar-e_simp)/(ship:airspeed/400).
     local current_drag is get_pre_aero_acc()*ship_vel_dir:vector.
     set Fv to max(Fv, current_drag).
     if defined AP_AERO_ENGINES_ENABLED {
@@ -179,16 +179,17 @@ local function nav_q_target {
             set Fv to min(Fv, max_thrust + current_drag).
         } else {
             // we don't have engine power, only force we apply is drag
-            set Fv to 0.95*current_drag.
-            // 0.95 causes ~0.02 q error but prevents excessive brakes, fix later
-            // look at how brakes are being applied to possibly fix
+            set Fv to current_drag.
         }
     }
     
     local sin_elev is ( 2*Fv - K_Q*(qtar-q_simp)*(ship:airspeed/q_simp) )/(2*g0+ship:airspeed^2/5000).
     local elev is arcsin( sat( sin_elev, 0.5 )). // restrict climb/descent to +-30 degrees
-    // util_hud_push_left("nav_q_target", "qt/"+ char(916)+" " + round_dec(qtar,3) + "/" + round_dec(qtar-q_simp,5) + char(10) + 
-                                    // "Et/Fv " + round_dec(etar,2) + "/" + round_dec(Fv,4)).
+    if false {
+        util_hud_push_left("nav_q_target",
+            "qt/"+ char(916)+" " + round_dec(qtar,3) + "/" + round_dec(qtar-q_simp,5) + char(10) + 
+            "Et/Fv " + round_dec(etar,2) + "/" + round_dec(Fv,4) + char(10)).
+    }
 
     local elev_diff is deadzone(arctan2(target_altitude-ship:altitude, target_distance+radius),abs(elev)).
     set elev_diff to arctan2(2*tan(elev_diff),1).
@@ -321,7 +322,7 @@ local function srf_stick {
     if VSET_MAN and ISACTIVEVESSEL {
         set vel_increment to 2.7*deadzone(2*u0-1,0.1).
         if vel_increment <> 0 {
-            set stick_vel to min(max(stick_vel+vel_increment,MIN_NAV_SRF_VEL),VSET_MAX).
+            set stick_vel to min(max(stick_vel+vel_increment,0.501),VSET_MAX).
         }
         set SRF_V_SET_DELTA to vel_increment.
     }
@@ -500,23 +501,21 @@ function ap_nav_display {
     set AP_NAV_IN_ORBIT to (ship:apoapsis > body_navchange_alt) or (ship:apoapsis < 0).
     set AP_NAV_IN_SURFACE to (ship:altitude < body_navchange_alt).
 
-    local cur_wayp is -1.
-    local try_wp is false.
+    local cur_wayp is lexicon("mode","none").
     if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
         set cur_wayp to util_wp_queue_first().
-        set try_wp to true.
     }
 
-    if try_wp and cur_wayp["mode"] = "srf" and srf_wp_guide(cur_wayp) {
+    if cur_wayp["mode"] = "srf" and srf_wp_guide(cur_wayp) {
         set DISPLAY_SRF to true.
         if (debug_vectors) {
             set nav_debug_vec0:vec to AP_NAV_VEL.
             set nav_debug_vec1:vec to AP_NAV_ACC.
             set nav_debug_vec2:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
         }
-    } else if try_wp and cur_wayp["mode"] = "orb" and orb_wp_guide(cur_wayp) {
+    } else if cur_wayp["mode"] = "orb" and orb_wp_guide(cur_wayp) {
         set DISPLAY_ORB to true.
-    } else if try_wp and cur_wayp["mode"] = "tar" and tar_wp_guide(cur_wayp) {
+    } else if cur_wayp["mode"] = "tar" and tar_wp_guide(cur_wayp) {
         set DISPLAY_TAR to true.
         if (debug_vectors) {
             if HASTARGET {
@@ -572,7 +571,7 @@ function ap_nav_get_hud_vel {
 }
 
 function ap_nav_get_vel_err_mag {
-    return (AP_NAV_VEL-get_vessel_vel())*AP_NAV_VEL:normalized.
+    return ( (AP_NAV_VEL-get_vessel_vel()) + 4*AP_NAV_ACC )*AP_NAV_VEL:normalized.
 }
 
 function ap_nav_status_string {

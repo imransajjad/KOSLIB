@@ -7,8 +7,6 @@ local A_wing is get_param(PARAM, "WING_AREA", 20).
 local A_fues is get_param(PARAM, "FUES_AREA", 2).
 local A_ffactor is get_param(PARAM, "FORGET_FACTOR_AREA", 0.9).
 
-local debug_vectors is false.
-
 global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
 
 // initialize/assign schedule functions
@@ -67,13 +65,22 @@ function cd_sched {
 local Tlast is 0.
 local Vlast is V(0,0,0).
 local acc_now is V(0,0,0).
+local acclast is V(0,0,0).
+local jerk_now is V(0,0,0).
 function get_acc {
     if time:seconds-Tlast > 0.02 {
         set acc_now to 0.5*(ship:velocity:orbit-Vlast)/(time:seconds-Tlast) + 0.5*acc_now.
+        set jerk_now to 0.5*(acc_now-acclast)/(time:seconds-Tlast) + 0.5*jerk_now.
         set Vlast to ship:velocity:orbit.
+        set acclast to acc_now.
         set Tlast to time:seconds.
     }
     return acc_now.
+}
+
+function get_jerk {
+    get_acc().
+    return jerk_now.
 }
 
 function get_applied_acc {
@@ -120,7 +127,7 @@ function util_phys_update {
     // e = ( A_fues*e_fues + A_wing*e_wing ) - aero_forces
     // e_fues is a a vector pointing in the direction of fueselage aero force
     // e_wing is a a vector pointing in the direction of wing aero force
-    if ship:q > 0.0003 and not BRAKES and alpha > 0 and alpha < 45 {
+    if ship:q > 0.0003 and not BRAKES and alpha > 0 and alpha < 45 and get_jerk():mag < 1.5 {
         local e_fues is ship:q/ship:mass*V(0, -cl_sched(ship:airspeed)*sin(alpha)*cos(alpha), -cd_sched(ship:airspeed)*cos(alpha)^2).
         local e_wing is ship:q/ship:mass*V(0, cl_sched(ship:airspeed)*sin(alpha)*cos(alpha), -cd_sched(ship:airspeed)*sin(alpha)^2).
 
@@ -143,13 +150,17 @@ function util_phys_update {
         set A_fues to A_fues + (A_22*diff1 - A_21_12*diff2)/disc.
         set A_wing to A_wing + (-A_21_12*diff1 + A_11*diff2)/disc.
 
-        if debug_vectors {
+        if false {
             local error is (-ship_vel_dir)*get_aero_acc() - ( A_fues*e_fues + A_wing*e_wing).
             util_hud_push_left("get_pre_aero_acc", "eA " + round_dec(error:x,2) + "," + round_dec(error:y,2) + "," + round_dec(error:z,2) +
                 char(10) + "A f/w " + round_dec(A_fues,0) + "/" + round_dec(A_wing,0)).
-            set phys_debug_vec0 to VECDRAW((ship_vel_dir*( A_fues*e_fues + A_wing*e_wing)), (ship_vel_dir*error), RGB(0,0,1),
+            set phys_debug_vec0 to VECDRAW((ship_vel_dir*( A_fues*e_fues + A_wing*e_wing)), (ship_vel_dir*error), RGB(1,0,0),
                         "", 1.0, true, 0.125, true ).
             set phys_debug_vec1 to VECDRAW(V(0,0,0), (ship_vel_dir*( A_fues*e_fues + A_wing*e_wing)), RGB(0,1,1),
+                        "", 1.0, true, 0.125, true ).
+            set phys_debug_vec2 to VECDRAW(V(0,0,0), (ship_vel_dir*(A_fues*e_fues)), RGB(0,0.5,1),
+                        "", 1.0, true, 0.125, true ).
+            set phys_debug_vec3 to VECDRAW( (ship_vel_dir*(A_fues*e_fues)), (ship_vel_dir*(A_wing*e_wing)), RGB(0.5,1.0,0),
                         "", 1.0, true, 0.125, true ).
         }
 

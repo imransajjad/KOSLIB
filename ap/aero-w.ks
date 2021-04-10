@@ -441,11 +441,11 @@ function ap_aero_w_nav_do {
     // completely ignore yaw error
     local p_rot is -w_us:x.
     local y_rot is convex(w_us:y, 0, sat(abs(w_us:x)/1.5,1.0) ).
-    local r_rot is convex(0-roll, K_ROLL*wrap_angle(g_hav[0]), sat(g_hav[1]/1.5,1.0)).
+    local r_rot is convex(K_ROLL*(0-roll), K_ROLL*wrap_angle(g_hav[0]), sat(g_hav[1]/1.5,1.0)).
 
     if false { // nav debug
         util_hud_push_right("nav_w",
-            // "w_err(p,y,r): " + round_dec(werr:x,2) + "," + round_dec(werr:y,2) + "," + round_dec(werr:z,2) +
+            "w_err(p,y,r): " + round_dec(werr:x,2) + "," + round_dec(werr:y,2) + "," + round_dec(werr:z,2) +
             // char(10)+ "w_ff(p,y): " + char(10)+ round_dec(wff:x,2) + "," + round_dec(wff:y,2) +
             // char(10)+ "w_g(p,y): " + char(10)+ round_dec(wg:x,2) + "," + round_dec(wg:y,2) +
             // char(10)+ "w_us(p,y): " + char(10)+ round_dec(w_us:x,2) + "," + round_dec(w_us:y,2) +

@@ -4,8 +4,6 @@ GLOBAL AP_AERO_ENGINES_ENABLED IS true.
 
 local PARAM is get_param(readJson("param.json"), "AP_AERO_ENGINES", lexicon()).
 
-local TOGGLE_X is get_param(PARAM,"TOGGLE_X", 0).
-local TOGGLE_Y is get_param(PARAM,"TOGGLE_Y", 0).
 local K_V is get_param(PARAM,"K_V", 0.25).
 local AUTO_BRAKES is get_param(PARAM,"AUTO_BRAKES", false).
 local MAIN_ENGINE_NAME is get_param(PARAM,"MAIN_ENGINE_NAME", "").
@@ -58,13 +56,19 @@ local function generic_throttle_auto {
     parameter vel_r.
     parameter acc_r is 0.
 
-    set a_set to acc_r + K_V*(vel_r - ship:airspeed).
-    set my_throttle to (-get_pre_aero_acc()*ship_vel_dir:vector + g0*sin(vel_pitch) + a_set)/MAX_TMR.
+    local a_set is acc_r + K_V*(vel_r - ship:airspeed).
+    set a_applied to (-get_pre_aero_acc()*ship_vel_dir:vector + g0*sin(vel_pitch) + a_set).
+    set my_throttle to a_applied/MAX_TMR.
+    set BRAKES to apply_auto_brakes(a_applied).
 
-    // util_hud_push_left("generic_throttle_auto", "a/" + char(916) + " " + round_dec(a_set,2) + "/" + round_dec(a_set-get_acc()*ship_vel_dir:vector,4)
-    //     + char(10) + "Tmax " + round_dec(max_thrust,2)
-    //     + char(10) + "th/T " + round_dec(my_throttle*max_thrust,3) + "/" + round_dec(ap_aero_engines_get_current_thrust():mag,3) ).
-        
+    if false {
+        util_hud_push_left("generic_throttle_auto",
+            "a/" + char(916) + " " + round_dec(a_set,2) + "/" + round_dec(a_set-get_acc()*ship_vel_dir:vector,4) + char(10) +
+            "th/Tmax " + round_dec(my_throttle,3) + "/" + round_dec(max_thrust,3) + char(10) +
+            "T_act " + round_dec(ap_aero_engines_get_current_thrust()*ship_vel_dir:vector,3)+ char(10) +
+            "a_app " + round_dec(a_applied,3) ).
+    }
+
     return max(my_throttle,0.001).
 }
 
@@ -74,67 +78,79 @@ local function generic_common {
 
 local auto_brakes_used is false.
 local function apply_auto_brakes {
-    parameter vel_r.
-    parameter acc_r.
+    parameter acc_applied.
     if AUTO_BRAKES and not (GEAR and ship:status = "flying") {
         set auto_brakes_used to true.
+        local airflow_good is (abs(alpha) < 10 and abs(beta) < 15).
         if BRAKES {
-            set BRAKES to ( my_throttle < 0.05  ) and 
-                ship:facing:vector*ship:srfprograde:vector > 0.990. //~cos(2.5d)
+            return ( acc_applied < -0.1  ) and airflow_good.
         } else {
-            set BRAKES to ( my_throttle < -0.05  ) and 
-                ship:facing:vector*ship:srfprograde:vector > 0.990.
+            return ( acc_applied < -0.5  ) and airflow_good.
         }
     } else if auto_brakes_used {
-        set BRAKES to false.
         set auto_brakes_used to false.
+        return false.
     }
+    return false.
 }
 
 // Engine Specific functions
 
+local last_dry_tmr is 0.5.
+local last_wet_tmr is 1.0.
 local function turbojet_throttle_map {
     parameter u0.
     if not ISACTIVEVESSEL {
         return my_throttle.
     }
 
-    local MaxDryThrottle_x is TOGGLE_X-0.05.
+    local toggle_x is min(0.5 +0.5*(last_dry_tmr/last_wet_tmr), 0.975).
+    local toggle_y is (last_dry_tmr/last_wet_tmr).
+    local MaxDryThrottle_x is toggle_x-0.05.
 
     if not (MAIN_ENGINES:length = 0){
-        if u0 > TOGGLE_X and MAIN_ENGINES[0]:MODE = "Dry"
-        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
-        if u0 <= TOGGLE_X and MAIN_ENGINES[0]:MODE = "Wet"
-        { for e in MAIN_ENGINES {e:TOGGLEMODE().}}
+        if u0 > toggle_x and MAIN_ENGINES[0]:MODE = "Dry"
+        {
+            for e in MAIN_ENGINES {e:TOGGLEMODE().}
+            set last_wet_tmr to MAX_TMR.
+        }
+        if u0 <= toggle_x and MAIN_ENGINES[0]:MODE = "Wet"
+        {
+            for e in MAIN_ENGINES {e:TOGGLEMODE().}
+            set last_dry_tmr to MAX_TMR.
+        }
     }
 
     if u0 <= MaxDryThrottle_x {
         SET my_throttle TO (u0/MaxDryThrottle_x).
-    } else if u0 <= TOGGLE_X and u0 > MaxDryThrottle_x{
+    } else if u0 <= toggle_x and u0 > MaxDryThrottle_x{
         SET my_throttle TO 1.0.
-    } else if u0 > TOGGLE_X {
-        SET my_throttle TO ((1-TOGGLE_Y)*u0 + 
-            (TOGGLE_Y-TOGGLE_X))/(1-TOGGLE_X).
+    } else if u0 > toggle_x {
+        SET my_throttle TO ((1-toggle_y)*u0 + 
+            (toggle_y-toggle_x))/(1-toggle_x).
     }
 
     return max(my_throttle,0.0).
 }
 
-local last_dry_tmr is 0.5.
-local last_wet_tmr is 1.0.
 local function turbojet_throttle_auto {
     parameter vel_r.
     parameter acc_r is 0.
 
-    set a_set to acc_r + K_V*(vel_r - ship:airspeed).
-    set my_throttle to (-get_pre_aero_acc()*ship_vel_dir:vector + g0*sin(vel_pitch) + a_set)/MAX_TMR.
-    
-    // util_hud_push_left("turbojet_throttle_auto", "a/" + char(916) + " " + round_dec(a_set,2) + "/" + round_dec(a_set-get_acc()*ship_vel_dir:vector,4)
-    //     + char(10) + "Tmax " + round_dec(max_thrust,2)
-    //     + char(10) + "th/T " + round_dec(my_throttle*max_thrust,3) + "/" + round_dec(ap_aero_engines_get_current_thrust():mag,3) ).
+    local a_set is acc_r + K_V*(vel_r - ship:airspeed).
+    set a_applied to (-get_pre_aero_acc()*ship_vel_dir:vector + g0*sin(vel_pitch) + a_set).
+    set my_throttle to a_applied/MAX_TMR.
+    set BRAKES to apply_auto_brakes(a_applied).
+
+    if false {
+        util_hud_push_left("turbojet_throttle_auto",
+            "a/" + char(916) + " " + round_dec(a_set,2) + "/" + round_dec(a_set-get_acc()*ship_vel_dir:vector,4) + char(10) +
+            "th/Tmax " + round_dec(my_throttle,3) + "/" + round_dec(max_thrust,3) + char(10) +
+            "T_act " + round_dec(ap_aero_engines_get_current_thrust()*ship_vel_dir:vector,3)+ char(10) +
+            "a_app " + round_dec(a_applied,3) ).
+    }
     
     if not (MAIN_ENGINES:length = 0) {
-        set last_switch_time to time:seconds.
         if (my_throttle > 1.00) and MAIN_ENGINES[0]:MODE = "Dry"
         {
             for e in MAIN_ENGINES {e:TOGGLEMODE().}
@@ -152,7 +168,7 @@ local function turbojet_throttle_auto {
 
 local forward_thrust is true.
 local function turbofan_common {
-    if my_throttle <= 0.0 and brakes and ship:airspeed > 25 {
+    if my_throttle <= 0.0 and brakes and ship:airspeed > 25 and abs(vel_pitch) < 2.5 {
         if forward_thrust {
             set forward_thrust to false.
             for e in MAIN_ENGINES {
@@ -185,7 +201,6 @@ function ap_aero_engine_throttle_auto {
     } else {
         set SHIP:CONTROL:MAINTHROTTLE TO auto_throttle_func(vel_r:mag, acc_r*ship:srfprograde:vector).
     }
-    apply_auto_brakes(vel_r*ship:srfprograde:vector, acc_r*ship:srfprograde:vector).
     common_func().
 }
 

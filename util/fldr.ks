@@ -4,7 +4,7 @@
 
 global UTIL_FLDR_ENABLED is true.
 
-local Ts is 0.04.
+local Ts is 0.5.
 local Tdur is 0.0.
 local Tdel is 0.
 

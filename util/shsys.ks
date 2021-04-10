@@ -291,21 +291,18 @@ local function display_resource_state {
 // main function for ship systems
 // returns true if sys is not blocked.
 local function shsys_check {
-    parameter CLEANUP is false.
 
-    local cur_wayp is -1.
-    local try_wp is false.
+    local cur_wayp is lexicon("mode", "none").
     if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
         set cur_wayp to util_wp_queue_first().
-        set try_wp to true.
     }
-    if try_wp and cur_wayp["mode"] = "act" {
+    if cur_wayp["mode"] = "act" {
             util_shsys_do_action(cur_wayp["do_action"]).
             if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event("action waypoint " + (util_wp_queue_length()-1)).
             }
             util_wp_done().
-    } else if try_wp and cur_wayp["mode"] = "spin" {
+    } else if cur_wayp["mode"] = "spin" {
             util_shsys_set_spin(cur_wayp["spin_part"], cur_wayp["spin_state"]).
             if defined UTIL_FLDR_ENABLED {
                 util_fldr_send_event("spin waypoint " + (util_wp_queue_length()-1)).
@@ -390,9 +387,6 @@ local function shsys_check {
     display_resource_state().
     iterate_spacecraft_system_state().
 
-    if CLEANUP {
-        print "shsys_check cleanup".
-    }
     return not do_spin.
 }
 
