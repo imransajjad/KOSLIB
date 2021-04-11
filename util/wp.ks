@@ -61,7 +61,7 @@ function util_wp_arg_lex {
 
     if wp["mode"] = "act" {
         if wp_args:length = 1 {
-            set wp["do_action"] to wp_args[0].
+            set wp["do_action"] to wp_args[0]:tostring.
         } else {
             set wp["mode"] to "inv".
         }
@@ -107,10 +107,35 @@ function util_wp_arg_lex {
         if L >= 6 { set wp["roll"] to wp_args[5].}
     }
 
-    if wp["mode"] = "inv" {
+    if not util_wp_verify(wp) {
         print "received invalid waypoint data".
     }
     return wp.
+}
+
+function util_wp_verify {
+    parameter wp.
+
+    local isvalid is not (wp["mode"] = "inv").
+    if wp["mode"] = "srf" {
+        set isvalid to isvalid and (not wp:haskey("alt") or wp["alt"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("vel") or wp["vel"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("lat") or wp["lat"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("lng") or wp["lng"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("elev") or wp["elev"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("head") or wp["head"]:typename = "Scalar").
+    } else if wp["mode"] = "tar" {
+        set isvalid to isvalid and (not wp:haskey("speed") or wp["speed"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("radius") or wp["radius"]:typename = "Scalar").
+        set isvalid to isvalid and (not wp:haskey("offsvec") or wp["offsvec"]:typename = "Vector").
+        set isvalid to isvalid and (not wp:haskey("roll") or wp["roll"]:typename = "Scalar").
+    } else if wp["mode"] = "act" {
+        set isvalid to isvalid and (not wp:haskey("do_action") or wp["do_action"]:typename = "String").
+    } else if wp["mode"] = "spin" {
+        set isvalid to isvalid and (not wp:haskey("spin_part") or wp["spin_part"]:typename = "String").
+        set isvalid to isvalid and (not wp:haskey("spin_state") or wp["spin_state"]:typename = "String").
+    }
+    return isvalid.
 }
 
 // TX SECTION
@@ -144,6 +169,8 @@ function util_wp_get_help_str {
         "wp queueprint      [wpqp] print wp list",
         "wp highlight       [wphl] highlight wps in list",
         "wp queuedelete     [wpqd] purge wp list",
+        "wp queuestash      [wpqs] stash wp list",
+        "wp queuepop        [wpql] pop wp list",
         "wp mode STR        [wpmd] STR is act, spin, srf, orb, tar",
         "wp delete          [wpd] delete first wp",
         "wp first(WP)       [wpf] add wp to first ",
@@ -340,6 +367,10 @@ function util_wp_parse_command {
         and (args:length = 1 or args:length = 2) {
         util_shbus_tx_msg("WP_PURGE").
         util_shbus_tx_msg("WP_TAKEOFF", args). // special command for take off
+    } else if commtext = "wpqs" or commtext = "wp queuestash" {
+        util_shbus_tx_msg("WP_STASH", list(true)).
+    } else if commtext = "wpql" or commtext = "wp queuepop" {
+        util_shbus_tx_msg("WP_STASH", list(false)).
     } else if commtext = "wp help" {
         util_term_parse_command("help WP").
     } else {
@@ -351,6 +382,8 @@ function util_wp_parse_command {
 // TX SECTION END
 
 // RX SECTION
+
+local STASHED is false.
 
 local function waypoint_print_str {
     parameter WP.
@@ -423,14 +456,16 @@ function util_wp_add {
     parameter pos.
     parameter new_wp.
     if pos < 0 { set pos to pos+wp_queue:length+1.}
-    wp_queue:insert(pos,new_wp).
+    if pos >= 0 and pos <= wp_queue:length and util_wp_verify(new_wp) {
+        wp_queue:insert(pos,new_wp).
+    }
 }
 
 function util_wp_update {
     parameter pos.
     parameter new_wp.
     if pos < 0 { set pos to pos+wp_queue:length.}
-    if wp_queue:length > pos and pos >= 0 {
+    if wp_queue:length > pos and pos >= 0 and util_wp_verify(new_wp) {
         set wp_queue[pos] to new_wp.
     }
 }
@@ -454,7 +489,7 @@ function util_wp_remove {
 
 local function waypoint_queue_print {
     local wp_list_string is " WP (" +
-        wp_queue:length + ")" + char(10).
+        wp_queue:length + ")" + (choose " STASHED" if STASHED else "") + char(10).
     local i is wp_queue:iterator.
     until NOT i:next {
         set wp_list_string to wp_list_string+
@@ -482,7 +517,11 @@ function util_wp_queue_last {
 }
 
 function util_wp_queue_first {
-    return wp_queue[0].
+    if STASHED or wp_queue:length = 0 {
+        return lexicon("mode", "none").
+    } else {
+        return wp_queue[0].
+    }
 }
 
 function util_wp_status_string {
@@ -532,8 +571,7 @@ function util_wp_decode_rx_msg {
             data:insert(3,90.4+(choose 180 if ship:geoposition:lng > -74.69 else 0) ).
         }
         for wp_seq_i in generate_landing_seq(data[0],data[1],data[2],data[3]) {
-            util_wp_add(-1,
-                util_wp_arg_lex(wp_seq_i, "srf") ).
+            util_wp_add(-1, util_wp_arg_lex(wp_seq_i, "srf") ).
         }
     } else if opcode = "WP_TAKEOFF"{
         // have to generate takoff sequence on receiving end
@@ -556,6 +594,8 @@ function util_wp_decode_rx_msg {
             set wp_highlight_on to false.
             util_shbus_ack("turned off waypoint queue highlight", sender).
         }
+    } else if opcode = "WP_STASH" and data:length = 1 {
+        set STASHED to data[0].
     } else {
         util_shbus_ack("could not decode wp rx msg", sender).
         print "could not decode wp rx msg".

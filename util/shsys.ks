@@ -284,6 +284,7 @@ local function display_resource_state {
     }
     if not (warn_string = new_warn_string) {
         print new_warn_string.
+        set kuniverse:timewarp:rate to 0.
     }
     set warn_string to new_warn_string.
 }
@@ -293,7 +294,7 @@ local function display_resource_state {
 local function shsys_check {
 
     local cur_wayp is lexicon("mode", "none").
-    if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
+    if defined UTIL_WP_ENABLED {
         set cur_wayp to util_wp_queue_first().
     }
     if cur_wayp["mode"] = "act" {

@@ -502,7 +502,7 @@ function ap_nav_display {
     set AP_NAV_IN_SURFACE to (ship:altitude < body_navchange_alt).
 
     local cur_wayp is lexicon("mode","none").
-    if defined UTIL_WP_ENABLED and (util_wp_queue_length() > 0) {
+    if defined UTIL_WP_ENABLED {
         set cur_wayp to util_wp_queue_first().
     }
 
