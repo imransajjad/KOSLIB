@@ -299,7 +299,7 @@ function util_fldr_parse_command {
     } else if commtext = "start" or commtext = "stop" or commtext = "status" {
         util_shbus_tx_msg("FLDR_LOG", list(commtext)).
     } else if commtext:startswith("event") {
-        util_shbus_tx_msg("FLDR_EVENT", list(commtext)).
+        util_shbus_tx_msg("FLDR_EVENT", list(commtext:replace("event",""):trim())).
     } else if commtext = "test" {
         util_shbus_tx_msg("FLDR_RUN_TEST").
     } else if commtext = "info" {

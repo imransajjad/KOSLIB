@@ -261,6 +261,8 @@ function get_engines {
         for e in SHIP:PARTSDUBBED(tag){
             main_engine_list:add(e).
         }
+    } else {
+        list Engines in main_engine_list.
     }
     return main_engine_list.
 }
@@ -414,4 +416,54 @@ function get_child_with_module {
         }
     }
     return -1. // not found error condition
+}
+
+local Vslast is 0.0.
+local prev_land is SHIP:STATUS.
+function display_land_stats {
+    if not (SHIP:STATUS = prev_land) {
+        if SHIP:STATUS = "LANDED" {
+            local land_stats is "landed" + char(10) +
+                "  pitch "+ round_dec(pitch,2) + char(10) +
+                "  v/vs  "+ round_dec(ship:airspeed,2) + "/"+round_dec(Vslast,2).
+            if defined UTIL_HUD_ENABLED {
+                util_hud_push_left("AERO_W_LAND_STATS" , land_stats ).
+            }
+            if defined UTIL_FLDR_ENABLED {
+                util_fldr_send_event(land_stats).
+            }
+            print land_stats.
+        } else if SHIP:STATUS = "FLYING" {
+            if defined UTIL_HUD_ENABLED {
+                util_hud_pop_left("AERO_W_LAND_STATS").
+            }
+        }
+        set prev_land to SHIP:STATUS.
+    }
+    if ship:status = "FLYING" {
+        SET Vslast to ship:verticalspeed.
+    }
+}
+
+// Global plane data
+function add_plane_globals {
+    when true then {
+        set DELTA_FACE_UP to R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
+        set pitch to (mod(DELTA_FACE_UP:pitch+90,180)-90).
+        set roll to (180-DELTA_FACE_UP:roll).
+        set yaw to (360-DELTA_FACE_UP:yaw).
+
+        set DELTA_PRO_UP to R(90,0,0)*(-SHIP:UP)*
+            (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
+        set vel_pitch to (mod(DELTA_PRO_UP:pitch+90,180)-90).
+        set vel_bear to (360-DELTA_PRO_UP:yaw).
+
+        set ship_vel_dir to LOOKDIRUP(ship:velocity:surface, ship:facing:topvector).
+        set alpha_beta_dir to (-ship:facing*ship_vel_dir).
+        set alpha to wrap_angle(alpha_beta_dir:pitch).
+        set beta to wrap_angle(-alpha_beta_dir:yaw).
+        
+        return true.
+    }
+    wait 0.
 }

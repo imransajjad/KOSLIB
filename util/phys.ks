@@ -7,7 +7,8 @@ local A_wing is get_param(PARAM, "WING_AREA", 20).
 local A_fues is get_param(PARAM, "FUES_AREA", 2).
 local A_ffactor is get_param(PARAM, "FORGET_FACTOR_AREA", 0.9).
 
-global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
+// global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
+global lock GRAV_ACC to ship:body:mu/(ship:body:position:mag^2)*(ship:body:position:normalized).
 
 // initialize/assign schedule functions
 if C_SCHED_TYPE = "FS3T" {
