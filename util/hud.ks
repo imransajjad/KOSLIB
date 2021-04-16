@@ -28,6 +28,7 @@ local hud_text_dict_right is lexicon().
 set SETTINGS["on"] to get_param(SETTINGS, "ON_START", false).
 set SETTINGS["ladder"] to get_param(SETTINGS, "LADDER_START", false).
 set SETTINGS["nav"] to get_param(SETTINGS, "NAV_START", false).
+set SETTINGS["nav_close"] to get_param(SETTINGS, "NAV_CLOSE", false).
 set SETTINGS["alpha"] to false.
 set SETTINGS["ALPHA_DEG"] to 7.5.
 set SETTINGS["align"] to false.
@@ -119,7 +120,7 @@ local function nav_vecdraw {
         set guide_tri_ll:show to true.
         set guide_tri_lr:show to true.
 
-        if (nav_heading:vector*ship:facing:vector > 0.966) {
+        if SETTINGS["nav_close"] or (nav_heading:vector*ship:facing:vector > 0.996) {
             set guide_tri_tl:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
             set guide_tri_tl:vec to guide_size*(nav_heading:starvector + nav_heading:topvector).
 
@@ -405,6 +406,7 @@ local function lr_text_info {
             ( vel_displayed ) + ( choose ap_nav_status_string()+char(10) if defined AP_NAV_ENABLED else char(10) ) +
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
             ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
+            ( choose ap_hover_status_string()+char(10) if defined AP_HOVER_ENABLED else "") +
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +

@@ -7,19 +7,12 @@
                 "VS_MAX", 30,
                 "TILT_MAX", 30,
                 "ROLLRATE_MAX", 30,
-                "VS_INERTIA", 6.5,
-                "ATT_INERTIA", 0.05,
+                
+                "K_VEL", 3.5,
+                "ATT_INERTIA", 1.45,
+                "RR_K",0.25,
 
-                "VS_KP",1.0,
-                "VS_KI",1.8,
-                "VS_KD",0.2,
-                "P_KP",1.0,
-                "P_KI",1.5,
-                "P_KD",0.5,
-                "RR_K",2.5,
-
-                "K_VEL", 1.0,
-                "K_ROLL", 1.5
+                "K_ROLL", 0.15
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
@@ -29,16 +22,14 @@
                 "ROT_GNOM_VERT", 2.0,
                 "ROT_GNOM_LAT", 0.1,
                 "ROT_GNOM_LONG", 1,
+                "MIN_SRF_RAD", 15,
 
                 "K_Q", 0.1,
                 "K_E", 0.1,
-                "GEAR_BANK_MAX", 5,
-                "BANK_MAX", 180,
-                "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 850,
-                "GEAR_HEIGHT", 1.8,
+                "GEAR_HEIGHT", 4.1,
 
-                "MAX_STATION_KEEP_SPEED", 10,
+                "MAX_STATION_KEEP_SPEED", 1,
                 "MAX_TARGET_INTERCEPT_DISTANCE", 25000
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
@@ -57,13 +48,13 @@
                 "ON_START", true,
                 "LADDER_START", false,
                 "NAV_START", true,
+                "NAV_CLOSE", true,
                 "CAMERA_HEIGHT", 0.0,
                 "CAMERA_RIGHT", 0.0,
                 
                 "GSLOPE", 2.5,
                 "GHEAD", 90.4,
                 "PITCH_DIV", 5.0,
-                "FLARE_ALT", 15.0,
 
                 "COLOR_R", 0.0,
                 "COLOR_G", 1.0,
