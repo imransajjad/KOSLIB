@@ -29,27 +29,6 @@ local DISPLAY_TAR is false.
 local DISPLAY_HUD_VEL is false.
 local CLEAR_HUD_VEL is false.
 
-local debug_vectors is false.
-if (debug_vectors) { // debug
-    clearvecdraws().
-    local vec_width is 0.5.
-    local vec_scale is 1.0.
-    set nav_debug_vec0 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,0),
-                "", vec_scale, true, vec_width, true ).
-    set nav_debug_vec1 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,1),
-                "", vec_scale, true, vec_width, true ).
-    set nav_debug_vec2 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,0),
-                "", vec_scale, true, vec_width, true ).
-    set nav_debug_vec3 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,1,1),
-                "", vec_scale, true, 0.25*vec_width, true ).
-    set nav_debug_vec4 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,0,1),
-                "", vec_scale, true, 0.25*vec_width, true ).
-    set nav_debug_vec5 to VECDRAW(V(0,0,0), V(0,0,0), RGB(0,1,1),
-                "", vec_scale, true, 0.25*vec_width, true ).
-    set nav_debug_vec6 to VECDRAW(V(0,0,0), V(0,0,0), RGB(1,0,1),
-                "", vec_scale, true, 0.25*vec_width, true ).
-}
-
 // HELPER FUNCTIONS START
 
 // returns the nav velocity of a vessel in "our" frame
@@ -125,23 +104,20 @@ local function nav_align {
     set AP_NAV_TIME_TO_WP to vec_final:mag/max(1,frame_vel:mag).
 
 
-    if debug_vectors {
-
+    if false {
         local new_have_list is haversine_vec(head_final,new_arc_vector).
 
-        set nav_debug_vec3:start to vec_final.
-        set nav_debug_vec3:vec to 10*head_final:vector.
-        set nav_debug_vec4:start to vec_final.
-        set nav_debug_vec4:vec to 10*head_final:starvector.
+        set nav_align_debug_vec0 to VECDRAW(vec_final, 10*head_final:vector, RGB(1,1,1),
+                "", 1.0, true, 0.25, true ).
+        set nav_align_debug_vec1 to VECDRAW(vec_final, 10*head_final:starvector, RGB(0,0,1),
+                "", 1.0, true, 0.25, true ).
+        set nav_align_debug_vec2 to VECDRAW(vec_final, center_vec, RGB(0,1,0),
+                "", 1.0, true, 0.25, true ).
+        set nav_align_debug_vec3 to VECDRAW(V(0,0,0), 10*new_arc_vector, RGB(1,1,0),
+                "", 1.0, true, 0.25, true ).
+        set nav_align_debug_vec4 to VECDRAW(V(0,0,0), vec_final, RGB(0,1,0),
+                "", 1.0, true, 0.25, true ).
         
-        // set nav_debug_vec5:start to vec_final.
-        // set nav_debug_vec5:vec to center_vec.
-
-        set nav_debug_vec5:start to V(0,0,0).
-        set nav_debug_vec5:vec to 10*new_arc_vector.
-
-        set nav_debug_vec6:start to V(0,0,0).
-        set nav_debug_vec6:vec to vec_final.
         util_hud_push_right("nav_align", "e:"+round_fig(head_have[0],1) + 
             char(10) + "t:"+round_fig(head_have[1],1) +
             char(10) + "ne:"+round_fig(new_have_list[0],1) + 
@@ -198,6 +174,7 @@ local function nav_q_target {
 }
 
 local function nav_check_done {
+    parameter final_speed. // final speed upon approach
     parameter vec_final. // position vector to target
     parameter head_final. // desired heading upon approach
     parameter frame_vel. // a velocity vector in this frame
@@ -206,7 +183,7 @@ local function nav_check_done {
     local time_dir is frame_vel*vec_final:normalized.
     local time_to is vec_final:mag/max(frame_vel:mag,0.0001).
 
-    if (time_to < 3) {
+    if (time_to < 3) and (final_speed > MAX_STATION_KEEP_SPEED) {
         local angle_to is vectorangle(vec_final,frame_vel).
 
         if ( angle_to > 30) or
@@ -265,11 +242,11 @@ local function srf_wp_guide {
         
         if wp:haskey("elev") and (wp_vec:mag < 9*final_radius) { 
             // do final alignment
-            nav_check_done(wp_vec, heading(wp["head"],wp["elev"]), ship:velocity:surface, final_radius).
+            nav_check_done(wp["vel"], wp_vec, heading(wp["head"],wp["elev"]), ship:velocity:surface, final_radius).
             set align_data to nav_align(wp["vel"],wp_vec, heading(wp["head"],wp["elev"]), ship:velocity:surface, final_radius).
         } else {
             // do q_follow for height and wp heading
-            nav_check_done(wp_vec, ship:facing, ship:velocity:surface, final_radius).
+            nav_check_done(ship:airspeed, wp_vec, ship:facing, ship:velocity:surface, final_radius).
             set align_data to nav_q_target(wp["vel"],wp["alt"],latlng(wp["lat"],wp["lng"]):heading, geo_distance, final_radius).
         }
     } else {
@@ -285,8 +262,8 @@ local function srf_wp_guide {
 }
 
 local SRF_V_SET_DELTA is 0.
-local stick_heading is vel_bear.
-local stick_pitch is vel_pitch.
+local stick_heading is 90.
+local stick_pitch is 0.
 local stick_vel is ship:airspeed.
 local function srf_stick {
     parameter u0 is SHIP:CONTROL:PILOTMAINTHROTTLE. // throttle input
@@ -405,6 +382,9 @@ local function orb_mannode {
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
             // steer to burn direction
+            if not (kuniverse:timewarp:rate = 0) {
+                set kuniverse:timewarp:rate to 0.
+            }
             set AP_NAV_VEL to ship:velocity:orbit.
             set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
         } else {
@@ -472,9 +452,8 @@ local function tar_wp_guide {
         if position:mag > INTERCEPT_DISTANCE {
             return false. // do nothing
         }
-        if approach_speed > MAX_STATION_KEEP_SPEED {
-            nav_check_done(position, ship:facing, relative_velocity, radius).
-        } else {
+        nav_check_done(approach_speed, position, ship:facing, relative_velocity, radius).
+        if approach_speed <= MAX_STATION_KEEP_SPEED {
             set approach_speed to sat(position:mag/radius, 1)*abs(approach_speed).
         }
 
@@ -492,6 +471,36 @@ local function tar_wp_guide {
 
 // NAV TAR END
 
+// NAV TEST START
+
+// directly set any nav data here for testing
+local function navtest_wp {
+    parameter wp.
+
+    if not (wp["mode"] = "navtest") {
+        return false.
+    }
+    set AP_NAV_VEL to get_vessel_vel().
+    // set AP_NAV_ACC to -(vectorexclude(ship:up:vector,ship:velocity:orbit):mag^2/(600000 + ship:altitude))*ship:up:forevector.
+    set AP_NAV_ACC to GRAV_ACC.
+    set AP_NAV_ATT to lookDirUp(ship:velocity:surface,ship:up:vector)*R(-12.5,0,0).
+
+    if false {
+        util_hud_push_left( "navtest",
+            "a/g " + round_dec(get_acc():mag/GRAV_ACC:mag,3) + char(10) +
+            "ang " + round_dec(vectorAngle(get_acc(),GRAV_ACC),3)).
+        set nav_debug_vec1 to VECDRAW(V(0,0,0), 10*(get_acc()-GRAV_ACC), RGB(0,1,1),
+            "", 1.0, true, 0.25, true ).
+        set nav_debug_vec2 to VECDRAW(V(0,0,0), 10*GRAV_ACC, RGB(0,0,1),
+            "", 1.0, true, 0.25, true ).
+        set nav_debug_vec3 to VECDRAW(V(0,0,0), 10*get_acc(), RGB(1,1,1),
+            "", 1.0, true, 0.25, true ).
+    }
+    return true.
+}
+
+// NAV TEST END
+
 function ap_nav_display {
 
     if not (previous_body = ship:body:name) {
@@ -508,30 +517,16 @@ function ap_nav_display {
 
     if cur_wayp["mode"] = "srf" and srf_wp_guide(cur_wayp) {
         set DISPLAY_SRF to true.
-        if (debug_vectors) {
-            set nav_debug_vec0:vec to AP_NAV_VEL.
-            set nav_debug_vec1:vec to AP_NAV_ACC.
-            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
-        }
+
     } else if cur_wayp["mode"] = "orb" and orb_wp_guide(cur_wayp) {
         set DISPLAY_ORB to true.
     } else if cur_wayp["mode"] = "tar" and tar_wp_guide(cur_wayp) {
         set DISPLAY_TAR to true.
-        if (debug_vectors) {
-            if HASTARGET {
-                set nav_debug_vec0:vec to 30*(AP_NAV_VEL-get_vessel_vel(TARGET)).
-            }
-            set nav_debug_vec1:vec to AP_NAV_ACC.
-            set nav_debug_vec2:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
-        }
+    } else if cur_wayp["mode"] = "navtest" and navtest_wp(cur_wayp) {
+         set DISPLAY_SRF to AP_NAV_IN_SURFACE.
+         set DISPLAY_ORB to AP_NAV_IN_ORBIT.
     } else if AP_NAV_IN_ORBIT and orb_mannode() {
         set DISPLAY_ORB to true.
-        if (debug_vectors) {
-            set nav_debug_vec0:vec to 30*(AP_NAV_VEL-get_vessel_vel()).
-            set nav_debug_vec1:vec to 10*AP_NAV_ATT:starvector.
-            set nav_debug_vec2:vec to 10*AP_NAV_ATT:topvector.
-            set nav_debug_vec3:vec to 20*AP_NAV_ATT:forevector.
-        }
     } else if AP_NAV_IN_SURFACE and srf_stick() {
         set DISPLAY_SRF to true.
     } else {
@@ -544,6 +539,27 @@ function ap_nav_display {
     // set AP_NAV_VEL to AP_NAV_VEL + ship:facing*ship:control:pilottranslation.
     // all of the above functions can contribute to setting
     // AP_NAV_VEL, AP_NAV_ACC, AP_NAV_ATT
+
+    if false {
+        if HASTARGET {
+            set nav_debug_vec_vel to VECDRAW(V(0,0,0), 30*(AP_NAV_VEL-get_vessel_vel(TARGET)), RGB(1,0,1),
+                "", 1.0, true, 0.5, true ).
+        } else {
+            set nav_debug_vec_vel to VECDRAW(V(0,0,0), 30*get_vessel_vel(), RGB(0,1,0),
+                "", 1.0, true, 0.5, true ).
+        }
+        set nav_debug_vec_vel_err to VECDRAW(V(0,0,0), 30*(AP_NAV_VEL-get_vessel_vel()), RGB(1,0,0),
+            "", 1.0, true, 0.5, true ).
+        set nav_debug_vec_acc to VECDRAW(V(0,0,0), 30*AP_NAV_ACC, RGB(1,1,0),
+            "", 1.0, true, 1.0, true ).
+
+        set nav_debug_vec_att0 to VECDRAW(V(0,0,0), 10*AP_NAV_ATT:starvector, RGB(0,0,1),
+            "", 1.0, true, 0.125, true ).
+        set nav_debug_vec_att1 to VECDRAW(V(0,0,0), 10*AP_NAV_ATT:topvector, RGB(0,0,1),
+            "", 1.0, true, 0.125, true ).
+        set nav_debug_vec_att2 to VECDRAW(V(0,0,0), 10*AP_NAV_ATT:forevector, RGB(1,1,1),
+            "", 1.0, true, 0.125, true ).
+    }
 }
 
 local last_hud_vel is V(0,0,0).
@@ -625,15 +641,6 @@ function ap_nav_status_string {
     set FOLLOW_MODE_Q to false.
     
     set dstr to dstr + (choose "" if mode_str = "" else char(10)+mode_str).
-    if (debug_vectors) {
-        set nav_debug_vec0:show to true.
-        set nav_debug_vec1:show to true.
-        set nav_debug_vec2:show to true.
-        set nav_debug_vec3:show to true.
-        set nav_debug_vec4:show to true.
-        set nav_debug_vec5:show to true.
-        set nav_debug_vec6:show to true.
-    }
 
     return dstr.
 }

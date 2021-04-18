@@ -48,9 +48,11 @@ function util_wp_arg_lex {
     parameter wp_args. // has to be a list of numbers
     parameter wp_mode is "srf".
 
-    if wp_args:length > 0 and (wp_args[0] = "act" or
+    if wp_args:length > 0 and
+        (wp_args[0] = "act" or
         wp_args[0] = "spin" or
         wp_args[0] = "srf" or
+        wp_args[0] = "navtest" or
         // wp_args[0] = "orb" or
         wp_args[0] = "tar") {
         set wp_mode to wp_args[0].
@@ -391,6 +393,8 @@ local function waypoint_print_str {
         return WP["mode"] + " " + WP["do_action"].
     } else if WP["mode"] = "spin" {
         return WP["mode"] + " " + WP["spin_part"] + " " + WP["spin_state"].
+    } else if WP["mode"] = "navtest" {
+        return WP["mode"].
     } else if WP["mode"] = "srf" {
         local wp_str is WP["mode"].
         set wp_str to wp_str + " " + round(get_param(WP,"alt",0))

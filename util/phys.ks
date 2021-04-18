@@ -99,8 +99,8 @@ function get_aero_acc {
 function get_frame_accel_orbit {
     // returns a force that if subtracted from the ship
     // will result in a constant height in SOI
-    return ship:up:vector*(-1.0*g0 +
-        (VECTOREXCLUDE(ship:up:vector,ship:velocity:orbit):mag^2
+    return GRAV_ACC + ship:up:vector*
+    ((VECTOREXCLUDE(ship:up:vector,ship:velocity:orbit):mag^2
         /(ship:altitude+ship:body:radius))).
 }
 

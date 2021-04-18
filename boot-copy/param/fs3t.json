@@ -26,7 +26,7 @@
 
                 "K_PITCH", 0.5,
                 "K_YAW", 0.5,
-                "K_ROLL", 0.5,
+                "K_ROLL", 1.5,
                 "USE_GCAS", true,
                 "GCAS_MARGIN", 15,
                 "GCAS_GAIN_MULTIPLIER", 2.0
@@ -36,8 +36,6 @@
         "AP_AERO_ENGINES",
         {
             "entries": [
-                "TOGGLE_X", 0.80,
-                "TOGGLE_Y",  0.5,
                 "K_V", 0.25,
                 "AUTO_BRAKES", true,
                 "MAIN_ENGINE_NAME", "turboJet",

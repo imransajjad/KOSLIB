@@ -120,7 +120,7 @@ local function nav_vecdraw {
         set guide_tri_ll:show to true.
         set guide_tri_lr:show to true.
 
-        if SETTINGS["nav_close"] or (nav_heading:vector*ship:facing:vector > 0.996) {
+        if SETTINGS["nav_close"] or (nav_heading:vector*ship:facing:vector > 0.966) {
             set guide_tri_tl:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
             set guide_tri_tl:vec to guide_size*(nav_heading:starvector + nav_heading:topvector).
 

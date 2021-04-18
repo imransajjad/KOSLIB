@@ -116,29 +116,25 @@ local function rate_schedule {
     }
 }
 
-local LF2G is 1.0.
-local prev_AG is AG.
 local function gain_schedule {
 
-    if not GAIN_SCHEDULE_ENABLED {
-        return.
+    local LF2G is 1.0.
+
+    if GAIN_SCHEDULE_ENABLED {
+        local loadfactor is max(ship:q,MIN_SEA_Q)/ship:mass.
+        local alsat is sat(alpha,35).
+        local airflow_c_u is cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
+            cd_sched(max(50,vel))*(2*cos(alsat)*sin(alsat)^2).
+
+        set LF2G to LF2G/(loadfactor*airflow_c_u).
+    } else {
+        set LF2G to 35/0.75. // nominal value to match params
     }
-
-    local loadfactor is max(ship:q,MIN_SEA_Q)/ship:mass.
-    local alsat is sat(alpha,35).
-    local airflow_c_u is cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
-        cd_sched(max(50,vel))*(2*cos(alsat)*sin(alsat)^2).
-
-    set LF2G to 1.0.
-
-    if prev_AG <> AG {
-        set prev_AG to AG.
-        print "LF2G: " + round_dec(LF2G/(choose 3 if AG else 1),2).
-    }
-    if prev_AG {
+    if AG {
         set LF2G to LF2G/3.
     }
-    set LF2G to LF2G/(loadfactor*airflow_c_u)/kuniverse:timewarp:rate.
+
+    set LF2G to LF2G/kuniverse:timewarp:rate.
 
     local LF2GP is (LF2G/PITCH_SPECIFIC_INERTIA).
     set pratePID:KP to PR_KP*LF2GP.
@@ -154,34 +150,15 @@ local function gain_schedule {
     set rratePD:KP to RR_KP*LF2GR.
     set rrateI:KI to RR_KI*LF2GR.
     set rratePD:KD to RR_KD*LF2GR.
-}
 
+    if ( false) { // q debug
+        util_hud_push_left("aero_w_gain_schedule", 
+            char(10) + "q " + round_dec(ship:q,7) +
+            char(10) + "LF " + round_fig(WING_AREA_P*LF/(GLIM_VERT*g0/CORNER_VELOCITY),3) +
+            char(10) + "LF2GP " + round_fig(LF2GP,3) +
+            char(10) + "WA " + round_dec(WING_AREA_P,1)).
+    }
 
-local Vslast is 0.0.
-local prev_land is SHIP:STATUS.
-local function display_land_stats {
-    if not (SHIP:STATUS = prev_land) {
-        if SHIP:STATUS = "LANDED" {
-            local land_stats is "landed" + char(10) +
-                "  pitch "+ round_dec(pitch,2) + char(10) +
-                "  v/vs  "+ round_dec(vel,2) + "/"+round_dec(Vslast,2).
-            if defined UTIL_HUD_ENABLED {
-                util_hud_push_left("AERO_W_LAND_STATS" , land_stats ).
-            }
-            if defined UTIL_FLDR_ENABLED {
-                util_fldr_send_event(land_stats).
-            }
-            print land_stats.
-        } else if SHIP:STATUS = "FLYING" {
-            if defined UTIL_HUD_ENABLED {
-                util_hud_pop_left("AERO_W_LAND_STATS").
-            }
-        }
-        set prev_land to SHIP:STATUS.
-    }
-    if ship:status = "FLYING" {
-        SET Vslast to SHIP:VERTICALSPEED.
-    }
 }
 
 
@@ -202,7 +179,7 @@ function ap_aero_w_do {
     local yaw_rate is ((SHIP:ANGULARVEL+wg)*SHIP:FACING:TOPVECTOR).
     local roll_rate is -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
 
-    if not SAS and ship:q > MIN_AERO_Q {
+    if not SAS {
 
         display_land_stats().
         rate_schedule().
@@ -402,31 +379,21 @@ function ap_aero_w_nav_do {
 
     unlock steering. // steering manager needs to be disabled.
     
-    local target_dir is LOOKDIRUP(vel_vec, ship:up:vector).
-    local base_frame is ship_vel_dir.
+    local error_v is (-ship_vel_dir)*LOOKDIRUP(vel_vec, ship:up:vector).
+    local target_R is (-ship_vel_dir)*AP_NAV_ATT.
+    local current_R is (-ship_vel_dir)*ship:facing.
+    local modeATT is false.
     
     set acc_vec to vectorexclude(vel_vec, acc_vec).
-    local wff is vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
-    local wg is -vcrs(ship:velocity:surface:normalized, ship:up:vector)*
-                (get_frame_accel_orbit()/max(1,vel)):mag*RAD2DEG.
-
-    // decide how to transistion between attitude control and velocity control
-    if (not AP_NAV_IN_SURFACE) {
-        set target_dir to head_dir.
-        set base_frame to ship:facing.
-        set wff to V(0,0,0).
-        set wg to V(0,0,0).
-    }
-
-    local frame_error_dir is (-base_frame)*target_dir.
+    local wff is (-ship_vel_dir)*vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
+    local wg is (-ship_vel_dir)*(-vcrs(ship:velocity:surface:normalized, ship:up:vector)*
+                (get_frame_accel_orbit()/max(1,vel)):mag*RAD2DEG).
 
     local werr is
-        V(K_PITCH*wrap_angle(frame_error_dir:pitch),
-        K_YAW*wrap_angle(frame_error_dir:yaw),
-        K_ROLL*wrap_angle(frame_error_dir:roll))/kuniverse:timewarp:rate.
-
-    set wff to (-base_frame)*wff.
-    set wg to (-base_frame)*wg.
+        V(K_PITCH*wrap_angle(error_v:pitch + (target_R:pitch - current_R:pitch)),
+        K_YAW*wrap_angle(error_v:yaw + (target_R:yaw - current_R:yaw)),
+        K_ROLL*wrap_angle(0*error_v:roll + (target_R:roll - current_R:roll)))
+        /kuniverse:timewarp:rate.
 
     // now everything should be in ship or velocity frame
     
@@ -441,23 +408,23 @@ function ap_aero_w_nav_do {
     // completely ignore yaw error
     local p_rot is -w_us:x.
     local y_rot is convex(w_us:y, 0, sat(abs(w_us:x)/1.5,1.0) ).
-    local r_rot is convex(K_ROLL*(0-roll), K_ROLL*wrap_angle(g_hav[0]), sat(g_hav[1]/1.5,1.0)).
+    local r_rot is convex(-w_us:z, K_ROLL*wrap_angle(g_hav[0]), sat(g_hav[1]/1.5,1.0)).
 
     if false { // nav debug
         util_hud_push_right("nav_w",
-            "w_err(p,y,r): " + round_dec(werr:x,2) + "," + round_dec(werr:y,2) + "," + round_dec(werr:z,2) +
-            // char(10)+ "w_ff(p,y): " + char(10)+ round_dec(wff:x,2) + "," + round_dec(wff:y,2) +
-            // char(10)+ "w_g(p,y): " + char(10)+ round_dec(wg:x,2) + "," + round_dec(wg:y,2) +
-            // char(10)+ "w_us(p,y): " + char(10)+ round_dec(w_us:x,2) + "," + round_dec(w_us:y,2) +
+            "w_err(p,y,r): " + round_dec(werr:x,1) + "," + round_dec(werr:y,1) + "," + round_dec(werr:z,1) +
+            char(10)+ "w_ff(p,y): " + char(10)+ round_dec(wff:x,2) + "," + round_dec(wff:y,2) +
+            char(10)+ "w_g(p,y): " + char(10)+ round_dec(wg:x,2) + "," + round_dec(wg:y,2) +
+            char(10)+ "w_us(p,y,r): " + char(10)+ round_dec(w_us:x,2) + "," + round_dec(w_us:y,2) + "," + round_dec(w_us:z,2) +
             // char(10)+ "w_usg(p,y): " + char(10)+ round_dec(w_usg:x,2) + "," + round_dec(w_usg:y,2) +
             char(10)+ "ha(r,e): " + char(10)+ round_dec(g_hav[0],2) + "," + + round_dec(g_hav[1],2) +
             char(10)+ "pyr (" + round_dec(p_rot,1) + "," + round_dec(y_rot,1) + "," + round_dec(r_rot,1) + ")").
         
-        set aero_debug_vec0 to VECDRAW(V(0,0,0), 10*target_dir:starvector, RGB(0,0,1),
+        set aero_debug_vec0 to VECDRAW(V(0,0,0), wff, RGB(1,0,0),
                 "", 1.0, true, 0.125, true ).
-        set aero_debug_vec1 to VECDRAW(V(0,0,0), 10*target_dir:topvector, RGB(0,0,1),
+        set aero_debug_vec1 to VECDRAW(V(0,0,0), w_us, RGB(1,1,0),
                 "", 1.0, true, 0.125, true ).
-        set aero_debug_vec2 to VECDRAW(V(0,0,0), 15*target_dir:forevector, RGB(0,0.5,1),
+        set aero_debug_vec2 to VECDRAW(V(0,0,0), wg, RGB(1,1,1),
                 "", 1.0, true, 0.125, true ).
     }
 
@@ -485,14 +452,5 @@ function ap_aero_w_status_string {
             }
         }
     }
-
-    if ( false) { // q debug
-    set hud_str to hud_str+
-        char(10) + "q " + round_dec(ship:DYNAMICPRESSURE,7) +
-        char(10) + "LF " + round_fig(WING_AREA_P*LF/(GLIM_VERT*g0/CORNER_VELOCITY),3) +
-        char(10) + "LF2GP " + round_fig(LF2G/PITCH_SPECIFIC_INERTIA,3) +
-        char(10) + "WA " + round_dec(WING_AREA_P,1).
-    }
-
     return hud_str.
 }
