@@ -24,7 +24,7 @@ if MAIN_ENGINE_NAME = "turboJet" {
 
 local my_throttle is 0.0. // has to be accessible outside functions it seems
 local last_stage is STAGE:number.
-local max_thrust is 1.0/SHIP:MASS.
+local max_thrust is 1.0*SHIP:MASS.
 
 local function get_total_tmr {
     local total_thrust is 0.
@@ -35,8 +35,7 @@ local function get_total_tmr {
     for e in MAIN_ENGINES {
         set total_thrust to total_thrust+e:MAXTHRUST.
     }
-    set max_thrust to total_thrust.
-    return max_thrust/SHIP:MASS.
+    return total_thrust/SHIP:MASS.
 }
 
 local function attempt_restart {
@@ -57,6 +56,7 @@ local function no_map {
 
     local MAX_TMR is get_total_tmr().
     set my_throttle to SHIP:CONTROL:PILOTMAINTHROTTLE.
+    set max_thrust to MAX_TMR*ship:mass.
     return my_throttle.
 }
 
@@ -68,6 +68,7 @@ local function generic_throttle_auto {
     local a_applied is (-get_pre_aero_acc()*ship_vel_dir:vector + g0*sin(vel_pitch) + a_set).
     local MAX_TMR is get_total_tmr().
     set my_throttle to max(0.001,(choose a_applied/MAX_TMR if MAX_TMR > 0 else 0)).
+    set max_thrust to MAX_TMR*ship:mass.
     set BRAKES to apply_auto_brakes(a_applied).
 
     if false {
@@ -117,14 +118,20 @@ local function turbojet_throttle_map {
     local toggle_x is min(0.5 +0.5*dry_wet_ratio, 0.975).
     local toggle_y is dry_wet_ratio.
     local MaxDryThrottle_x is toggle_x-0.05.
+    local MAX_TMR is get_total_tmr().
 
     if not (MAIN_ENGINES:length = 0){
+        if MAIN_ENGINES[0]:mode = "Dry" {
+            set max_thrust to (last_wet_tmr/last_dry_tmr)*MAX_TMR*ship:mass.
+        } else {
+            set max_thrust to MAX_TMR*ship:mass.
+        }
         if u0 > toggle_x and MAIN_ENGINES[0]:MODE = "Dry" {
+            set last_dry_tmr to MAX_TMR.
             for e in MAIN_ENGINES {e:TOGGLEMODE().}
-            set last_wet_tmr to get_total_tmr().
         } else if u0 <= toggle_x and MAIN_ENGINES[0]:MODE = "Wet" {
+            set last_wet_tmr to MAX_TMR.
             for e in MAIN_ENGINES {e:TOGGLEMODE().}
-            set last_dry_tmr to get_total_tmr().
         }
     }
 
@@ -159,12 +166,17 @@ local function turbojet_throttle_auto {
     }
     
     if not (MAIN_ENGINES:length = 0) {
+        if MAIN_ENGINES[0]:mode = "Dry" {
+            set max_thrust to (last_wet_tmr/last_dry_tmr)*MAX_TMR*ship:mass.
+        } else {
+            set max_thrust to MAX_TMR*ship:mass.
+        }
         if (my_throttle > 1.00) and MAIN_ENGINES[0]:MODE = "Dry" {
-            for e in MAIN_ENGINES {e:TOGGLEMODE().}
-            set last_wet_tmr to MAX_TMR.
-        } else if (my_throttle < dry_wet_ratio ) and MAIN_ENGINES[0]:MODE = "Wet" {
-            for e in MAIN_ENGINES {e:TOGGLEMODE().}
             set last_dry_tmr to MAX_TMR.
+            for e in MAIN_ENGINES {e:TOGGLEMODE().}
+        } else if (my_throttle < dry_wet_ratio ) and MAIN_ENGINES[0]:MODE = "Wet" {
+            set last_wet_tmr to MAX_TMR.
+            for e in MAIN_ENGINES {e:TOGGLEMODE().}
         }
     }
     return my_throttle.
