@@ -39,25 +39,20 @@ local max_roll_rate is get_param(PARAM, "ROLLRATE_MAX", 30).
 local K_ROLL is get_param(PARAM, "K_ROLL", 1.5).
 
 local Elist is get_engines(get_param(PARAM, "MAIN_ENGINE_NAME", "")).
+local base_thrust is get_param(PARAM, "MAIN_ENGINE_THRUST", 0).
 
 local upvec is ship:up:vector.
 local my_throttle is 0.0.
 
-lock throttle to my_throttle.
-// unlock throttle.
-local lock max_tmr to get_total_tmr().
-
-local last_tmr is 0.1.
 local last_tmr_time is 0.
 local function get_total_tmr {
+    local thrust is base_thrust.
     if time:seconds > last_tmr_time + 0.01 {
-        local thrust is 0.
         for e in Elist {
             set thrust to thrust+e:maxthrust.
         }
-        set last_tmr to thrust/ship:mass.
     }
-    return last_tmr.
+    return thrust/ship:mass.
 }
 
 local function gain_update {
@@ -78,6 +73,10 @@ local function gain_update {
     set yaw_pid:KD to Y_KD*I2G.
 }
 
+local got_rotors is false.
+local function quad_update {
+}
+
 local function hover_do_control {
     parameter acc_up.
     parameter pitch_target.
@@ -96,15 +95,23 @@ local function hover_do_control {
         set yaw_target to 0.
     }
 
+    local max_tmr is get_total_tmr().
+
     if max_tmr > 0 {
-        local cos_up is ship:up:vector*ship:facing:vector.
-        set my_throttle to max(0.001, acc_up/max_tmr/cos_up).
+        // local cos_up is ship:up:vector*ship:facing:vector.
+        local cos_up is cos(pitch_target)*cos(yaw_target).
+        set my_throttle to acc_up/max_tmr/cos_up.
     } else {
         set my_throttle to 0.
     }
-    // set ship:control:mainthrottle to my_throttle.
 
-    local delta_dir is (-ship:facing)*ship:up.
+    if ISACTIVEVESSEL {
+        set ship:control:mainthrottle to max(0.001,my_throttle).
+    }
+
+    local engine_frame is ship:facing.
+
+    local delta_dir is (-engine_frame)*ship:up.
     local pitch_tilt is wrap_angle(delta_dir:pitch).
     local yaw_tilt is wrap_angle(-delta_dir:yaw).
     local roll_rate is -RAD2DEG*ship:facing:vector*ship:angularvel.
@@ -128,7 +135,7 @@ local function hover_do_control {
         char(10) + "I2G " + round_dec(I2G,3) ).
     }
 
-    if false {
+    if true {
         util_hud_push_left("hover_pitch",
         "pt/" + char(916) + ": " + round_dec(pitch_pid:setpoint,1) + "," + round_dec(pitch_pid:error,1) +
         char(10) + "pPID " + round_dec(pitch_pid:KP,1) + "," + round_dec(pitch_pid:KI,1) + "," + round_dec(pitch_pid:KD,1) +
@@ -149,7 +156,6 @@ function ap_hover_do {
     if false {
         util_hud_push_left("hover_vvel",
         "vt/" + char(916) + ": " + round_dec(vs_target,1) + "," + round_dec(vs_error,1) +
-        char(10) + "T " + round_dec(max_tmr,1) +
         char(10) + "o/i " + round_dec(my_throttle,1)).
     }
 
@@ -157,9 +163,9 @@ function ap_hover_do {
     hover_pid:update(time:seconds, ship:velocity:surface*ship:up:vector).
 
     hover_do_control( hover_pid:output - GRAV_ACC*ship:up:vector,
-            CONTROL_DIR*STICK_GAIN*u1*max_tilt,
+            -CONTROL_DIR*STICK_GAIN*u1*max_tilt,
             -CONTROL_DIR*STICK_GAIN*u2*max_tilt,
-            CONTROL_DIR*STICK_GAIN*u3*max_roll_rate).
+            -CONTROL_DIR*STICK_GAIN*u3*max_roll_rate).
 }
 
 
@@ -176,17 +182,17 @@ function ap_hover_nav_do {
     set hover_pid:setpoint to vel_vec*upvec.
     hover_pid:update(time:seconds, ship:velocity:surface*upvec).
 
-    local base_frame is lookDirUp(ship:up:vector, ship:facing:topvector).
-    local delta_dir is (-ship:facing)*AP_NAV_ATT.
+    local engine_frame is ship:facing.
+    local base_frame is lookDirUp(ship:up:vector, engine_frame:topvector).
+    local delta_dir is (-engine_frame)*AP_NAV_ATT.
     local roll_error is convex(
         wrap_angle(delta_dir:roll),
         0,
         vectorexclude(ship:up:vector,acc_applied):mag ).
-        // 0 ).
 
-    local current_mtr is 0.
-    if max_tmr > 0 {
-        set current_mtr to 1/max_tmr.
+    local current_mtr is get_total_tmr().
+    if current_mtr > 0 {
+        set current_mtr to 1/current_mtr.
     }
 
     hover_do_control( (hover_pid:output - GRAV_ACC*ship:up:vector + acc_vec*upvec),
