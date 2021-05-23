@@ -255,7 +255,9 @@ local function srf_wp_guide {
         set align_data[0] to align_data[0].
     }
     set AP_NAV_VEL to align_data[0].
-    set AP_NAV_ACC to align_data[1].
+    set AP_NAV_ACC to align_data[1] +
+            (-(vectorexclude(ship:up:vector,ship:velocity:orbit):mag^2)*ship:up:forevector +
+            + 2*(ship:geoposition:velocity:orbit:mag)*vectorExclude(ship:up:vector,ship:velocity:orbit):normalized*(ship:velocity:orbit*ship:up:vector))/(ship:body:radius + ship:altitude).
     set AP_NAV_ATT to ship:facing.
 
     return true.
@@ -292,7 +294,7 @@ local function srf_stick {
         if elev_increment <> 0 or heading_increment <> 0 {
             local py_temp is pitch_yaw_from_dir(AP_NAV_VEL:direction).
             set stick_pitch to round_dec(py_temp[0] + elev_increment,1).
-            set stick_heading to round_dec(py_temp[1] + heading_increment,1).
+            set stick_heading to round(py_temp[1] + heading_increment).
         }
         set VSET_MAN to true.
     }
@@ -308,7 +310,9 @@ local function srf_stick {
         set stick_vel to AP_NAV_VEL:mag.
     } else {
         set AP_NAV_VEL to new_vel.
-        set AP_NAV_ACC to V(0,0,0).
+        set AP_NAV_ACC to V(0,0,0) +
+            (-(vectorexclude(ship:up:vector,ship:velocity:orbit):mag^2)*ship:up:forevector +
+            + 2*(ship:geoposition:velocity:orbit:mag)*vectorExclude(ship:up:vector,ship:velocity:orbit):normalized*(ship:velocity:orbit*ship:up:vector))/(ship:body:radius + ship:altitude).
         set AP_NAV_ATT to ship:facing.
 
     }
@@ -377,7 +381,9 @@ local function orb_mannode {
                 // do burn
                 set AP_NAV_VEL to ship:velocity:orbit + NEXTNODE:deltav.
                 if NEXTNODE:deltav:mag > no_steer_dv {
-                    set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
+                    local omega is -1*vcrs(NEXTNODE:deltav:normalized, ship:facing*thrust_vector).
+                    local omega_mag is vectorAngle(NEXTNODE:deltav:normalized, ship:facing*thrust_vector).
+                    set AP_NAV_ATT to angleaxis( omega_mag, omega:normalized )*ship:facing.
                 }
             }
         } else if NEXTNODE:eta < mannode_maneuver_time/2 + buffer_time + steer_time {
@@ -386,7 +392,9 @@ local function orb_mannode {
                 set kuniverse:timewarp:rate to 0.
             }
             set AP_NAV_VEL to ship:velocity:orbit.
-            set AP_NAV_ATT to NEXTNODE:deltav:direction*(-thrust_vector:direction).
+            local omega is -1*vcrs(NEXTNODE:deltav:normalized, ship:facing*thrust_vector).
+            local omega_mag is vectorAngle(NEXTNODE:deltav:normalized, ship:facing*thrust_vector).
+            set AP_NAV_ATT to angleaxis( omega_mag, omega:normalized )*ship:facing.
         } else {
             // do nothing
             set AP_NAV_VEL to ship:velocity:orbit.
@@ -395,6 +403,7 @@ local function orb_mannode {
         
         return true.
     } else {
+        set mannode_maneuver_time to 0.
         return false.
     }
 }
@@ -480,9 +489,9 @@ local function navtest_wp {
     if not (wp["mode"] = "navtest") {
         return false.
     }
-    set AP_NAV_VEL to get_vessel_vel().
-    // set AP_NAV_ACC to -(vectorexclude(ship:up:vector,ship:velocity:orbit):mag^2/(600000 + ship:altitude))*ship:up:forevector.
-    set AP_NAV_ACC to GRAV_ACC.
+    set AP_NAV_VEL to ship:velocity:surface.
+    set AP_NAV_ACC to (-(vectorexclude(ship:up:vector,ship:velocity:orbit):mag^2)*ship:up:forevector +
+            + 2*(ship:geoposition:velocity:orbit:mag)*vectorExclude(ship:up:vector,ship:velocity:orbit):normalized*(ship:velocity:orbit*ship:up:vector))/(ship:body:radius + ship:altitude).
     set AP_NAV_ATT to lookDirUp(ship:velocity:surface,ship:up:vector)*R(-12.5,0,0).
 
     if false {

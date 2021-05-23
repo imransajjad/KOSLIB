@@ -56,7 +56,7 @@
                 "ROT_GNOM_LONG", 1,
                 
                 "K_Q", 0.1,
-                "K_E", 15.0,
+                "K_E", 0.05,
                 "GEAR_BANK_MAX", 5,
                 "BANK_MAX", 30,
                 "TAIL_STRIKE", 7.5,
@@ -70,7 +70,8 @@
             "entries": [
                 "FLCS_ENABLED", true,
                 "VEL_ENABLED", true,
-                "NAV_ENABLED", true
+                "NAV_ENABLED", true,
+                "NONE_ENABLED", true
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

@@ -22,7 +22,10 @@
                 "Y_KD",0.0,
                 "R_KP",3.0,
                 "R_KI",0.0,
-                "R_KD",0.0
+                "R_KD",0.0,
+
+                "MAX_STOPPING_TIME", 5.0,
+                "MAX_STEER_TIME", 60.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

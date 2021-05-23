@@ -108,7 +108,7 @@ local function apply_auto_brakes {
 
 local last_dry_tmr is 0.5.
 local last_wet_tmr is 1.0.
-local lock dry_wet_ratio to last_dry_tmr/max(0.001,last_wet_tmr).
+local lock dry_wet_ratio to max(0.001,last_dry_tmr)/max(0.01,last_wet_tmr).
 local function turbojet_throttle_map {
     parameter u0.
     if not ISACTIVEVESSEL {
@@ -122,7 +122,7 @@ local function turbojet_throttle_map {
 
     if not (MAIN_ENGINES:length = 0){
         if MAIN_ENGINES[0]:mode = "Dry" {
-            set max_thrust to (last_wet_tmr/last_dry_tmr)*MAX_TMR*ship:mass.
+            set max_thrust to MAX_TMR*ship:mass/dry_wet_ratio.
         } else {
             set max_thrust to MAX_TMR*ship:mass.
         }
@@ -167,7 +167,7 @@ local function turbojet_throttle_auto {
     
     if not (MAIN_ENGINES:length = 0) {
         if MAIN_ENGINES[0]:mode = "Dry" {
-            set max_thrust to (last_wet_tmr/last_dry_tmr)*MAX_TMR*ship:mass.
+            set max_thrust to MAX_TMR*ship:mass/dry_wet_ratio.
         } else {
             set max_thrust to MAX_TMR*ship:mass.
         }
@@ -212,6 +212,7 @@ function ap_aero_engine_throttle_auto {
     parameter acc_r is AP_NAV_ACC.
     parameter head_r is AP_NAV_ATT.
     // this function depends on AP_NAV_ENABLED
+    if SAS { return.}
     if USE_GCAS and (ap_gcas_check()) {
         attempt_restart().
         set SHIP:CONTROL:MAINTHROTTLE to auto_throttle_func(GCAS_SPEED).
@@ -223,6 +224,7 @@ function ap_aero_engine_throttle_auto {
 
 function ap_aero_engine_throttle_map {
     parameter input_throttle is SHIP:CONTROL:PILOTMAINTHROTTLE.
+    if SAS { return.}
     if USE_GCAS and (ap_gcas_check()) {
         attempt_restart().
         set SHIP:CONTROL:MAINTHROTTLE to auto_throttle_func(GCAS_SPEED).

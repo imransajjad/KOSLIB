@@ -407,6 +407,7 @@ local function lr_text_info {
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
             ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
             ( choose ap_hover_status_string()+char(10) if defined AP_HOVER_ENABLED else "") +
+            // + "Ts " + round_dec(time_now - time_last,3) + char(10) + 
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +
@@ -451,12 +452,16 @@ local function control_part_vec_draw {
 
 local hud_interval is 2.
 local hud_i is 0.
+local time_now is time:seconds.
+local time_last is time:seconds.
 function util_hud_info {
+    set time_now to time:seconds.
     set hud_i to hud_i+1.
     if hud_i = hud_interval {
         set hud_i to 0.
         lr_text_info().
     }
+    set time_last to time:seconds.
     align_marker_draw().
     ladder_vec_draw().
     nav_vecdraw().

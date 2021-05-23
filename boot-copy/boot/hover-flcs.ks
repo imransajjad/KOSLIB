@@ -7,7 +7,7 @@ global DEV_FLAG is true.
 if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
-    get_param_file(string_acro(core:element:name)).
+    get_param_file(core:element:name).
 
     COPYPATH("0:/koslib/util/wp.ks","util-wp").
     COPYPATH("0:/koslib/util/fldr.ks","util-fldr").

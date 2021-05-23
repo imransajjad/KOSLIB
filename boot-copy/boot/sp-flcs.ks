@@ -1,14 +1,13 @@
 // atmospheric flight control computer + orbital control computer
 
 wait until ship:loaded.
-wait 0.25.
 
 global DEV_FLAG is true.
 
 if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
-    get_param_file(string_acro(core:element:name)).
+    get_param_file(core:element:name).
 
     COPYPATH("0:/koslib/util/wp.ks","util-wp").
     COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
@@ -27,31 +26,12 @@ if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     print "loaded resources from base".
 }
 
-// Global plane data
-
-when true then {
-    set DELTA_FACE_UP to R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
-    set pitch to (mod(DELTA_FACE_UP:pitch+90,180)-90).
-    set roll to (180-DELTA_FACE_UP:roll).
-    set yaw to (360-DELTA_FACE_UP:yaw).
-
-    set DELTA_PRO_UP to R(90,0,0)*(-SHIP:UP)*
-        (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
-    set vel_pitch to (mod(DELTA_PRO_UP:pitch+90,180)-90).
-    set vel_bear to (360-DELTA_PRO_UP:yaw).
-    
-    return true.
-}
-wait 0.
-
 run once "util-common".
-
 run once "util-wp".
 run once "util-fldr".
 run once "util-shsys".
 run once "util-shbus".
 run once "util-phys".
-
 run once "util-hud".
 
 run once "ap-aero-engines".
@@ -62,16 +42,19 @@ run once "ap-mode".
 
 GLOBAL BOOT_SP_FLCS_ENABLED IS true.
 
+add_plane_globals().
+
 // main loop
 until false {
     util_shbus_rx_msg().
     util_shsys_spin_check().
     util_fldr_run_test().
+    util_phys_update().
 
     ap_mode_update().
     ap_nav_display().
 
-    if AP_NAV_IN_SURFACE {
+    if SHIP:Q > 0.0001 {
         ap_orb_lock_controls(false).
         if AP_MODE_PILOT {
             ap_aero_engine_throttle_map().

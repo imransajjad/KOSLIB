@@ -80,8 +80,8 @@ local lock GLimiter to ( prate_max+0.0001 + g0/vel*cos(vel_pitch)*cos(roll) >
 
 local lock prate_max to max(MIN_ANY_RATE, min(WING_AREA_P*LF, GLIM_VERT*g0/vel)
                      - g0/vel*cos(vel_pitch)*cos(roll) ).
-local lock yrate_max to max(MIN_ANY_RATE, min(WING_AREA_Y*LF, GLIM_LAT*g0/vel) ).
-local lock rrate_max to max(MIN_ANY_RATE, min(WING_AREA_R*LF, MAX_ROLL*CORNER_VELOCITY/vel) ).
+local lock yrate_max to max(0.33*MIN_ANY_RATE, min(WING_AREA_Y*LF, GLIM_LAT*g0/vel) ).
+local lock rrate_max to max(3*MIN_ANY_RATE, min(WING_AREA_R*LF, MAX_ROLL*CORNER_VELOCITY/vel) ).
 
 local pratePID is PIDLOOP(
     PR_KP,
@@ -379,53 +379,49 @@ function ap_aero_w_nav_do {
 
     unlock steering. // steering manager needs to be disabled.
     
-    local error_v is (-ship_vel_dir)*LOOKDIRUP(vel_vec, ship:up:vector).
     local target_R is (-ship_vel_dir)*AP_NAV_ATT.
     local current_R is (-ship_vel_dir)*ship:facing.
-    local modeATT is false.
     
-    set acc_vec to vectorexclude(vel_vec, acc_vec).
-    local wff is (-ship_vel_dir)*vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
+    // set acc_vec to vectorexclude(vel_vec, acc_vec).
+    // local wff is (-ship_vel_dir)*vcrs(vel_vec,acc_vec):normalized*(acc_vec:mag/max(0.0001,vel_vec:mag))*RAD2DEG.
     local wg is (-ship_vel_dir)*(-vcrs(ship:velocity:surface:normalized, ship:up:vector)*
                 (get_frame_accel_orbit()/max(1,vel)):mag*RAD2DEG).
 
-    local werr is
-        V(K_PITCH*wrap_angle(error_v:pitch + (target_R:pitch - current_R:pitch)),
-        K_YAW*wrap_angle(error_v:yaw + (target_R:yaw - current_R:yaw)),
-        K_ROLL*wrap_angle(0*error_v:roll + (target_R:roll - current_R:roll)))
-        /kuniverse:timewarp:rate.
+    local a_applied is K_PITCH*(vel_vec-ship:velocity:surface) + acc_vec.
+    local w_v is (-ship_vel_dir)*vcrs(ship:velocity:surface:normalized, a_applied)/max(0.0001,ship:velocity:surface:mag)*RAD2DEG.
+
+    local w_R is
+        V(K_PITCH*wrap_angle((target_R:pitch - current_R:pitch)),
+        K_YAW*wrap_angle((target_R:yaw - current_R:yaw)),
+        K_ROLL*wrap_angle(target_R:roll - current_R:roll) ).
 
     // now everything should be in ship or velocity frame
     
     // omega applied by us
-    local w_us is wff + werr.
+    // local w_us is wff + werr.
+    local w_us is w_v + w_R.
     // omega applied by us compensating for gravity for deciding roll
     local w_usg is w_us - wg.
     local g_hav is haversine(0,0, -w_usg:x, w_usg:y).
-    // if compensating for gravity+frame requires omega >= 2.5 deg/s,
-    // completely ignore roll error
-    // if pitch rate omega >= 1.5 deg/s,
+    // if compensating for gravity+frame requires more than yrate_max
     // completely ignore yaw error
     local p_rot is -w_us:x.
-    local y_rot is convex(w_us:y, 0, sat(abs(w_us:x)/1.5,1.0) ).
-    local r_rot is convex(-w_us:z, K_ROLL*wrap_angle(g_hav[0]), sat(g_hav[1]/1.5,1.0)).
+    local roll_control is ( choose 1.0 if DEG2RAD*wg:mag > yrate_max/5 else 0).
+    // local roll_control is min(1,max(0, (DEG2RAD*g_hav[1]-yrate_max)/max(0.01,prate_max-yrate_max) )).
+    local y_rot is convex(w_us:y, 0, roll_control ).
+    local r_rot is convex(-w_us:z, K_ROLL*wrap_angle(g_hav[0]), roll_control ).
 
     if false { // nav debug
         util_hud_push_right("nav_w",
-            "w_err(p,y,r): " + round_dec(werr:x,1) + "," + round_dec(werr:y,1) + "," + round_dec(werr:z,1) +
-            char(10)+ "w_ff(p,y): " + char(10)+ round_dec(wff:x,2) + "," + round_dec(wff:y,2) +
-            char(10)+ "w_g(p,y): " + char(10)+ round_dec(wg:x,2) + "," + round_dec(wg:y,2) +
-            char(10)+ "w_us(p,y,r): " + char(10)+ round_dec(w_us:x,2) + "," + round_dec(w_us:y,2) + "," + round_dec(w_us:z,2) +
-            // char(10)+ "w_usg(p,y): " + char(10)+ round_dec(w_usg:x,2) + "," + round_dec(w_usg:y,2) +
-            char(10)+ "ha(r,e): " + char(10)+ round_dec(g_hav[0],2) + "," + + round_dec(g_hav[1],2) +
-            char(10)+ "pyr (" + round_dec(p_rot,1) + "," + round_dec(y_rot,1) + "," + round_dec(r_rot,1) + ")").
-        
-        set aero_debug_vec0 to VECDRAW(V(0,0,0), wff, RGB(1,0,0),
-                "", 1.0, true, 0.125, true ).
-        set aero_debug_vec1 to VECDRAW(V(0,0,0), w_us, RGB(1,1,0),
-                "", 1.0, true, 0.125, true ).
-        set aero_debug_vec2 to VECDRAW(V(0,0,0), wg, RGB(1,1,1),
-                "", 1.0, true, 0.125, true ).
+            char(10)+ "w_R(p,y,r): " + round_dec(w_R:x,3) + "," + round_dec(w_R:y,3) + "," + round_dec(w_R:z,3) +
+            char(10)+ "w_v(p,y): " + round_dec(w_v:x,3) + "," + round_dec(w_v:y,3) +
+            char(10)+ "w_us(p,y,r): " + char(10)+ round_dec(w_us:x,3) + "," + round_dec(w_us:y,3) + "," + round_dec(w_us:z,3) +
+            char(10)+ "w_usg(p,y): " + char(10)+ round_dec(w_usg:x,3) + "," + round_dec(w_usg:y,3) +
+            char(10)+ char(916) + "v " +round_fig((AP_NAV_VEL-ship:velocity:surface)*ship:up:vector,3) +
+            // char(10)+ "ha(r,e): " + char(10)+ round_dec(g_hav[0],2) + "," + + round_dec(g_hav[1],2) +
+            char(10)+ "rc: " + round_dec(roll_control,2) +
+            // char(10)+ "pyr (" + round_dec(p_rot,1) + "," + round_dec(y_rot,1) + "," + round_dec(r_rot,1) + ")" 
+            "" ).
     }
 
     ap_aero_w_do(p_rot, y_rot, r_rot, true).

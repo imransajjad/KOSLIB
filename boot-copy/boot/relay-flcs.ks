@@ -8,7 +8,7 @@ global DEV_FLAG is true.
 if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     COPYPATH("0:/koslib/util/common.ks","util-common").
     run once "util-common".
-    get_param_file(string_acro(core:element:name)).
+    get_param_file(core:element:name).
     
     COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
     COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
@@ -23,13 +23,6 @@ if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
     print "loaded resources from base".
 }
 
-LOCK vel TO (choose SHIP:AIRSPEED if ship:altitude < 36000 else SHIP:VELOCITY:ORBIT:mag).
-
-LOCK DELTA_PRO_UP TO R(90,0,0)*(-SHIP:UP)*
-    (choose SHIP:SRFPROGRADE if ship:altitude < 36000 else SHIP:PROGRADE).
-LOCK vel_pitch TO (mod(DELTA_PRO_UP:pitch+90,180)-90).
-LOCK vel_bear TO (360-DELTA_PRO_UP:yaw).
-
 run once "util-common".
 run once "util-fldr".
 run once "util-shbus".
@@ -43,6 +36,8 @@ run once "ap-mode".
 run once "ap-nav".
 
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.
+
+add_plane_globals().
 
 until false {
     util_shbus_rx_msg().
