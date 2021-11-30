@@ -1,7 +1,6 @@
 import csv
 import os
 
-
 def flatten(t):
     return [item for sublist in t for item in sublist]
 
@@ -9,7 +8,6 @@ def function_labels_from_file(fpath):
     """
     returns a list of (filename, function, line_start, line_end, 0.0, 0) tuples
     """
-
     labels = []
     with open(fpath, "r") as file:
         scoped = 0
@@ -25,8 +23,6 @@ def function_labels_from_file(fpath):
 
             scoped += line.count("{") - line.count("}")
 
-            # if scoped > 0 and function_name != "":
-                
             if function_name != "" and start_line > 0 and scoped == 0:
                 labels.append([fpath, function_name, start_line+1, lnumber+1, 0.0, 0])
                 start_line = -1
@@ -48,6 +44,10 @@ def files_from_library(libpath):
 
 
 def profile_result_process(profile_result, labels):
+    """
+    Read a profile result file and attach time and instruction count
+    to respective label in labels
+    """
     current_entry = []
     started = False
 
@@ -56,12 +56,8 @@ def profile_result_process(profile_result, labels):
                      quoting=csv.QUOTE_ALL, skipinitialspace=True):
 
             if not started:
-                print(vars)
-                started = started or (vars and vars[0].startswith("===="))
-                print("skipping")
+                started = vars and vars[0].startswith("====")
                 continue
-
-            # print("profiling")
 
             profile_file = vars[0]
             profile_line = int(vars[1].split(":")[0])
@@ -74,7 +70,6 @@ def profile_result_process(profile_result, labels):
             if not current_entry:
                 # try to find a current entry
                 for l in labels:
-                    
                     if l[0] in profile_file and \
                         (profile_line >= l[2] and profile_line <= l[3]):
                         current_entry = l
@@ -82,63 +77,59 @@ def profile_result_process(profile_result, labels):
             if current_entry and (profile_line > current_entry[3] or profile_line < current_entry[2]):
                 current_entry = []
 
-            
-            if current_entry and ("1:/" + current_entry[0] == profile_file):
+            if current_entry and (current_entry[0] in profile_file):
                 # current entry is still valid
                 current_entry[4] += profile_time
                 current_entry[5] += profile_count
-                if current_entry[1] == "add_plane_globals":
-                    print(profile_file, profile_line, profile_col, profile_time, profile_count)
-                    print(current_entry)
-    
     return labels
 
 
-def plot_histogram(labels):
+def plot_bar(labels, profile_paths):
+    """
+    Plot a bar graph of the labels
+    """
     import matplotlib.pyplot as plt
-    import numpy as np
-
 
     x = [l[0]+":"+l[1] for l in labels]
     y = [l[4] for l in labels]
+    x,y = zip(*sorted( zip(x,y), key=lambda e: -e[1]))
+    number_elements = 25
 
-    plt.bar(x, height=y)
+    plt.xticks(rotation = 45, ha="right")
+    plt.bar(x[0:number_elements], height=y[0:number_elements], width=0.8)
     plt.xlabel('Function')
     plt.ylabel('Time')
+    plt.title(",".join(profile_paths))
 
     plt.show()
 
 
-
-
-
-def main():
-    lib_paths = ["koslib"]
-    boot_path = "boot"
-    volume = "1:/"
-    profile_path = "file2.csv"
-
-    allfiles = flatten([files_from_library(p) for p in (lib_paths + [boot_path]) ])
-
+def profile_info(lib_paths, profile_paths, print_on=False, plot_on=True):
+    """
+    Generate a list of function labels from source in lib_paths,
+    attach total runtime and instruction count from profile info to each label
+    and display result
+    """
+    allfiles = flatten([files_from_library(p) for p in lib_paths ])
     labels = flatten([function_labels_from_file(p) for p in allfiles])
 
-    labels = profile_result_process(profile_path, labels)
+    for ppath in profile_paths:
+        labels = profile_result_process(ppath, labels)
 
-    for i in labels:
-        print(i)
-    
-    plot_histogram(labels)
-    
+    if print_on:
+        for i in labels:
+            print(i)
+    if plot_on:
+        plot_bar(labels, profile_paths)
 
+def main():
+    """
+    Set input arguments and run profile_info
+    """
 
-    
-    
-    
-
-
-
-
-
+    lib_paths = ["boot", "koslib"]
+    profile_paths = ["file4.csv"]
+    profile_info(lib_paths, profile_paths)
 
 if __name__ == "__main__":
     main()
