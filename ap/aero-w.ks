@@ -3,8 +3,9 @@ GLOBAL AP_AERO_W_ENABLED IS true.
 
 local PARAM is get_param(readJson("param.json"), "AP_AERO_W", lexicon()).
 
-local STICK_GAIN_NOM is get_param(PARAM, "STICK_GAIN", 3.0).
-local lock STICK_GAIN to STICK_GAIN_NOM*(choose 0.25 if AG else 1.0).
+local STICK_GAIN is get_param(PARAM, "STICK_GAIN", 3.0).
+local KEYS_LPF is get_param(PARAM, "KEYS_LPF", 0.1).
+local SWAP_ROLL_YAW is get_param(PARAM, "SWAP_ROLL_YAW", false).
 
 // glimits
 local GLIM_VERT is get_param(PARAM,"GLIM_VERT", 5).
@@ -55,8 +56,6 @@ local K_ROLL is get_param(PARAM,"K_ROLL").
 local lock AG to AG6.
 
 // AERO W PID STUFF
-
-local lock vel to ship:airspeed.
 
 local MIN_AERO_Q is 0.0003.
 local MIN_ANY_RATE is 2.5*DEG2RAD.
@@ -162,7 +161,9 @@ local function gain_schedule {
 }
 
 
+local omega_v is V(0,0,0).
 local aero_active is true.
+local input_state is 0. // 0 released, 1 keys, 0.5 stick
 function ap_aero_w_do {
     parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch
     parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw
@@ -190,13 +191,30 @@ function ap_aero_w_do {
             set rratePD:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
             set rrateI:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
         } else if direct_mode {
-            local omega_v is -alpha_beta_dir*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
+            set omega_v to -alpha_beta_dir*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
             set pratePID:SETPOINT to omega_v:x.
             set yratePID:SETPOINT to omega_v:y.
             set rratePD:SETPOINT to omega_v:z.
             set rrateI:SETPOINT to omega_v:z.
         } else {
-            local omega_v is -alpha_beta_dir*V(prate_max*sat(STICK_GAIN*u1,1.0),yrate_max*sat(STICK_GAIN*u2,1.0),rrate_max*sat(STICK_GAIN*u3,1.0)).
+            if SWAP_ROLL_YAW {
+                local temp is u2.
+                set u2 to u1.
+                set u1 to temp.
+            }
+            if not (input_state = 0.5) and (abs(u1) = 1 or abs(u2) = 1 or abs(u3) = 1) {
+                set input_state to 1.0.
+            } else if ((abs(u1) = 0 and abs(u2) = 0 and abs(u3) = 0)) {
+                set input_state to 0.0.
+            } else {
+                set input_state to 0.5.
+            }
+
+            if input_state = 1.0 {
+                set omega_v to (1-KEYS_LPF)*omega_v + (KEYS_LPF)*(-alpha_beta_dir*V(prate_max*sat(u1,1.0),yrate_max*sat(u2,1.0),rrate_max*sat(u3,1.0))).
+            } else {
+                set omega_v to -alpha_beta_dir*V(prate_max*sat(STICK_GAIN*u1,1.0),yrate_max*sat(STICK_GAIN*u2,1.0),rrate_max*sat(STICK_GAIN*u3,1.0)).
+            }
             set pratePID:SETPOINT to omega_v:x.
             set yratePID:SETPOINT to omega_v:y.
             set rratePD:SETPOINT to omega_v:z.
@@ -435,7 +453,7 @@ function ap_aero_w_status_string {
     if (ship:q > MIN_AERO_Q) {
         set hud_str to hud_str+( choose "GL " if GLimiter else "G ") +
         round_dec( get_max_applied_acc()/g0, 1) + 
-        char(10) + (choose "" if STICK_GAIN = STICK_GAIN_NOM else "S") +
+        char(10) + (choose "" if not AG else "S") +
         (choose "D" if departure else "") +
         char(945) + " " + round_dec(alpha,1).
         if defined UTIL_FLDR_ENABLED {

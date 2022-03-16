@@ -1,5 +1,6 @@
 import csv
 import os
+import matplotlib.pyplot as plt
 
 def flatten(t):
     return [item for sublist in t for item in sublist]
@@ -83,25 +84,23 @@ def profile_result_process(profile_result, labels):
                 current_entry[5] += profile_count
     return labels
 
-
 def plot_bar(labels, profile_paths):
     """
     Plot a bar graph of the labels
     """
-    import matplotlib.pyplot as plt
+    number_elements = 25
 
     x = [l[0]+":"+l[1] for l in labels]
     y = [l[4] for l in labels]
-    x,y = zip(*sorted( zip(x,y), key=lambda e: -e[1]))
-    number_elements = 25
+    x,y = zip(*sorted( zip(x,y), key=lambda e: e[1]))
 
-    plt.xticks(rotation = 45, ha="right")
-    plt.bar(x[0:number_elements], height=y[0:number_elements], width=0.8)
-    plt.xlabel('Function')
-    plt.ylabel('Time')
-    plt.title(",".join(profile_paths))
+    fig, axis = plt.subplots(1,1)
 
-    plt.show()
+    axis.barh(x[-number_elements:], y[-number_elements:])
+    plt.tight_layout()
+    axis.set_xlabel('Time')
+    axis.set_title(",".join(profile_paths))
+
 
 
 def profile_info(lib_paths, profile_paths, print_on=False, plot_on=True):
@@ -128,8 +127,12 @@ def main():
     """
 
     lib_paths = ["boot", "koslib"]
-    profile_paths = ["file4.csv"]
-    profile_info(lib_paths, profile_paths)
+    profile_paths_a = ["profile_hud.csv"]
+    profile_paths_b = ["profile_nohud.csv"]
+    profile_info(lib_paths, profile_paths_a)
+    profile_info(lib_paths, profile_paths_b)
+
+    plt.show()
 
 if __name__ == "__main__":
     main()

@@ -1,45 +1,46 @@
 
 wait until ship:loaded.
-wait 0.25. // so that connection is established if possible.
 
 global DEV_FLAG is true.
+global FETCH_SOURCE is (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED.
+if FETCH_SOURCE { print "fetching resources from base".}
 
+function fetch_and_run {
+    parameter filehomepath.
 
-if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
-    COPYPATH("0:/koslib/util/common.ks","util-common").
-    run once "util-common".
-    get_param_file(core:element:name).
-    
-    COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
-    COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
-    COPYPATH("0:/koslib/util/shsys.ks","util-shsys").
-    COPYPATH("0:/koslib/util/hud.ks","util-hud").
-    COPYPATH("0:/koslib/util/wp.ks","util-wp").
-    COPYPATH("0:/koslib/util/phys.ks","util-phys").
-
-    COPYPATH("0:/koslib/ap/orb.ks","ap-orb").
-    COPYPATH("0:/koslib/ap/nav.ks","ap-nav").
-    COPYPATH("0:/koslib/ap/mode.ks","ap-mode").
-    print "loaded resources from base".
+    local filepath is filehomepath:replace("0:/", "").
+    if FETCH_SOURCE {
+        copypath(filehomepath, filepath).
+    }
+    if filepath:contains(".ks") {
+        runoncepath(filepath).
+    }
 }
 
-run once "util-common".
-run once "util-fldr".
-run once "util-shbus".
-run once "util-shsys".
-run once "util-hud".
-run once "util-wp".
-run once "util-phys".
+fetch_and_run("0:/koslib/util/common.ks").
+if FETCH_SOURCE {
+    get_element_param_file("0:/param").
+}
 
-run once "ap-orb".
-run once "ap-mode".
-run once "ap-nav".
+fetch_and_run("0:/koslib/util/wp.ks").
+fetch_and_run("0:/koslib/util/fldr.ks").
+fetch_and_run("0:/koslib/util/shsys.ks").
+fetch_and_run("0:/koslib/util/shbus.ks").
+fetch_and_run("0:/koslib/util/phys.ks").
+
+fetch_and_run("0:/koslib/resource/blank.png").
+fetch_and_run("0:/koslib/util/hud.ks").
+
+fetch_and_run("0:/koslib/ap/orb.ks").
+fetch_and_run("0:/koslib/ap/nav.ks").
+fetch_and_run("0:/koslib/ap/mode.ks").
 
 GLOBAL BOOT_RELAY_FLCS_ENABLED IS true.
 
-add_plane_globals().
 
 until false {
+    get_plane_globals().
+
     util_shbus_rx_msg().
     util_shsys_spin_check().
 

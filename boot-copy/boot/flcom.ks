@@ -1,30 +1,34 @@
 // Generic flight command system
 
-global DEV_FLAG is true.
-
 wait until ship:loaded.
 
-if (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED {
-    COPYPATH("0:/koslib/util/common.ks","util-common").
-    run once "util-common".
-    get_param_file(core:element:name).
-    
-    COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
-    COPYPATH("0:/koslib/util/wp.ks","util-wp").
-    COPYPATH("0:/koslib/util/hud.ks","util-hud").
-    COPYPATH("0:/koslib/util/radar.ks","util-radar").
-    COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
-    COPYPATH("0:/koslib/util/term.ks","util-term").
-    print "loaded resources from base".
+global DEV_FLAG is true.
+global FETCH_SOURCE is (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED.
+if FETCH_SOURCE { print "fetching resources from base".}
+
+function fetch_and_run {
+    parameter filehomepath.
+
+    local filepath is filehomepath:replace("0:/", "").
+    if FETCH_SOURCE {
+        copypath(filehomepath, filepath).
+    }
+    if filepath:contains(".ks") {
+        runoncepath(filepath).
+    }
 }
 
-run once "util-common".
-run once "util-fldr".
-run once "util-wp".
-run once "util-hud".
-run once "util-shbus".
-run once "util-radar".
-run once "util-term".
+fetch_and_run("0:/koslib/util/common.ks").
+if FETCH_SOURCE {
+    get_element_param_file("0:/param").
+}
+
+fetch_and_run("0:/koslib/util/wp.ks").
+fetch_and_run("0:/koslib/util/fldr.ks").
+fetch_and_run("0:/koslib/util/shbus.ks").
+fetch_and_run("0:/koslib/util/radar.ks").
+fetch_and_run("0:/koslib/util/term.ks").
+fetch_and_run("0:/koslib/util/hud.ks").
 
 GLOBAL BOOT_FLCOM_ENABLED IS true.
 

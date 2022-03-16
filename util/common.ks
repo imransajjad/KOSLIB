@@ -57,6 +57,7 @@ function round_dec {
     parameter FRAD_DIG.
     return ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
 }
+set rdc to round_dec@.
 
 function round_fig {
     parameter NUM.
@@ -64,6 +65,7 @@ function round_fig {
     local FRAD_DIG is max(0,FIG-floor(log10(max(0.00001,abs(num))))-1).
     return ROUND(NUM*(10^FRAD_DIG))/(10^FRAD_DIG).
 }
+set rfg to round_fig@.
 
 function list_print {
     parameter arg_in.
@@ -355,16 +357,35 @@ function simple_E {
 }
 
 // try to get param file
-// default without argument will get filename=bootfilename
 // if local param does not exist, create an empty file
 function get_param_file {
-    parameter filename is core:bootfilename:replace("/boot/",""):replace(".ks","").
-    if exists("0:/param/"+filename+".json") {
-        copypath("0:/param/"+filename+".json","param.json").
-    } else if not exists("param.json") {
-        writeJson(lexicon(),"param.json").
-        print "param file not found".
+    parameter search_path.
+    parameter filename.
+    if not search_path:endswith("/") {
+        set search_path to search_path + "/".
     }
+    if exists(search_path+filename+".json") {
+        copypath(search_path+filename+".json","param.json").
+    } else {
+        print "param file not found in " + search_path.
+    }
+    
+    if not exists("param.json") {
+        print "local param file not found".
+        writeJson(lexicon(),"param.json").
+    }
+}
+
+// try to find a param file with the same name as the element
+function get_element_param_file {
+    parameter search_path.
+    get_param_file(search_path, core:element:name).
+}
+
+// try to find a param file with the same name as boot script
+function get_boot_param_file {
+    parameter search_path.
+    get_param_file(search_path, core:bootfilename:replace("/boot/",""):replace(".ks","")).
 }
 
 function get_ancestor_with_module {
@@ -448,6 +469,7 @@ function display_land_stats {
 // Global plane data
 function add_plane_globals {
     when true then {
+        set vel to ship:airspeed.
         set DELTA_FACE_UP to R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
         set pitch to (mod(DELTA_FACE_UP:pitch+90,180)-90).
         set roll to (180-DELTA_FACE_UP:roll).
@@ -466,4 +488,24 @@ function add_plane_globals {
         return true.
     }
     wait 0.
+}
+
+// Global plane data
+function get_plane_globals {
+    set vel to ship:airspeed.
+    set DELTA_FACE_UP to R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
+    set pitch to (mod(DELTA_FACE_UP:pitch+90,180)-90).
+    set roll to (180-DELTA_FACE_UP:roll).
+    set yaw to (360-DELTA_FACE_UP:yaw).
+
+    set DELTA_PRO_UP to R(90,0,0)*(-SHIP:UP)*
+        (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
+    set vel_pitch to (mod(DELTA_PRO_UP:pitch+90,180)-90).
+    set vel_bear to (360-DELTA_PRO_UP:yaw).
+
+    set ship_vel_dir to LOOKDIRUP(ship:velocity:surface, ship:facing:topvector).
+    set alpha_beta_dir to (-ship:facing*ship_vel_dir).
+    set alpha to wrap_angle(alpha_beta_dir:pitch).
+    set beta to wrap_angle(-alpha_beta_dir:yaw).
+
 }

@@ -1,56 +1,42 @@
 // Development of missile launch here
 
 wait until ship:loaded.
-wait 1.0.
 
-IF HOMECONNECTION:ISCONNECTED {
-    COPYPATH("0:/koslib/util/common.ks","util-common").
-    run once "util-common".
-    get_param_file().
+global DEV_FLAG is true.
+global FETCH_SOURCE is (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED.
+if FETCH_SOURCE { print "fetching resources from base".}
 
-    COPYPATH("0:/koslib/util/hud.ks","util-hud").
-    COPYPATH("0:/koslib/util/fldr.ks","util-fldr").
-    COPYPATH("0:/koslib/util/shsys.ks","util-shsys").
-    COPYPATH("0:/koslib/util/phys.ks","util-phys").
-    COPYPATH("0:/koslib/util/shbus.ks","util-shbus").
-    COPYPATH("0:/koslib/util/wp.ks","util-wp").
+function fetch_and_run {
+    parameter filehomepath.
 
-    COPYPATH("0:/koslib/ap/orb.ks","ap-orb").
-    COPYPATH("0:/koslib/ap/nav.ks","ap-nav").
-
-    COPYPATH("0:/koslib/ap/missile.ks","ap-missile").
-    print "loaded resources from base".
+    local filepath is filehomepath:replace("0:/", "").
+    if FETCH_SOURCE {
+        copypath(filehomepath, filepath).
+    }
+    if filepath:contains(".ks") {
+        runoncepath(filepath).
+    }
 }
 
-global lock DELTA_FACE_UP to R(90,0,0)*(-SHIP:UP)*(SHIP:FACING).
-global lock pitch to (mod(DELTA_FACE_UP:pitch+90,180)-90).
-global lock roll to (180-DELTA_FACE_UP:roll).
-global lock yaw to (360-DELTA_FACE_UP:yaw).
+fetch_and_run("0:/koslib/util/common.ks").
+if FETCH_SOURCE {
+    get_boot_param_file("0:/param").
+}
 
-global lock DELTA_PRO_UP to R(90,0,0)*(-SHIP:UP)*
-    (choose SHIP:srfprograde if ship:altitude < 36000 else SHIP:prograde).
-global lock vel_pitch to (mod(DELTA_PRO_UP:pitch+90,180)-90).
-global lock vel_bear to (360-DELTA_PRO_UP:yaw).
-// when true then {
-    
-//     return true.
-// }
-wait 0.
+fetch_and_run("0:/koslib/util/wp.ks").
+fetch_and_run("0:/koslib/util/fldr.ks").
+fetch_and_run("0:/koslib/util/shsys.ks").
+fetch_and_run("0:/koslib/util/shbus.ks").
+fetch_and_run("0:/koslib/util/phys.ks").
 
-run once "util-common".
-// run once "util-hud".
-run once "util-fldr".
-run once "util-shsys".
-run once "util-phys".
-run once "util-shbus".
-run once "util-wp".
+fetch_and_run("0:/koslib/resource/blank.png").
+fetch_and_run("0:/koslib/util/hud.ks").
 
-run once "ap-orb".
-run once "ap-nav".
-
-run once "ap-missile".
-
-wait 2.0.
+fetch_and_run("0:/koslib/ap/aero-engines.ks").
+fetch_and_run("0:/koslib/ap/aero-w.ks").
+fetch_and_run("0:/koslib/ap/orb.ks").
+fetch_and_run("0:/koslib/ap/nav.ks").
+fetch_and_run("0:/koslib/ap/missile.ks").
 
 util_shsys_set_spin("engine", true).
 

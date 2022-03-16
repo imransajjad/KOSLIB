@@ -43,6 +43,7 @@ local prev_stage is 99999.
 local arm_panels_and_antennas is false.
 local arm_for_reentry is false.
 local arm_parachutes is false.
+local arm_docking is false.
 
 local initial_ship is ship.
 
@@ -138,6 +139,10 @@ local function iterate_spacecraft_system_state {
             print "SHSYS: CHUTES".
         }
 
+        if arm_docking {
+            set arm_docking to not setup_docking().
+        }
+
         if not (prev_stage = STAGE:NUMBER) {
             if (STAGE:NUMBER = prev_stage - 1) {
                 if defined UTIL_FLDR_ENABLED {
@@ -204,8 +209,17 @@ local function send_cargo_bay_delayed_ack {
     }
 }
 
+// return true if there is no more work to be done
 local function setup_docking {
     local target_vessel is util_shsys_get_target().
+
+    if target_vessel = -1 {
+        return true.
+    }
+
+    if target_vessel:position:mag > 175 {
+        return false.
+    }
 
     if not ship:controlpart:hassuffix("UNDOCK") {
         if ship:dockingports:length > 0 {
@@ -227,30 +241,25 @@ local function setup_docking {
             }
     } else {
             print "shsys ship does not have a docking port".
-            return.
+            return true.
         }
     }    
     // our control part should be a docking port now
 
-    if target_vessel = -1 {
-        print "no target".
-        return.
-    } else if target_vessel:position:mag > 200 {
-        print "target needs to be within 200 m to set up docking".
-        return.
-    } else if target_vessel:hassuffix("dockingports") {
+    if target_vessel:hassuffix("dockingports") {
         for they in target_vessel:dockingports {
             if they:state = "Ready" and they:nodetype = ship:controlpart:nodetype {
                
                 if ship:controlpart:state = "Ready" {
                     set TARGET to they.
                     print "target:dockingport".
-                    return.
+                    return true.
                 }
             }
         }
     }
     print "shsys did not find compatible dockingport".
+    return true.
 }
 
 local target_vessel is -1.
@@ -520,7 +529,7 @@ function util_shsys_do_action {
     } else if action_in = "get_target" {
         set TARGET_CACHING to true.
     } else if action_in = "dock_target" {
-        setup_docking().
+        set arm_docking to true.
     } else {
         print "could not do action " + action_in.
         return false.
