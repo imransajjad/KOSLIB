@@ -38,6 +38,8 @@ fetch_and_run("0:/koslib/ap/orb.ks").
 fetch_and_run("0:/koslib/ap/nav.ks").
 fetch_and_run("0:/koslib/ap/missile.ks").
 
+add_plane_globals().
+
 util_shsys_set_spin("engine", true).
 
 util_shsys_spin_check().

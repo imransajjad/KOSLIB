@@ -31,6 +31,7 @@ fetch_and_run("0:/koslib/util/phys.ks").
 fetch_and_run("0:/koslib/resource/blank.png").
 fetch_and_run("0:/koslib/util/hud.ks").
 
+fetch_and_run("0:/koslib/ap/stick.ks").
 fetch_and_run("0:/koslib/ap/orb.ks").
 fetch_and_run("0:/koslib/ap/nav.ks").
 fetch_and_run("0:/koslib/ap/mode.ks").
@@ -51,10 +52,11 @@ until false {
         ap_mode_set("NAV").
     }
 
-    if AP_MODE_NAV {
+    if AP_MODE_PILOT {
+        ap_orb_w().
+    } else if AP_MODE_NAV {
         ap_orb_nav_do().
     } else {
-        ap_orb_lock_controls(false).
         SET SHIP:CONTROL:NEUTRALIZE to true.
     }
     util_hud_info().

@@ -1,11 +1,17 @@
 {
     "entries": [
-        "ship_name","Air Liner 3 Test",
-        "ship_name_acro","al3t",
-        "AP_AERO_W",
+        "AP_STICK",
         {
             "entries": [
                 "STICK_GAIN", 2.0,
+                "KEYS_LPF", 0.1,
+                "SWAP_ROLL_YAW", false
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_AERO_W",
+        {
+            "entries": [
                 "GLIM_VERT", 3.5,
                 "GLIM_LAT",  0.75,
                 "GLIM_LONG", 5,
@@ -86,8 +92,7 @@
                 
                 "GSLOPE", 3.0,
                 "GHEAD", 90.4,
-                "PITCH_DIV", 5.0,
-                "FLARE_ALT", 40
+                "PITCH_DIV", 5.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         }

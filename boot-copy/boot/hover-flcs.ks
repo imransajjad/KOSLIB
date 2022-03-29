@@ -32,6 +32,7 @@ fetch_and_run("0:/koslib/util/phys.ks").
 fetch_and_run("0:/koslib/resource/blank.png").
 fetch_and_run("0:/koslib/util/hud.ks").
 
+fetch_and_run("0:/koslib/ap/stick.ks").
 fetch_and_run("0:/koslib/ap/hover.ks").
 fetch_and_run("0:/koslib/ap/nav.ks").
 fetch_and_run("0:/koslib/ap/mode.ks").

@@ -32,6 +32,7 @@ fetch_and_run("0:/koslib/util/phys.ks").
 fetch_and_run("0:/koslib/resource/blank.png").
 fetch_and_run("0:/koslib/util/hud.ks").
 
+fetch_and_run("0:/koslib/ap/stick.ks").
 fetch_and_run("0:/koslib/ap/aero-engines.ks").
 fetch_and_run("0:/koslib/ap/aero-w.ks").
 fetch_and_run("0:/koslib/ap/nav.ks").
@@ -69,5 +70,5 @@ until false {
     }
     
     util_hud_info().
-    wait 0.04.
+    wait 0.0.
 }

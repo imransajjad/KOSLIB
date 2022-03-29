@@ -64,6 +64,9 @@ function ap_mode_update {
         go_to_next_mode().
         print "SWITCHED to AP_MODE_"+ap_mode_get_str().
     }
+    if SAS {
+        until AP_MODE_PILOT { go_to_next_mode(). }
+    }
 }
 
 function ap_mode_set {

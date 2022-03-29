@@ -3,20 +3,46 @@ global AP_ORB_ENABLED is true.
 
 local PARAM is get_param(readJson("param.json"), "AP_ORB", lexicon()).
 
+// rate PID gains
+local pratePID is PIDLOOP(
+    get_param(PARAM, "PR_KP", 3.0),
+    get_param(PARAM, "PR_KI", 0.0),
+    get_param(PARAM, "PR_KD", 0.0),
+    -1.0,1.0).
+
+local yratePID is PIDLOOP(
+    get_param(PARAM, "YR_KP", 3.0),
+    get_param(PARAM, "YR_KI", 0.0),
+    get_param(PARAM, "YR_KD", 0.0),
+    -1.0,1.0).
+
+local rratePID is PIDLOOP(
+    get_param(PARAM, "RR_KP", 3.0),
+    get_param(PARAM, "RR_KI", 0.0),
+    get_param(PARAM, "RR_KD", 0.0),
+    -1.0,1.0).
+
+// nav angle difference gains
+local K_PITCH is get_param(PARAM,"K_PITCH").
+local K_YAW is get_param(PARAM,"K_YAW").
+local K_ROLL is get_param(PARAM,"K_ROLL").
+
+
 local USE_RCS to get_param(PARAM, "USE_RCS", true).
 local USE_RCS_STEER to get_param(PARAM, "USE_RCS_STEER", false).
 
-local K_RCS_STARBOARD is get_param(PARAM, "K_RCS_STARBOARD",1.0).
-local K_RCS_TOP is get_param(PARAM, "K_RCS_TOP",1.0).
-local K_RCS_FORE is get_param(PARAM, "K_RCS_FORE",1.0).
-local K_ORB_ENGINE_FORE is get_param(PARAM, "K_ORB_ENGINE_FORE",0.5).
+local K_TRANS is get_param(PARAM, "K_TRANS",1.0).
+local K_RCS_STARBOARD is get_param(PARAM, "K_RCS_STARBOARD",K_TRANS).
+local K_RCS_TOP is get_param(PARAM, "K_RCS_TOP",K_TRANS).
+local K_RCS_FORE is get_param(PARAM, "K_RCS_FORE",K_TRANS).
+local K_ORB_ENGINE_FORE is get_param(PARAM, "K_ORB_ENGINE_FORE",K_TRANS).
 
 local RCS_MAX_DV is choose 0 if not USE_RCS else get_param(PARAM, "RCS_MAX_DV", 10.0).
 local RCS_MIN_ALIGN is cos(get_param(PARAM, "RCS_MAX_ANGLE", 10.0)).
 
 local MAX_STEER_TIME is get_param(PARAM, "MAX_STEER_TIME", 10.0).
 
-local orb_steer_direction is ship:facing.
+// local orb_steer_direction is ship:facing.
 
 local ALIGNED is true.
 local DO_BURN is false.
@@ -81,30 +107,6 @@ local function init_orb_params {
     print "ME data" +
         char(10) +"F (" + round_dec(METvec:x,2) + "," + round_dec(METvec:y,2) + "," + round_dec(METvec:z,2) + ")" +
         char(10) +"Isp (" + round_dec(MEIsp:x,2) + "," + round_dec(MEIsp:y,2) + "," + round_dec(MEIsp:z,2) + ")".
-
-    // Steering Manager Stuff
-    // STEERINGMANAGER:RESETTODEFAULT().
-    // STEERINGMANAGER:RESETPIDS().
-    set STEERINGMANAGER:PITCHPID:KP to get_param(PARAM, "P_KP", 8.0).
-    set STEERINGMANAGER:PITCHPID:KI to get_param(PARAM, "P_KI", 8.0).
-    set STEERINGMANAGER:PITCHPID:KD to get_param(PARAM, "P_KD", 12.0).
-
-    set STEERINGMANAGER:YAWPID:KP to get_param(PARAM, "Y_KP", 8.0).
-    set STEERINGMANAGER:YAWPID:KI to get_param(PARAM, "Y_KI", 8.0).
-    set STEERINGMANAGER:YAWPID:KD to get_param(PARAM, "Y_KD", 12.0).
-
-    set STEERINGMANAGER:ROLLPID:KP to get_param(PARAM, "R_KP", 8.0).
-    set STEERINGMANAGER:ROLLPID:KI to get_param(PARAM, "R_KI", 8.0).
-    set STEERINGMANAGER:ROLLPID:KD to get_param(PARAM, "R_KD", 12.0).
-
-    set STEERINGMANAGER:MAXSTOPPINGTIME to get_param(PARAM, "MAX_STOPPING_TIME", 5.0).
-
-    if defined AP_NAV_ENABLED and AP_NAV_IN_SURFACE {
-        set STEERINGMANAGER:ROLLCONTROLANGLERANGE to 180.
-    }
-    print "orb gains " + STEERINGMANAGER:PITCHPID:KP + " "
-                        + STEERINGMANAGER:PITCHPID:KI + " "
-                        + STEERINGMANAGER:PITCHPID:KD.
 }
 
 // for a command below a minumum actuator force,
@@ -227,12 +229,22 @@ function ap_orb_nav_do {
     local delta_a is (acc_vec - GRAV_ACC).
     
     if not SAS {
-        ap_orb_lock_controls(true).
-
         local head_error is (-ship:facing)*head_dir.
         set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
         set ALIGNED to total_head_align >= RCS_MIN_ALIGN.
-        set orb_steer_direction to head_dir.
+        // set orb_steer_direction to head_dir.
+
+        local w_error_py is
+            V(K_PITCH*wrap_angle(head_error:pitch),
+            K_YAW*wrap_angle(head_error:yaw),
+            0). // ignore roll first
+        local w_error_r is K_ROLL*wrap_angle(head_error:roll).
+
+        if w_error_py:mag > 2.5 {
+            set w_error_r to 0.
+        }
+
+        ap_orb_w(-w_error_py:x, w_error_py:y, -w_error_r, true).
         
         local me_delta_v is 0.
         if METvec:mag > 0 {
@@ -260,33 +272,13 @@ function ap_orb_nav_do {
             set ship:control:translation to V(0,0,0).
         }
 
-        if (false) {
+        if (true) {
             util_hud_push_left( "ap_orb_nav_do",
                 "dv "  + round_dec(delta_v:mag,3) +
                 + "(" + round_dec(ship:facing:starvector*delta_v,2) + "," +
                     round_dec(ship:facing:topvector*delta_v,2) + "," +
                     round_dec(ship:facing:forevector*delta_v,2) +")" + char(10) ).
         }
-    } else {
-        ap_orb_lock_controls(false).
-    }
-}
-
-// to lock and unlock controls in the same place
-local controls_locked is false.
-function ap_orb_lock_controls {
-    parameter do_lock.
-    if (do_lock = controls_locked) {
-        return.
-    } else if do_lock {
-        init_orb_params().
-        lock steering to orb_steer_direction.
-        set controls_locked to true.
-        print "ap_orb_lock_controls: locked".
-    } else {
-        unlock steering.
-        set controls_locked to false.
-        print "ap_orb_lock_controls: unlocked".
     }
 }
 
@@ -296,4 +288,55 @@ function ap_orb_status_string {
         (choose "M" if MOVE_RCS else "") +
         (choose "S" if STEER_RCS else "") +
         (choose "B" if DO_BURN else "").
+}
+
+
+local orb_active is true.
+function ap_orb_w {
+    parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch
+    parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw
+    parameter u3 is SHIP:CONTROL:PILOTROLL. // roll
+    parameter direct_mode is false.
+    // in direct_mode, u1,u2,u3 are expected to be direct deg/s values
+    // else they are stick inputs
+    // now in ship velocity frame
+
+    if SAS {
+        if orb_active {
+            set orb_active to false.
+            rratePID:RESET().
+            yratePID:RESET().
+            pratePID:RESET().
+            set SHIP:CONTROL:NEUTRALIZE to true.
+        }
+    }
+    else
+    {
+        set orb_active to true.
+
+        local prate_max is 90.
+        local yrate_max is 90.
+        local rrate_max is 360.
+
+        if direct_mode {
+            set pratePID:SETPOINT to sat(u1,prate_max)*DEG2RAD.
+            set yratePID:SETPOINT to sat(u2,yrate_max)*DEG2RAD.
+            set rratePID:SETPOINT to sat(u3,rrate_max)*DEG2RAD.
+        } else {
+            local omega_v is ap_stick_w(u1,u2,u3).
+            set pratePID:SETPOINT to omega_v:x*prate_max*DEG2RAD.
+            set yratePID:SETPOINT to omega_v:y*yrate_max*DEG2RAD.
+            set rratePID:SETPOINT to omega_v:z*rrate_max*DEG2RAD.
+        }
+
+        local pitch_rate is -((SHIP:ANGULARVEL)*SHIP:FACING:STARVECTOR).
+        local yaw_rate is ((SHIP:ANGULARVEL)*SHIP:FACING:TOPVECTOR).
+        local roll_rate is -((SHIP:ANGULARVEL)*SHIP:FACING:FOREVECTOR).
+
+        set SHIP:CONTROL:PITCH to pratePID:UPDATE(TIME:SECONDS, pitch_rate).
+        set SHIP:CONTROL:YAW to yratePID:UPDATE(TIME:SECONDS, yaw_rate).
+        set SHIP:CONTROL:ROLL to rratePID:UPDATE(TIME:SECONDS, roll_rate).
+
+        util_hud_push_left("ap_orb_w", "KP: " + pratePID:KP + " KI: " + pratePID:KI ).
+    }
 }

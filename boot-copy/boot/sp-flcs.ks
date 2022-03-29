@@ -32,6 +32,7 @@ fetch_and_run("0:/koslib/util/phys.ks").
 fetch_and_run("0:/koslib/resource/blank.png").
 fetch_and_run("0:/koslib/util/hud.ks").
 
+fetch_and_run("0:/koslib/ap/stick.ks").
 fetch_and_run("0:/koslib/ap/aero-engines.ks").
 fetch_and_run("0:/koslib/ap/aero-w.ks").
 fetch_and_run("0:/koslib/ap/orb.ks").
@@ -52,7 +53,6 @@ until false {
     ap_nav_display().
 
     if SHIP:Q > 0.0001 {
-        ap_orb_lock_controls(false).
         if AP_MODE_PILOT {
             ap_aero_engine_throttle_map().
             ap_aero_w_do().
@@ -75,7 +75,6 @@ until false {
         if AP_MODE_NAV {
             ap_orb_nav_do().
         } else {
-            ap_orb_lock_controls(false).
             SET SHIP:CONTROL:NEUTRALIZE to true.
         }
     }

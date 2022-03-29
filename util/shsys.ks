@@ -21,8 +21,6 @@ local MIN_SEPARATION is get_param(PARAM, "MIN_SEPARATION", 3).
 local BAYS_DELAY is get_param(PARAM, "BAYS_DELAY", 0).
 local TARGET_CACHING is get_param(PARAM, "TARGET_CACHING", true).
 
-local dockingports is get_parts_tagged(get_param(PARAM, "DOCKING_PORT_NAME", "")).
-
 local PARAM is readJson("1:/param.json").
 local MAIN_ENGINE_NAME is "".
 if PARAM:haskey("AP_AERO_ENGINES") {
@@ -38,47 +36,65 @@ if main_engines:length = 0 {
     if not (stage_engine = -1) { main_engines:add(stage_engine). }
 }
 
-local prev_status is "NA".
-local prev_stage is 99999.
-local arm_panels_and_antennas is false.
-local arm_for_reentry is false.
-local arm_parachutes is false.
-local arm_docking is false.
 
 local initial_ship is ship.
 
-local SPIN_STATES to lexicon().
-if exists("spin-states.json") {
-    set SPIN_STATES to readJson("spin-states.json").
+local SHSYS_STATES to lexicon().
+if exists("shsys-states.json") {
+    set SHSYS_STATES to readJson("shsys-states.json").
 }
 
-local SPIN_ON_ENGINE is get_param(SPIN_STATES, "SPIN_ON_ENGINE", false).
-local SPIN_ON_DECOUPLER is get_param(SPIN_STATES, "SPIN_ON_DECOUPLER", false).
-local SPIN_ON_DOCKINGPORT is get_param(SPIN_STATES, "SPIN_ON_DOCKINGPORT", false).
-local SPIN_ON_FARING is get_param(SPIN_STATES, "SPIN_ON_FARING", false).
-local SPIN_ON_SEPARATION is get_param(SPIN_STATES, "SPIN_ON_SEPARATION", false).
-local SPIN_ON_REMOTE_BAYS is get_param(SPIN_STATES, "SPIN_ON_REMOTE_BAYS", false).
+local SPIN_ON_ENGINE is get_param(SHSYS_STATES, "SPIN_ON_ENGINE", false).
+local SPIN_ON_DECOUPLER is get_param(SHSYS_STATES, "SPIN_ON_DECOUPLER", false).
+local SPIN_ON_DOCKINGPORT is get_param(SHSYS_STATES, "SPIN_ON_DOCKINGPORT", false).
+local SPIN_ON_FARING is get_param(SHSYS_STATES, "SPIN_ON_FARING", false).
+local SPIN_ON_SEPARATION is get_param(SHSYS_STATES, "SPIN_ON_SEPARATION", false).
+local SPIN_ON_REMOTE_BAYS is get_param(SHSYS_STATES, "SPIN_ON_REMOTE_BAYS", false).
 
-local function save_spin_states {
-    set SPIN_STATES["SPIN_ON_ENGINE"] to SPIN_ON_ENGINE.
-    set SPIN_STATES["SPIN_ON_DECOUPLER"] to SPIN_ON_DECOUPLER.
-    set SPIN_STATES["SPIN_ON_DOCKINGPORT"] to SPIN_ON_DOCKINGPORT.
-    set SPIN_STATES["SPIN_ON_FARING"] to SPIN_ON_FARING.
-    set SPIN_STATES["SPIN_ON_SEPARATION"] to SPIN_ON_SEPARATION.
-    set SPIN_STATES["SPIN_ON_REMOTE_BAYS"] to SPIN_ON_REMOTE_BAYS.
-    writeJson(SPIN_STATES, "spin-states.json").
+local STATE_PREV_STATUS is get_param(SHSYS_STATES, "STATE_PREV_STATUS", "NA").
+local STATE_PREV_STAGE is get_param(SHSYS_STATES, "STATE_PREV_STAGE", 99999).
+local STATE_ARM_PANELS_AND_ANTENNAS is get_param(SHSYS_STATES, "STATE_ARM_PANELS_AND_ANTENNAS", false).
+local STATE_ARM_FOR_REENTRY is get_param(SHSYS_STATES, "STATE_ARM_FOR_REENTRY", false).
+local STATE_ARM_PARACHUTES is get_param(SHSYS_STATES, "STATE_ARM_PARACHUTES", false).
+local STATE_ARM_DOCKING is get_param(SHSYS_STATES, "STATE_ARM_DOCKING", false).
+
+
+local SAVE_STATES_FLAG is false.
+local function save_states {
+    set SAVE_STATES_FLAG to true.
+}
+
+local function save_states_really {
+    if SAVE_STATES_FLAG = true {
+        set SHSYS_STATES["SPIN_ON_ENGINE"] to SPIN_ON_ENGINE.
+        set SHSYS_STATES["SPIN_ON_DECOUPLER"] to SPIN_ON_DECOUPLER.
+        set SHSYS_STATES["SPIN_ON_DOCKINGPORT"] to SPIN_ON_DOCKINGPORT.
+        set SHSYS_STATES["SPIN_ON_FARING"] to SPIN_ON_FARING.
+        set SHSYS_STATES["SPIN_ON_SEPARATION"] to SPIN_ON_SEPARATION.
+        set SHSYS_STATES["SPIN_ON_REMOTE_BAYS"] to SPIN_ON_REMOTE_BAYS.
+        
+        set SHSYS_STATES["STATE_PREV_STATUS"] to STATE_PREV_STATUS.
+        set SHSYS_STATES["STATE_PREV_STAGE"] to STATE_PREV_STAGE.
+        set SHSYS_STATES["STATE_ARM_PANELS_AND_ANTENNAS"] to STATE_ARM_PANELS_AND_ANTENNAS.
+        set SHSYS_STATES["STATE_ARM_FOR_REENTRY"] to STATE_ARM_FOR_REENTRY.
+        set SHSYS_STATES["STATE_ARM_PARACHUTES"] to STATE_ARM_PARACHUTES.
+        set SHSYS_STATES["STATE_ARM_DOCKING"] to STATE_ARM_DOCKING.
+
+        writeJson(SHSYS_STATES, "shsys-states.json").
+    }
+    set SAVE_STATES_FLAG to false.
 }
 
 
 // sets systems according to where spacecraft is
 local function iterate_spacecraft_system_state {
     if ARM_RLAUNCH_STATUS {
-        if not (ship:status = prev_status) {
-            set prev_status to ship:status.
+        if not (ship:status = STATE_PREV_STATUS) {
+            set STATE_PREV_STATUS to ship:status.
 
             if ship:status = "ORBITING" {
-                set arm_panels_and_antennas to true.
-                set arm_for_reentry to false.
+                set STATE_ARM_PANELS_AND_ANTENNAS to true.
+                set STATE_ARM_FOR_REENTRY to false.
                 // do nothing.
             }
             if ship:status = "PRELAUNCH" {
@@ -86,18 +102,19 @@ local function iterate_spacecraft_system_state {
             }
             if (ship:status = "SUB_ORBITAL" or ship:status = "FLYING")
                 and ship:verticalspeed >= 0 {
-                set arm_panels_and_antennas to true.
+                set STATE_ARM_PANELS_AND_ANTENNAS to true.
             }
             if (ship:status = "SUB_ORBITAL" or ship:status = "FLYING")
                 and ship:verticalspeed < 0 {
-                set arm_for_reentry to true.
+                set STATE_ARM_FOR_REENTRY to true.
             }
+            save_states().
         }
 
         // open solar panels and antennas if out of atmosphere
-        if arm_panels_and_antennas and ship:altitude > ATMOS_ESCAPE_ALT 
+        if STATE_ARM_PANELS_AND_ANTENNAS and ship:altitude > ATMOS_ESCAPE_ALT 
             and ship:verticalspeed >= 0 {
-            set arm_panels_and_antennas to false.
+            set STATE_ARM_PANELS_AND_ANTENNAS to false.
             print "SHSYS: PANELS".
             print "SHSYS: antennas".
 
@@ -112,12 +129,13 @@ local function iterate_spacecraft_system_state {
             for a in get_parts_tagged(AUX_ANTENNAS_NAME) {
                 a:GETMODULE("ModuleRTAntenna"):doaction("activate", true).
             }
+            save_states().
         }
 
-        if arm_for_reentry and ship:altitude < REENTRY_ALT
+        if STATE_ARM_FOR_REENTRY and ship:altitude < REENTRY_ALT
             and ship:verticalspeed < 0 {
-            set arm_for_reentry to false.
-            set arm_parachutes to true.
+            set STATE_ARM_FOR_REENTRY to false.
+            set STATE_ARM_PARACHUTES to true.
             print "SHSYS: reentry".
 
             until (STAGE:NUMBER <= REENTRY_STAGE) {
@@ -131,25 +149,31 @@ local function iterate_spacecraft_system_state {
             for a in get_parts_tagged(AUX_ANTENNAS_NAME) {
                 a:GETMODULE("ModuleRTAntenna"):doaction("deactivate", true).
             }
+            save_states().
         }
-        if arm_parachutes and 
+        if STATE_ARM_PARACHUTES and 
             (ship:altitude < (PARACHUTE_ALT- ship:geoposition:terrainheight)){
-            set arm_parachutes to false.
+            set STATE_ARM_PARACHUTES to false.
             set CHUTES to true.
             print "SHSYS: CHUTES".
+            save_states().
         }
 
-        if arm_docking {
-            set arm_docking to not setup_docking().
+        if STATE_ARM_DOCKING {
+            if setup_docking() {
+                set STATE_ARM_DOCKING to false.
+                save_states().
+            }
         }
 
-        if not (prev_stage = STAGE:NUMBER) {
-            if (STAGE:NUMBER = prev_stage - 1) {
+        if not (STATE_PREV_STAGE = STAGE:NUMBER) {
+            if (STAGE:NUMBER = STATE_PREV_STAGE - 1) {
                 if defined UTIL_FLDR_ENABLED {
                     util_fldr_send_event("stage " + STAGE:NUMBER).
                 }
             }
-            set prev_stage to STAGE:NUMBER.
+            set STATE_PREV_STAGE to STAGE:NUMBER.
+            save_states().
         }
     }
 }
@@ -212,6 +236,7 @@ local function send_cargo_bay_delayed_ack {
 // return true if there is no more work to be done
 local function setup_docking {
     local target_vessel is util_shsys_get_target().
+    print "in setup docking".
 
     if target_vessel = -1 {
         return true.
@@ -226,7 +251,7 @@ local function setup_docking {
             print "shsys controlling from docking port".
             ship:dockingports[0]:controlfrom().
             wait 0.5.
-             if not (ship:controlpart:state = "Ready") and
+            if not (ship:controlpart:state = "Ready") and
                     ship:controlpart:hasmodule("ModuleAnimateGeneric") and
                     ship:controlpart:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
                 // try opening the shield
@@ -252,7 +277,7 @@ local function setup_docking {
                
                 if ship:controlpart:state = "Ready" {
                     set TARGET to they.
-                    print "target:dockingport".
+                    print "targeted and spinning on docking port".
                     return true.
                 }
             }
@@ -262,16 +287,32 @@ local function setup_docking {
     return true.
 }
 
+local function unset_docking {
+    // close docking port // revert control part
+    for p in core:element:dockingports {
+        if p:state = "Ready" and p:hasmodule("ModuleAnimateGeneric") {
+            if p:getmodule("ModuleAnimateGeneric"):hasaction("toggle shield") {
+                p:getmodule("ModuleAnimateGeneric"):doaction("toggle shield", true).        
+            }
+            if p:getmodule("ModuleAnimateGeneric"):hasaction("toggle") {
+                p:getmodule("ModuleAnimateGeneric"):doaction("toggle", true).        
+            }
+            wait 2.5.
+        }
+    }
+}
+
 local target_vessel is -1.
 local function cache_target {
-    if TARGET_CACHING and ISACTIVEVESSEL and HASTARGET {
-        if not (target_vessel = TARGET) {
+    if TARGET_CACHING and ISACTIVEVESSEL{
+        // target is changeable
+        if HASTARGET and not (target_vessel = TARGET) {
             set target_vessel to TARGET.
             print "shsys target cached: "+ target_vessel:NAME.
+        } else if not HASTARGET and not (target_vessel = -1) {
+            set target_vessel to -1.
+            print "shsys target uncached".
         }
-    } else if TARGET_CACHING and ISACTIVEVESSEL and not HASTARGET and not (target_vessel = -1) {
-        set target_vessel to -1.
-        print "shsys target uncached".
     }
 }
 
@@ -327,7 +368,7 @@ local function shsys_check {
         } else {
             set SPIN_ON_ENGINE to false.
         }
-        if not SPIN_ON_ENGINE { save_spin_states(). }
+        if not SPIN_ON_ENGINE { save_states(). }
     }
     if SPIN_ON_DECOUPLER {
         local decoupler is core:part:decoupler.
@@ -336,7 +377,7 @@ local function shsys_check {
         } else {
             set SPIN_ON_DECOUPLER to false.
         }
-        if not SPIN_ON_DECOUPLER { save_spin_states(). }
+        if not SPIN_ON_DECOUPLER { save_states(). }
     }
     local any_docked is false.
     if SPIN_ON_DOCKINGPORT {
@@ -348,13 +389,13 @@ local function shsys_check {
     }
     if SPIN_ON_FARING {
         set SPIN_ON_FARING to false. // not implemented yet
-        if not SPIN_ON_FARING { save_spin_states(). }
+        if not SPIN_ON_FARING { save_states(). }
     }
     if SPIN_ON_SEPARATION {
         if initial_ship:distance > MIN_SEPARATION {
             set SPIN_ON_SEPARATION to false.
         }
-        if not SPIN_ON_SEPARATION { save_spin_states(). }
+        if not SPIN_ON_SEPARATION { save_states(). }
     }
     if SPIN_ON_REMOTE_BAYS {
         // can't do anything
@@ -390,12 +431,14 @@ local function shsys_check {
     // at a safe distance
     filter_other_ships().
 
-    if TARGET_CACHING {
-        cache_target().
+    cache_target().
+
+    if not do_spin {
+        display_resource_state().
+        iterate_spacecraft_system_state().
     }
 
-    display_resource_state().
-    iterate_spacecraft_system_state().
+    save_states_really().
 
     return not do_spin.
 }
@@ -404,9 +447,6 @@ function util_shsys_spin_check {
     until shsys_check() {
         if defined UTIL_SHBUS_ENABLED {
             util_shbus_rx_msg().
-        }
-        if defined AP_ORB_ENABLED {
-            ap_orb_lock_controls(false).
         }
         if defined UTIL_HUD_ENABLED {
             util_hud_clear().
@@ -457,6 +497,8 @@ function util_shsys_decode_rx_msg {
         } else {
             print "usage util_shsys_set_spin(part_name, set_state)".
         }
+    } else if opcode = "SYS_SHOW" {
+        util_shbus_ack("" + SHSYS_STATES:dump , sender).
     } else {
         util_shbus_ack("could not decode shsys rx msg", sender).
         print "could not decode shsys rx msg".
@@ -529,7 +571,12 @@ function util_shsys_do_action {
     } else if action_in = "get_target" {
         set TARGET_CACHING to true.
     } else if action_in = "dock_target" {
-        set arm_docking to true.
+        set STATE_ARM_DOCKING to true.
+        save_states().
+    } else if action_in = "undock_target" {
+        set STATE_ARM_DOCKING to false.
+        unset_docking().
+        save_states().
     } else {
         print "could not do action " + action_in.
         return false.
@@ -565,7 +612,7 @@ function util_shsys_set_spin {
         print "could not find " + part_name.
         return false.
     }
-    save_spin_states().
+    save_states().
     print "spin on " + part_name + " set to " + set_state.
     return true.
 }

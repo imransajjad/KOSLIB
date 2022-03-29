@@ -161,9 +161,7 @@ local function gain_schedule {
 }
 
 
-local omega_v is V(0,0,0).
 local aero_active is true.
-local input_state is 0. // 0 released, 1 keys, 0.5 stick
 function ap_aero_w_do {
     parameter u1 is SHIP:CONTROL:PILOTPITCH. // pitch
     parameter u2 is SHIP:CONTROL:PILOTYAW. // yaw
@@ -191,34 +189,19 @@ function ap_aero_w_do {
             set rratePD:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
             set rrateI:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
         } else if direct_mode {
-            set omega_v to -alpha_beta_dir*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
-            set pratePID:SETPOINT to omega_v:x.
-            set yratePID:SETPOINT to omega_v:y.
-            set rratePD:SETPOINT to omega_v:z.
-            set rrateI:SETPOINT to omega_v:z.
+            local omega is -alpha_beta_dir*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
+            set pratePID:SETPOINT to omega:x.
+            set yratePID:SETPOINT to omega:y.
+            set rratePD:SETPOINT to omega:z.
+            set rrateI:SETPOINT to omega:z.
         } else {
-            if SWAP_ROLL_YAW {
-                local temp is u2.
-                set u2 to u1.
-                set u1 to temp.
-            }
-            if not (input_state = 0.5) and (abs(u1) = 1 or abs(u2) = 1 or abs(u3) = 1) {
-                set input_state to 1.0.
-            } else if ((abs(u1) = 0 and abs(u2) = 0 and abs(u3) = 0)) {
-                set input_state to 0.0.
-            } else {
-                set input_state to 0.5.
-            }
-
-            if input_state = 1.0 {
-                set omega_v to (1-KEYS_LPF)*omega_v + (KEYS_LPF)*(-alpha_beta_dir*V(prate_max*sat(u1,1.0),yrate_max*sat(u2,1.0),rrate_max*sat(u3,1.0))).
-            } else {
-                set omega_v to -alpha_beta_dir*V(prate_max*sat(STICK_GAIN*u1,1.0),yrate_max*sat(STICK_GAIN*u2,1.0),rrate_max*sat(STICK_GAIN*u3,1.0)).
-            }
-            set pratePID:SETPOINT to omega_v:x.
-            set yratePID:SETPOINT to omega_v:y.
-            set rratePD:SETPOINT to omega_v:z.
-            set rrateI:SETPOINT to omega_v:z.
+            local omega is ap_stick_w(u1,u2,u3).
+            set omega to -alpha_beta_dir*V(omega:x*prate_max,omega:y*yrate_max,omega:z*rrate_max).
+         
+            set pratePID:SETPOINT to omega:x.
+            set yratePID:SETPOINT to omega:y.
+            set rratePD:SETPOINT to omega:z.
+            set rrateI:SETPOINT to omega:z.
         }
 
 
