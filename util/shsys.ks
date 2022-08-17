@@ -236,7 +236,6 @@ local function send_cargo_bay_delayed_ack {
 // return true if there is no more work to be done
 local function setup_docking {
     local target_vessel is util_shsys_get_target().
-    print "in setup docking".
 
     if target_vessel = -1 {
         return true.

@@ -23,7 +23,7 @@ if MAIN_ENGINE_NAME = "turboJet" {
 }
 
 local my_throttle is 0.0. // has to be accessible outside functions it seems
-local last_stage is STAGE:number.
+local last_stage is 9999.
 local max_thrust is 1.0*SHIP:MASS.
 
 local function get_total_tmr {

@@ -86,6 +86,14 @@ function round_dec_list {
     return newlist.
 }
 
+function round_vec {
+    parameter vec_in.
+    parameter FRAD_DIG.
+    return "V(" + round_fig(vec_in:x,FRAD_DIG) + "," +
+        round_fig(vec_in:y,FRAD_DIG) + "," +
+        round_fig(vec_in:z,FRAD_DIG) + ")".
+}
+
 function all_scalar {
     parameter args.
     local allscalarargs is true.
