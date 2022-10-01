@@ -265,6 +265,6 @@ function util_phys_update {
     }
 
     if ship:q > 0.0003 and not BRAKES and alpha > 0 and alpha < 45 and get_jerk():mag < 1.5 {
-        // aero_rls_update().
+        aero_rls_update().
     }
 }
