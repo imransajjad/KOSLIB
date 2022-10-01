@@ -1,0 +1,78 @@
+{
+    "entries": [
+        "AP_STICK",
+        {
+            "entries": [
+                "STICK_GAIN", 3.0,
+                "KEYS_LPF", 0.1,
+                "SWAP_ROLL_YAW", false
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_ORB",
+        {
+            "entries": [
+                "USE_RCS", true,
+                "USE_RCS_STEER", true,
+                "STEER_MAX_ANGLE", 0.5,
+                "K_RCS_STARBOARD", 1.25,
+                "K_RCS_TOP", 1.25,
+                "K_RCS_FORE", 1.25,
+                "RCS_MAX_DV", 5,
+                "RCS_MAX_ANGLE", 5.0,
+
+                "K_ORB_ENGINE_FORE", 0.5,
+                
+                "PR_KP",5.0,
+                "PR_KI",7.5,
+                "PR_KD",0.0,
+
+                "RR_KP",1.0,
+                "RR_KI",1.5,
+                "RR_KD",0.0,
+
+                "K_PITCH", 1.0,
+                "K_YAW", 1.0,
+                "K_ROLL", 2.0
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_NAV",
+        {
+            "entries": [
+                "MAX_TARGET_INTERCEPT_DISTANCE", 500,
+                "MAX_STATION_KEEP_SPEED", 0.1
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_MODE",
+        {
+            "entries": [
+                "FLCS_ENABLED", true,
+                "NAV_ENABLED", true
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_HUD",
+        {
+            "entries": [
+                "ON_START", true,
+                "COLOR_R", 1.0,
+                "COLOR_G", 1.0,
+                "COLOR_B", 0.75
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "UTIL_SHSYS",
+        {
+            "entries": [
+                "DOCKING_PORT_NAME", "my_docking_port",
+                "ARM_RLAUNCH_STATUS", true,
+                "AUX_ANTENNAS_NAME", "only_antenna",
+                "REENTRY_STAGE", 1
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        }
+    ],
+    "$type": "kOS.Safe.Encapsulation.Lexicon"
+}
