@@ -119,7 +119,7 @@ local function iterate_spacecraft_system_state {
             print "SHSYS: antennas".
 
             until (STAGE:NUMBER <= ATMOS_ESCAPE_STAGE) {
-                stage.
+                if ISACTIVEVESSEL {stage.}
             }
 
             set PANELS to true.
@@ -139,7 +139,7 @@ local function iterate_spacecraft_system_state {
             print "SHSYS: reentry".
 
             until (STAGE:NUMBER <= REENTRY_STAGE) {
-                stage.
+                if ISACTIVEVESSEL {stage.}
             }
 
             set PANELS to false.

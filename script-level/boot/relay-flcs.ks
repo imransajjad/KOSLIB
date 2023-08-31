@@ -4,6 +4,7 @@ wait until ship:loaded.
 global DEV_FLAG is true.
 global FETCH_SOURCE is (DEV_FLAG or not exists("param.json")) and HOMECONNECTION:ISCONNECTED.
 if FETCH_SOURCE { print "fetching resources from base".}
+if core:tag = "" { set core:tag to "flcs". }
 
 function fetch_and_run {
     parameter filehomepath.

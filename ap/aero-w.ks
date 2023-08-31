@@ -189,14 +189,13 @@ function ap_aero_w_do {
             set rratePD:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
             set rrateI:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
         } else if direct_mode {
-            local omega is -alpha_beta_dir*V(sat(DEG2RAD*u1,prate_max),sat(DEG2RAD*u2,yrate_max),sat(DEG2RAD*u3,rrate_max)).
-            set pratePID:SETPOINT to omega:x.
-            set yratePID:SETPOINT to omega:y.
-            set rratePD:SETPOINT to omega:z.
-            set rrateI:SETPOINT to omega:z.
+            set pratePID:SETPOINT to sat(DEG2RAD*u1,prate_max).
+            set yratePID:SETPOINT to sat(DEG2RAD*u2,yrate_max).
+            set rratePD:SETPOINT to sat(DEG2RAD*u3,rrate_max).
+            set rrateI:SETPOINT to sat(DEG2RAD*u3,rrate_max).
         } else {
             local omega is ap_stick_w(u1,u2,u3).
-            set omega to -alpha_beta_dir*V(omega:x*prate_max,omega:y*yrate_max,omega:z*rrate_max).
+            set omega to V(omega:x*prate_max,omega:y*yrate_max,omega:z*rrate_max).
          
             set pratePID:SETPOINT to omega:x.
             set yratePID:SETPOINT to omega:y.
