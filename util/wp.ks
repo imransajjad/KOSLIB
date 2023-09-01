@@ -170,7 +170,7 @@ function util_wp_get_help_str {
         "wp swap(i,j)       [wps] swap wps",
         "wp queueprint      [wpqp] print wp list",
         "wp highlight       [wphl] highlight wps in list",
-        "wp queuedelete     [wpqd] purge wp list",
+        "wp queuepurge      [wpqd] purge wp list",
         "wp queuestash      [wpqs] stash wp list",
         "wp queuepop        [wpql] pop wp list",
         "wp mode STR        [wpmd] STR is act, spin, srf, orb, tar",

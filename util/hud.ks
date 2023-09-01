@@ -1,57 +1,96 @@
 
 GLOBAL UTIL_HUD_ENABLED IS true.
 
-local SETTINGS is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
-
-local CAMERA_HEIGHT is get_param(SETTINGS, "CAMERA_HEIGHT", 0).
-local CAMERA_RIGHT is get_param(SETTINGS, "CAMERA_RIGHT", 0).
-
-local HUD_COLOR is RGB(
-        get_param(SETTINGS, "COLOR_R", 0),
-        get_param(SETTINGS, "COLOR_G", 1),
-        get_param(SETTINGS, "COLOR_B", 0)).
-
-local PITCH_DIV is get_param(SETTINGS, "PITCH_DIV", 5).
-local FLARE_ALT is get_param(SETTINGS, "FLARE_ALT", 20).
-local SHIP_HEIGHT is get_param(SETTINGS, "SHIP_HEIGHT", 2).
-
-local PARAM_NAV is get_param(readJson("param.json"),"AP_NAV", lexicon()).
-if PARAM_NAV:haskey("GEAR_HEIGHT") {
-    set SHIP_HEIGHT to get_param(PARAM_NAV, "GEAR_HEIGHT", 2).
-}
+local PARAMS is get_param(readJson("param.json"),"UTIL_HUD", lexicon()).
 
 CLEARVECDRAWS().
 
 local hud_text_dict_left is lexicon().
 local hud_text_dict_right is lexicon().
 
-set SETTINGS["on"] to get_param(SETTINGS, "ON_START", false).
-set SETTINGS["ladder"] to get_param(SETTINGS, "LADDER_START", false).
-set SETTINGS["nav"] to get_param(SETTINGS, "NAV_START", false).
-set SETTINGS["nav_close"] to get_param(SETTINGS, "NAV_CLOSE", false).
+// Load start settings
+local SETTINGS is lexicon().
+set SETTINGS["on"] to get_param(PARAMS, "ON_START", false).
+set SETTINGS["ladder"] to get_param(PARAMS, "LADDER_START", false).
+set SETTINGS["nav"] to get_param(PARAMS, "NAV_START", false).
+set SETTINGS["nav_close"] to get_param(PARAMS, "NAV_CLOSE", false).
 set SETTINGS["alpha"] to false.
 set SETTINGS["ALPHA_DEG"] to 7.5.
 set SETTINGS["align"] to false.
 set SETTINGS["ALIGN_ELEV"] to -2.5.
 set SETTINGS["ALIGN_HEAD"] to 90.4.
 set SETTINGS["ALIGN_ROLL"] to 0.
+set SETTINGS["ground_alt"] to false.
 set SETTINGS["movable"] to false.
+set SETTINGS["frame_time"] to false.
 
+set SETTINGS["CAMERA_HEIGHT"] to get_param(PARAMS, "CAMERA_HEIGHT", 0).
+set SETTINGS["CAMERA_RIGHT"] to get_param(PARAMS, "CAMERA_RIGHT", 0).
+set SETTINGS["COLOR"] to RGB(get_param(PARAMS, "COLOR_R", 0),
+                            get_param(PARAMS, "COLOR_G", 1),
+                            get_param(PARAMS, "COLOR_B", 0)).
+
+set SETTINGS["PITCH_DIV"] to get_param(PARAMS, "PITCH_DIV", 5).
+set SETTINGS["FLARE_ALT"] to get_param(PARAMS, "FLARE_ALT", 20).
+set SETTINGS["SHIP_HEIGHT"] to get_param(PARAMS, "SHIP_HEIGHT", 2).
+local PARAM_NAV is get_param(readJson("param.json"),"AP_NAV", lexicon()).
+if PARAM_NAV:haskey("GEAR_HEIGHT") {
+    set SHIP_HEIGHT to get_param(PARAM_NAV, "GEAR_HEIGHT", 2).
+}
+
+// Load saved settings
 if exists("hud-settings.json") {
     local PREV_SETTINGS is readJson("hud-settings.json").
     for key in PREV_SETTINGS:keys {
         set SETTINGS[key] to PREV_SETTINGS[key].
     }
-    set CAMERA_HEIGHT to SETTINGS["CAMERA_HEIGHT"].
-    set CAMERA_RIGHT to SETTINGS["CAMERA_RIGHT"].
-    set HUD_COLOR to SETTINGS["HUD_COLOR"].
 }
 
+// All locals
+local HUD_ON is SETTINGS["on"].
+local HUD_LADDER is SETTINGS["ladder"].
+local HUD_NAV is SETTINGS["nav"].
+local HUD_NAV_CLOSE is SETTINGS["nav_close"].
+local HUD_ALPHA is SETTINGS["alpha"].
+local HUD_ALPHA_DEG is SETTINGS["ALPHA_DEG"].
+local HUD_ALIGN is SETTINGS["align"].
+local HUD_ALIGN_ELEV is SETTINGS["ALIGN_ELEV"].
+local HUD_ALIGN_HEAD is SETTINGS["ALIGN_HEAD"].
+local HUD_ALIGN_ROLL is SETTINGS["ALIGN_ROLL"].
+local HUD_AGL is SETTINGS["ground_alt"].
+local HUD_MOVABLE is SETTINGS["movable"].
+local HUD_FRAME_TIME is SETTINGS["frame_time"].
+
+local CAMERA_HEIGHT is SETTINGS["CAMERA_HEIGHT"].
+local CAMERA_RIGHT is SETTINGS["CAMERA_RIGHT"].
+local HUD_COLOR is SETTINGS["COLOR"].
+
+local PITCH_DIV is SETTINGS["PITCH_DIV"].
+local FLARE_ALT is SETTINGS["FLARE_ALT"].
+local SHIP_HEIGHT is SETTINGS["SHIP_HEIGHT"].
+
 local function hud_settings_save {
-    set SETTINGS["CAMERA_HEIGHT"] to CAMERA_HEIGHT.
-    set SETTINGS["CAMERA_RIGHT"] to CAMERA_RIGHT.
-    set SETTINGS["HUD_COLOR"] to HUD_COLOR.
-    
+    set HUD_ON to SETTINGS["on"].
+    set HUD_LADDER to SETTINGS["ladder"].
+    set HUD_NAV to SETTINGS["nav"].
+    set HUD_NAV_CLOSE to SETTINGS["nav_close"].
+    set HUD_ALPHA to SETTINGS["alpha"].
+    set HUD_ALPHA_DEG to SETTINGS["ALPHA_DEG"].
+    set HUD_ALIGN to SETTINGS["align"].
+    set HUD_ALIGN_ELEV to SETTINGS["ALIGN_ELEV"].
+    set HUD_ALIGN_HEAD to SETTINGS["ALIGN_HEAD"].
+    set HUD_ALIGN_ROLL to SETTINGS["ALIGN_ROLL"].
+    set HUD_AGL to SETTINGS["ground_alt"].
+    set HUD_MOVABLE to SETTINGS["movable"].
+    set HUD_FRAME_TIME to SETTINGS["frame_time"].
+
+    set CAMERA_HEIGHT to SETTINGS["CAMERA_HEIGHT"].
+    set CAMERA_RIGHT to SETTINGS["CAMERA_RIGHT"].
+    set HUD_COLOR to SETTINGS["COLOR"].
+
+    set PITCH_DIV to SETTINGS["PITCH_DIV"].
+    set FLARE_ALT to SETTINGS["FLARE_ALT"].
+    set SHIP_HEIGHT to SETTINGS["SHIP_HEIGHT"].
     writeJson(SETTINGS, "hud-settings.json").
 }
 
@@ -99,7 +138,7 @@ local function nav_vecdraw {
     }
     local nav_vel is ap_nav_get_hud_vel().
 
-    if SETTINGS["on"] and SETTINGS["nav"] and ISACTIVEVESSEL
+    if HUD_ON and HUD_NAV and ISACTIVEVESSEL
         and not MAPVIEW and nav_vel:mag > 0.3  {
 
         local py_temp is pitch_yaw_from_dir(nav_vel:direction).
@@ -120,7 +159,7 @@ local function nav_vecdraw {
         set guide_tri_ll:show to true.
         set guide_tri_lr:show to true.
 
-        if SETTINGS["nav_close"] or (nav_heading:vector*ship:facing:vector > 0.966) {
+        if HUD_NAV_CLOSE or (nav_heading:vector*ship:facing:vector > 0.966) {
             set guide_tri_tl:start to camera_offset+guide_far*nav_heading:vector-guide_size*nav_heading:starvector.
             set guide_tri_tl:vec to guide_size*(nav_heading:starvector + nav_heading:topvector).
 
@@ -172,7 +211,7 @@ local function ladder_vec_draw {
                 0.0) ).
         }
     }
-    if SETTINGS["on"] and SETTINGS["ladder"] and ISACTIVEVESSEL and not MAPVIEW and ship:airspeed > 1.0 {
+    if HUD_ON and HUD_LADDER and ISACTIVEVESSEL and not MAPVIEW and ship:airspeed > 1.0 {
 
         local closest_pitch is sat(
             round(vel_pitch/PITCH_DIV)*PITCH_DIV,
@@ -236,9 +275,9 @@ local function align_marker_draw {
         set align_hori:wiping to false.
     }
 
-    if ISACTIVEVESSEL and SETTINGS["on"] and SETTINGS["align"] and not MAPVIEW {
+    if ISACTIVEVESSEL and HUD_ON and HUD_ALIGN and not MAPVIEW {
         local camera_offset is camera_offset_vec.
-        local ghead is heading(SETTINGS["ALIGN_HEAD"],SETTINGS["ALIGN_ELEV"],-SETTINGS["ALIGN_ROLL"]).
+        local ghead is heading(HUD_ALIGN_HEAD,HUD_ALIGN_ELEV,-HUD_ALIGN_ROLL).
         
         if HASTARGET {
             local target_ship is TARGET.
@@ -279,10 +318,10 @@ local function alpha_bracket_draw {
         set alpha_bracket_vec:wiping to false.
     }
 
-    if ISACTIVEVESSEL and SETTINGS["on"] and SETTINGS["alpha"] and not MAPVIEW {
+    if ISACTIVEVESSEL and HUD_ON and HUD_ALPHA and not MAPVIEW {
         local camera_offset is camera_offset_vec.
 
-        local alpha_vec is angleaxis(-SETTINGS["ALPHA_DEG"],ship:facing:starvector)*ship:srfprograde:vector.
+        local alpha_vec is angleaxis(-HUD_ALPHA_DEG,ship:facing:starvector)*ship:srfprograde:vector.
         set alpha_bracket_vec:start to camera_offset+far*alpha_vec.
         set alpha_bracket_vec:vec to 0.5*long*ship:facing:starvector.
         
@@ -325,7 +364,7 @@ local function lr_text_info {
 
     }
 
-    if SETTINGS["on"] and not MAPVIEW and ISACTIVEVESSEL {
+    if HUD_ON and not MAPVIEW and ISACTIVEVESSEL {
 
         local vel_displayed is "".
         local alt_head_str is "".
@@ -357,7 +396,7 @@ local function lr_text_info {
             
             set alt_head_str to
                     (choose round_dec(ship:altitude-max(ship:geoposition:terrainheight,0)-SHIP_HEIGHT,1) +" ^_"
-                    if GEAR else round_dec(ship:altitude,0)+" <|" ) +
+                    if (GEAR or HUD_AGL) else round_dec(ship:altitude,0)+" <|" ) +
                     char(10) + round_dec(vel_bear,0) +" -O ".
         } else if (NAVMODE = "TARGET") and HASTARGET {
             local target_ship is TARGET.
@@ -368,7 +407,7 @@ local function lr_text_info {
             set alt_head_str to round_dec(round_fig((target_ship:position):mag,2),2) + "+|".
         }
 
-        if SETTINGS["movable"] {
+        if HUD_MOVABLE {
             set hud_left:draggable to true.
             set hud_right:draggable to true.
         } else {
@@ -384,7 +423,7 @@ local function lr_text_info {
             ( choose ap_orb_status_string()+char(10) if defined AP_ORB_ENABLED else "") +
             ( choose ap_aero_w_status_string()+char(10) if defined AP_AERO_W_ENABLED else "") +
             ( choose ap_hover_status_string()+char(10) if defined AP_HOVER_ENABLED else "") +
-            // + "Ts " + round_dec(time_now - time_last,3) + char(10) + 
+            ( choose "Ts " + round_dec(time_now - time_last,3) + char(10) if HUD_FRAME_TIME else "") + 
             hud_text_dict_left:values:join(char(10)).
 
         set hud_right_label:text to "" +
@@ -418,7 +457,7 @@ local function control_part_vec_draw {
         //set control_part_vec:wiping to false.
         set control_part_vec_init_draw to true.
     }
-    if ISACTIVEVESSEL and SETTINGS["on"] and not MAPVIEW {
+    if ISACTIVEVESSEL and HUD_ON and not MAPVIEW {
 
         set control_part_vec:vec to SHIP:CONTROLPART:position + CAMERA_HEIGHT*ship:facing:topvector.
         set control_part_vec:show to true.
@@ -505,10 +544,10 @@ function util_hud_setting {
 // clear the hud temporarily, but don't change any settings
 // i.e. next time util_hud_info is called, it will work the same
 function util_hud_clear {
-    local saved_setting is SETTINGS["on"].
-    set SETTINGS["on"] to false.
+    local saved_setting is HUD_ON.
+    set HUD_ON to false.
     util_hud_info().
-    set SETTINGS["on"] to saved_setting.
+    set HUD_ON to saved_setting.
 }
 
 // shbus_tx compatible send messages
@@ -529,6 +568,8 @@ function util_hud_get_help_str {
         "     align",
         "     nav",
         "     movable",
+        "     ground_alt",
+        "     frame time",
         "hud help           print help"
         ).
 }
@@ -617,7 +658,7 @@ function util_hud_decode_rx_msg {
             hud_settings_save().
         }
     } else if opcode = "HUD_COLOR_SET" {
-        set HUD_COLOR to RGB(data[0],data[1],data[2]).
+        util_hud_setting("COLOR", RGB(data[0],data[1],data[2])).
         hud_settings_save().
     } else if opcode = "HUD_ALIGN_SET" {
         if data:length = 0 {
@@ -638,8 +679,8 @@ function util_hud_decode_rx_msg {
         }
         hud_settings_save().
     } else if opcode = "HUD_CAM_MOVE" {
-        set CAMERA_HEIGHT to CAMERA_HEIGHT + data[0].
-        set CAMERA_RIGHT to CAMERA_RIGHT + data[1].
+        set SETTINGS["CAMERA_HEIGHT"] to SETTINGS["CAMERA_HEIGHT"] + data[0].
+        set SETTINGS["CAMERA_RIGHT"] to SETTINGS["CAMERA_RIGHT"] + data[1].
         hud_settings_save().
     } else if opcode = "HUD_RESET" {
         if exists("hud-settings.json") {
