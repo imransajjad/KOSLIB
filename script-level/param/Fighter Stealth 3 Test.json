@@ -4,7 +4,7 @@
         {
             "entries": [
                 "STICK_GAIN", 3.0,
-                "KEYS_LPF", 0.05,
+                "KEYS_LPF", 0.15,
                 "SWAP_ROLL_YAW", false
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
@@ -22,14 +22,14 @@
                 "PITCH_SPECIFIC_INERTIA", 28,
                 "MAX_ROLL", 360,
 
-                "PR_KP",1.0,
+                "PR_KP",0.9,
                 "PR_KI",1.8,
                 "PR_KD",0.0,
                 "YR_KP",4.0,
                 "YR_KI",0.0,
                 "YR_KD",0.1,
                 "RR_KP",0.1,
-                "RR_KI",0.05,
+                "RR_KI",0.28,
                 "RR_KD",0.0025,
 
                 "K_PITCH", 0.5,
@@ -90,8 +90,6 @@
                 "CAMERA_HEIGHT", 0.713,
                 "CAMERA_RIGHT", 0.0,
                 
-                "GSLOPE", 2.5,
-                "GHEAD", 90.4,
                 "PITCH_DIV", 5.0,
 
                 "COLOR_R", 0.5,

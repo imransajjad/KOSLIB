@@ -44,7 +44,6 @@ local YR_KD is get_param(PARAM,"YR_KD", 0).
 local RR_KP is get_param(PARAM,"RR_KP", 0).
 local RR_KI is get_param(PARAM,"RR_KI", 0).
 local RR_KD is get_param(PARAM,"RR_KD", 0).
-local RR_I_SAT is get_param(PARAM, "RR_I_SAT", 0.05).
 
 // nav angle difference gains
 local K_PITCH is get_param(PARAM,"K_PITCH").
@@ -94,17 +93,11 @@ local yratePID is PIDLOOP(
     YR_KD,
     -1.0,1.0).
 
-local rratePD is PIDLOOP(
+local rratePID is PIDLOOP(
     RR_KP,
     RR_KI,
     RR_KD,
     -1.0,1.0).
-
-local rrateI is PIDLOOP(
-    0,
-    RR_KI,
-    0,
-    -RR_I_SAT,RR_I_SAT).
 
 local LF is 1.0.
 local function rate_schedule {
@@ -146,9 +139,9 @@ local function gain_schedule {
     set yratePID:KD to YR_KD*LF2GY.
     
     local LF2GR is (LF2G/ROLL_SPECIFIC_INERTIA).
-    set rratePD:KP to RR_KP*LF2GR.
-    set rrateI:KI to RR_KI*LF2GR.
-    set rratePD:KD to RR_KD*LF2GR.
+    set rratePID:KP to RR_KP*LF2GR.
+    set rratePID:KI to RR_KI*LF2GR.
+    set rratePID:KD to RR_KD*LF2GR.
 
     if ( false) { // q debug
         util_hud_push_left("aero_w_gain_schedule", 
@@ -186,31 +179,23 @@ function ap_aero_w_do {
         if USE_GCAS and gcas_check() {
             set pratePID:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_PITCH*DEG2RAD*(gcas_escape_pitch-vel_pitch)*cos(roll),prate_max).
             set yratePID:SETPOINT to 0.0.
-            set rratePD:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
-            set rrateI:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
+            set rratePID:SETPOINT to sat(GCAS_GAIN_MULTIPLIER*K_ROLL*DEG2RAD*(-roll),rrate_max).
         } else if direct_mode {
             set pratePID:SETPOINT to sat(DEG2RAD*u1,prate_max).
             set yratePID:SETPOINT to sat(DEG2RAD*u2,yrate_max).
-            set rratePD:SETPOINT to sat(DEG2RAD*u3,rrate_max).
-            set rrateI:SETPOINT to sat(DEG2RAD*u3,rrate_max).
+            set rratePID:SETPOINT to sat(DEG2RAD*u3,rrate_max).
         } else {
             local omega is ap_stick_w(u1,u2,u3).
             set omega to V(omega:x*prate_max,omega:y*yrate_max,omega:z*rrate_max).
          
             set pratePID:SETPOINT to omega:x.
             set yratePID:SETPOINT to omega:y.
-            set rratePD:SETPOINT to omega:z.
-            set rrateI:SETPOINT to omega:z.
-        }
-
-
-        if (abs(rrateI:SETPOINT) > 5*DEG2RAD) or abs(roll_rate) > 5*DEG2RAD or abs(roll) > 3 {
-            set rrateI:SETPOINT to roll_rate. // do not trim roll if not level flight
+            set rratePID:SETPOINT to omega:z.
         }
 
         set SHIP:CONTROL:PITCH to pratePID:UPDATE(TIME:SECONDS, pitch_rate).
         set SHIP:CONTROL:YAW to yratePID:UPDATE(TIME:SECONDS, yaw_rate).
-        set SHIP:CONTROL:ROLL to rratePD:UPDATE(TIME:SECONDS, roll_rate) + 0*rrateI:UPDATE(TIME:SECONDS, roll_rate).
+        set SHIP:CONTROL:ROLL to rratePID:UPDATE(TIME:SECONDS, roll_rate).
 
         if not aero_active {
             set aero_active to true.
@@ -218,7 +203,7 @@ function ap_aero_w_do {
     } else {
         if aero_active {
             set aero_active to false.
-            rrateI:RESET().
+            rratePID:RESET().
             yratePID:RESET().
             pratePID:RESET().
             SET SHIP:CONTROL:NEUTRALIZE to TRUE.
@@ -238,9 +223,9 @@ function ap_aero_w_do {
     util_hud_push_left( "ap_aero_w_do_roll",
         char(10) + "rpid" + " " + round_dec(RR_KP,2) + " " + round_dec(RR_KI,2) + " " + round_dec(RR_KD,2) +
         char(10) + "rmax" + " " + round_dec(RAD2DEG*rrate_max,1) +
-        char(10) + "rask" + " " + round_dec(RAD2DEG*rratePD:SETPOINT,1) +
+        char(10) + "rask" + " " + round_dec(RAD2DEG*rratePID:SETPOINT,1) +
         char(10) + "ract" + " " + round_dec(RAD2DEG*roll_rate,1) +
-        char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePD:ERROR,1) ).
+        char(10) + "rerr" + " " + round_dec(RAD2DEG*rratePID:ERROR,1) ).
     }
 
     if ( false) { // yaw debug
