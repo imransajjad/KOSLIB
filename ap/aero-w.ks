@@ -96,7 +96,7 @@ local yratePID is PIDLOOP(
 
 local rratePD is PIDLOOP(
     RR_KP,
-    0,
+    RR_KI,
     RR_KD,
     -1.0,1.0).
 
@@ -210,7 +210,7 @@ function ap_aero_w_do {
 
         set SHIP:CONTROL:PITCH to pratePID:UPDATE(TIME:SECONDS, pitch_rate).
         set SHIP:CONTROL:YAW to yratePID:UPDATE(TIME:SECONDS, yaw_rate).
-        set SHIP:CONTROL:ROLL to rratePD:UPDATE(TIME:SECONDS, roll_rate) + rrateI:UPDATE(TIME:SECONDS, roll_rate).
+        set SHIP:CONTROL:ROLL to rratePD:UPDATE(TIME:SECONDS, roll_rate) + 0*rrateI:UPDATE(TIME:SECONDS, roll_rate).
 
         if not aero_active {
             set aero_active to true.
