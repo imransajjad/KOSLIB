@@ -52,7 +52,7 @@
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
-        "AP_NAV",
+        "AP_NAV_SRF",
         {
             "entries": [
                 "ROT_GNOM_VERT", 2.0,
@@ -65,8 +65,13 @@
                 "BANK_MAX", 180,
                 "TAIL_STRIKE", 7.5,
                 "VSET_MAX", 850,
-                "GEAR_HEIGHT", 1.8,
-
+                "GEAR_HEIGHT", 1.8
+            ],
+            "$type": "kOS.Safe.Encapsulation.Lexicon"
+        },
+        "AP_NAV_TAR",
+        {
+            "entries": [
                 "MAX_STATION_KEEP_SPEED", 10,
                 "MAX_TARGET_INTERCEPT_DISTANCE", 25000
             ],

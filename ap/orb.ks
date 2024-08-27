@@ -23,9 +23,9 @@ local rratePID is PIDLOOP(
     -1.0,1.0).
 
 // nav angle difference gains
-local K_PITCH is get_param(PARAM,"K_PITCH").
-local K_YAW is get_param(PARAM,"K_YAW").
-local K_ROLL is get_param(PARAM,"K_ROLL").
+local K_PITCH is get_param(PARAM,"K_PITCH", 0.5).
+local K_YAW is get_param(PARAM,"K_YAW", 0.5).
+local K_ROLL is get_param(PARAM,"K_ROLL", 1.0).
 
 
 local USE_RCS to get_param(PARAM, "USE_RCS", true).
@@ -227,7 +227,7 @@ function ap_orb_nav_do {
 
     local delta_v is (vel_vec - ship:velocity:orbit).
     local delta_a is (acc_vec - GRAV_ACC).
-    
+
     if not SAS {
         local head_error is (-ship:facing)*head_dir.
         set total_head_align to 0.5*head_error:forevector*V(0,0,1) + 0.5*head_error:starvector*V(1,0,0).
@@ -337,6 +337,10 @@ function ap_orb_w {
         set SHIP:CONTROL:YAW to yratePID:UPDATE(TIME:SECONDS, yaw_rate).
         set SHIP:CONTROL:ROLL to rratePID:UPDATE(TIME:SECONDS, roll_rate).
 
-        util_hud_push_left("ap_orb_w", "KP: " + pratePID:KP + " KI: " + pratePID:KI ).
+        set ship:control:mainthrottle to ship:control:pilotmainthrottle.
+
+        util_hud_push_left("ap_orb_w", "KP: " + pratePID:KP + " KI: " + pratePID:KI + char(10) + "mt " + round_dec(ship:control:pilotmainthrottle,2) ).
     }
 }
+
+init_orb_params().

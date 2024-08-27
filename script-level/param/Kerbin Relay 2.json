@@ -25,11 +25,11 @@
                 "R_KD",0.0,
 
                 "MAX_STOPPING_TIME", 5.0,
-                "MAX_STEER_TIME", 60.0
+                "MAX_STEER_TIME", 15.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
-        "AP_NAV",
+        "AP_NAV_TAR",
         {
             "entries": [
                 "MAX_TARGET_INTERCEPT_DISTANCE", 5000,

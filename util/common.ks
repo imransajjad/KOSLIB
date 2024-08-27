@@ -364,6 +364,19 @@ function simple_E {
     return 0.5*velocity^2 - ship:body:mu/(height + ship:body:radius).
 }
 
+function fetch_and_run {
+    // requires a global FETCH_SOURCE
+    parameter filehomepath.
+
+    local filepath is filehomepath:replace("0:/", "").
+    if FETCH_SOURCE {
+        copypath(filehomepath, filepath).
+    }
+    if filepath:contains(".ks") {
+        runoncepath(filepath).
+    }
+}
+
 // try to get param file
 // if local param does not exist, create an empty file
 function get_param_file {

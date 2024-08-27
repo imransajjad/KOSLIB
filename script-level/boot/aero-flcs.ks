@@ -7,20 +7,9 @@ global FETCH_SOURCE is (DEV_FLAG or not exists("param.json")) and HOMECONNECTION
 if FETCH_SOURCE { print "fetching resources from base".}
 if core:tag = "" { set core:tag to "flcs". }
 
-function fetch_and_run {
-    parameter filehomepath.
-
-    local filepath is filehomepath:replace("0:/", "").
-    if FETCH_SOURCE {
-        copypath(filehomepath, filepath).
-    }
-    if filepath:contains(".ks") {
-        runoncepath(filepath).
-    }
-}
-
-fetch_and_run("0:/koslib/util/common.ks").
 if FETCH_SOURCE {
+    copypath("0:/koslib/util/common.ks","koslib/util/common.ks").
+    runoncepath("koslib/util/common.ks").
     get_element_param_file("0:/param").
 }
 
@@ -37,6 +26,8 @@ fetch_and_run("0:/koslib/ap/stick.ks").
 fetch_and_run("0:/koslib/ap/aero-engines.ks").
 fetch_and_run("0:/koslib/ap/aero-w.ks").
 fetch_and_run("0:/koslib/ap/nav.ks").
+fetch_and_run("0:/koslib/ap/nav/srf.ks").
+fetch_and_run("0:/koslib/ap/nav/tar.ks").
 fetch_and_run("0:/koslib/ap/mode.ks").
 
 GLOBAL BOOT_AERO_FLCS_ENABLED IS true.
