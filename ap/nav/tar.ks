@@ -13,26 +13,19 @@ local relative_velocity is V(0,0,0).
 local slow_roll is 0.
 local relative_roll is 0.
 
+local pred_weights is list(28,-63,36). // weights to predict future position
+local last_three_distances is list(28,-63,36). // initialize to max
 local function ap_nav_tar_check_done {
-    parameter final_speed. // final speed upon approach
-    parameter vec_final. // position vector to target
-    parameter head_final. // desired heading upon approach
-    parameter frame_vel. // a velocity vector in this frame
-    parameter radius. // a turning radius.
+    parameter position. // position vector to target
+    parameter threshold. // 
 
-    local time_dir is frame_vel*vec_final:normalized.
-    local time_to is vec_final:mag/max(frame_vel:mag,0.0001).
+    last_three_distances:remove(0).
+    last_three_distances:add(position:mag).
 
-    if (time_to < 3) and (final_speed > MAX_STATION_KEEP_SPEED) {
-        local angle_to is vectorangle(vec_final,frame_vel).
-
-        if ( angle_to > 30) or
-            (angle_to > 12.5 and time_to < 2) or 
-            ( time_to < 1) {
-            return true.
-        }
-    }
-    return false.
+    local future_position is pred_weights[0]*last_three_distances[0] +
+                        pred_weights[1]*last_three_distances[1] +
+                        pred_weights[2]*last_three_distances[2].
+    return ( abs(future_position) < threshold).
 }
 
 function ap_nav_tar_wp_guide {
@@ -70,12 +63,10 @@ function ap_nav_tar_wp_guide {
         if position:mag > INTERCEPT_DISTANCE {
             return false. // do nothing
         }
-        if ap_nav_tar_check_done(approach_speed, position, ship:facing, relative_velocity, radius) {
+        if approach_speed > MAX_STATION_KEEP_SPEED and ap_nav_tar_check_done(position, radius/5) {
             ap_nav_wp_done().
         }
-        if approach_speed <= MAX_STATION_KEEP_SPEED {
-            set approach_speed to sat(position:mag/radius, 1)*abs(approach_speed).
-        }
+        set approach_speed to sat(position:mag/radius, 1)*abs(approach_speed).
 
         set AP_NAV_VEL to approach_speed*position:normalized+ap_nav_get_vessel_vel(target_ship).
         set AP_NAV_ACC to V(0,0,0).

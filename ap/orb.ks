@@ -338,6 +338,7 @@ function ap_orb_w {
         set SHIP:CONTROL:ROLL to rratePID:UPDATE(TIME:SECONDS, roll_rate).
 
         set ship:control:mainthrottle to ship:control:pilotmainthrottle.
+        set ship:control:translation to ship:control:pilottranslation.
 
         util_hud_push_left("ap_orb_w", "KP: " + pratePID:KP + " KI: " + pratePID:KI + char(10) + "mt " + round_dec(ship:control:pilotmainthrottle,2) ).
     }

@@ -6,9 +6,9 @@
                 "USE_RCS", true,
                 "USE_RCS_STEER", false,
                 "STEER_MAX_ANGLE", 0.5,
-                "K_RCS_STARBOARD", 0.5,
-                "K_RCS_TOP", 0.5,
-                "K_RCS_FORE", 1.0,
+                "K_RCS_STARBOARD", 0.25,
+                "K_RCS_TOP", 0.25,
+                "K_RCS_FORE", 0.25,
                 "RCS_MAX_DV", 5,
                 "RCS_MAX_ANGLE", 5.0,
 
@@ -33,7 +33,7 @@
         {
             "entries": [
                 "MAX_TARGET_INTERCEPT_DISTANCE", 5000,
-                "MAX_STATION_KEEP_SPEED", 0.1
+                "MAX_STATION_KEEP_SPEED", 1.0
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },
