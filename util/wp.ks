@@ -204,7 +204,7 @@ function util_wp_get_help_str {
 
 local function generate_takeoff_seq {
     parameter takeoff_distance.
-    parameter heading.
+    parameter ground_heading.
     
     local lat is ship:geoposition:lat.
     local lng is ship:geoposition:lng.
@@ -215,21 +215,21 @@ local function generate_takeoff_seq {
     local pullup_angle is 5.
     local pullup_radius is takeoff_distance*2.
 
-    local p1 is haversine_latlng(lat,lng, heading,
+    local p1 is haversine_latlng(lat,lng, ground_heading,
         (takeoff_distance)/ship:body:radius*RAD2DEG).
-    local pr is haversine_latlng(lat,lng, heading,
+    local pr is haversine_latlng(lat,lng, ground_heading,
         (takeoff_distance+pullup_radius*sin(pullup_angle))
         /ship:body:radius*RAD2DEG).
-    local pesc is haversine_latlng(lat,lng, heading,
+    local pesc is haversine_latlng(lat,lng, ground_heading,
         (takeoff_distance+pullup_radius*sin(pullup_angle)+
         takeoff_distance*cos(pullup_angle))/ship:body:radius*RAD2DEG +
         GCAS_ALTITUDE/tan(max(1.0,pullup_angle))/ship:body:radius*RAD2DEG ).
 
     set takeoff_sequence_WP to LIST(
-        list(start_alt, 350, p1[0], p1[1], 0, heading),
-        list(start_alt+pullup_radius*(1-cos(pullup_angle)), 350, pr[0], pr[1],pullup_angle,heading),
+        list(start_alt, 350, p1[0], p1[1], 0, ground_heading),
+        list(start_alt+pullup_radius*(1-cos(pullup_angle)), 350, pr[0], pr[1],pullup_angle,ground_heading),
         list(start_alt+pullup_radius*(1-cos(pullup_angle))+
-            takeoff_distance*sin(pullup_angle)+GCAS_ALTITUDE, 350, pesc[0], pesc[1],pullup_angle,heading),
+            takeoff_distance*sin(pullup_angle)+GCAS_ALTITUDE, 350, pesc[0], pesc[1],pullup_angle,ground_heading),
         list("act","g")
         ).
     return takeoff_sequence_WP.

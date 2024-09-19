@@ -32,8 +32,6 @@ fetch_and_run("0:/koslib/util/phys.ks").
 fetch_and_run("0:/koslib/resource/blank.png").
 fetch_and_run("0:/koslib/util/hud.ks").
 
-fetch_and_run("0:/koslib/ap/aero-engines.ks").
-fetch_and_run("0:/koslib/ap/aero-w.ks").
 fetch_and_run("0:/koslib/ap/orb.ks").
 fetch_and_run("0:/koslib/ap/nav.ks").
 fetch_and_run("0:/koslib/ap/missile.ks").
@@ -66,19 +64,22 @@ util_shsys_spin_check().
 
 util_shsys_do_action("thrust_max").
 
-ap_missile_guide(). // will use nav to do this
+// ap_missile_guide(). // will use nav to do this
 
-set fwp to util_wp_arg_lex(list(300,0.04),"tar").
-util_wp_add(-1,fwp).
+// set fwp to util_wp_arg_lex(list(300,0.04),"tar").
+// util_wp_add(-1,fwp).
 
 until false {
+    get_plane_globals().
+
     util_shbus_rx_msg().
     util_shsys_spin_check().
 
-    ap_nav_display().
+    // ap_nav_display().
+    ap_missile_guide().
 
     ap_orb_nav_do().
 
-    // util_hud_info().
+    util_hud_info().
     wait 0.
 }

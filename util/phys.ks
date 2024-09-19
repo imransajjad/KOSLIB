@@ -20,32 +20,32 @@ if C_SCHED_TYPE = "FS3T" {
 }
 
 local function cl_sched_fs3t {
-    parameter v.
+    parameter vel.
 
-    if ( v < 100) {
-        return -(5/100)*v + 8.5.
-    } else if (v < 300) {
-        return -(2.5/200)*v + 4.75.
-    } else if (v < 2100) {
-        return -(0.2/700)*v + 1.09.
+    if ( vel < 100) {
+        return -(5/100)*vel + 8.5.
+    } else if (vel < 300) {
+        return -(2.5/200)*vel + 4.75.
+    } else if (vel < 2100) {
+        return -(0.2/700)*vel + 1.09.
     } else {
         return 0.49.
     }
 }
 
 local function cd_sched_fs3t {
-    parameter v.
+    parameter vel.
 
-    if (v < 50) {
+    if (vel < 50) {
         return 1.0.
-    } else if ( v < 100) {
-        return -(0.5/50)*v + 1.5.
-    } else if (v < 300) {
+    } else if ( vel < 100) {
+        return -(0.5/50)*vel + 1.5.
+    } else if (vel < 300) {
         return 0.5.
-    } else if (v < 400) {
-        return (1.0/100)*v - 2.5.
-    } else if (v < 500) {
-        return -(0.3/100)*v + 2.7.
+    } else if (vel < 400) {
+        return (1.0/100)*vel - 2.5.
+    } else if (vel < 500) {
+        return -(0.3/100)*vel + 2.7.
     } else {
         return 1.2.
     }
@@ -53,13 +53,13 @@ local function cd_sched_fs3t {
 
 
 function cl_sched {
-    parameter v.
-    return cl_sched_assigned:call(v).
+    parameter vel.
+    return cl_sched_assigned:call(vel).
 }
 
 function cd_sched {
-    parameter v.
-    return cd_sched_assigned:call(v).
+    parameter vel.
+    return cd_sched_assigned:call(vel).
 }
 
 
@@ -174,34 +174,34 @@ function get_fues_area {
 }
 
 function get_pre_aero_acc {
-    parameter v is ship:airspeed.
+    parameter vel is ship:airspeed.
     parameter a is alpha.
-    parameter q is ship:q.
+    parameter dpres is ship:q.
     parameter m is ship:mass.
 
-    local e_fues is q/m*V(0, -cl_sched(v)*sin(a)*cos(a), -cd_sched(v)*cos(a)^2).
-    local e_wing is q/m*V(0, cl_sched(v)*sin(a)*cos(a), -cd_sched(v)*sin(a)^2).
+    local e_fues is dpres/m*V(0, -cl_sched(vel)*sin(a)*cos(a), -cd_sched(vel)*cos(a)^2).
+    local e_wing is dpres/m*V(0, cl_sched(vel)*sin(a)*cos(a), -cd_sched(vel)*sin(a)^2).
 
     return ship_vel_dir*( A_fues*e_fues + A_wing*e_wing).
 }
 
 function get_sus_turn_rate {
-    parameter v is ship:airspeed.
+    parameter vel is ship:airspeed.
     parameter a is alpha.
-    parameter q is ship:q.
+    parameter dpres is ship:q.
     parameter m is ship:mass.
 
     local Tmax is (choose ap_aero_engines_get_max_thrust() if defined AP_AERO_ENGINES_ENABLED else 0 ).
-    local qcl is q*cl_sched(v).
-    local Eta is (Tmax/(q*cd_sched(v)) - A_wing)/(A_fues-A_wing).
-    print Eta.
+    local qcl is dpres*cl_sched(vel).
+    local Eta_turn is (Tmax/(dpres*cd_sched(vel)) - A_wing)/(A_fues-A_wing).
+    print Eta_turn.
 
-    if Eta > 0 and Eta < 1 {
-        local phys_deg_per_sec is q*cl_sched(v)*(A_wing-A_fues)*sqrt(Eta*(1-Eta))/(m*v)*RAD2DEG.
+    if Eta_turn > 0 and Eta_turn < 1 {
+        local phys_deg_per_sec is dpres*cl_sched(vel)*(A_wing-A_fues)*sqrt(Eta_turn*(1-Eta_turn))/(m*vel)*RAD2DEG.
         util_hud_push_left("get_sus_turn_rate", "phpmax " + round_dec(phys_deg_per_sec,1) ).
         return phys_deg_per_sec.
     } else {
-        return 2*g0/v*RAD2DEG.
+        return 2*g0/vel*RAD2DEG.
     }
 }
 

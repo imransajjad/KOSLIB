@@ -188,9 +188,9 @@ function dir_haversine {
 
 function haversine_vec {
     parameter frame.
-    parameter v.
+    parameter vec.
 
-    local dir_temp is (R(90,0,0)*(-frame)*v):direction.
+    local dir_temp is (R(90,0,0)*(-frame)*vec):direction.
     local total is wrap_angle(90-dir_temp:pitch).
     local roll is dir_temp:roll.
     local eject is wrap_angle(-dir_temp:yaw).
@@ -341,27 +341,27 @@ function simple_q {
     // returns a non accurate dynamic pressure-like reading
     // that can be used for some contol purposes
     parameter height.
-    parameter velocity.
+    parameter velocity_in.
 
-    return 0.00000840159*constant:e^(-height/5000)*velocity^2.
+    return 0.00000840159*constant:e^(-height/5000)*velocity_in^2.
 }
 
 function simple_q_root {
     // returns a non accurate dynamic pressure-like reading
     // that can be used for some contol purposes
     parameter height.
-    parameter velocity.
+    parameter velocity_in.
 
-    return 0.0028985496*constant:e^(-height/5000/2)*velocity.
+    return 0.0028985496*constant:e^(-height/5000/2)*velocity_in.
 }
 
 function simple_E {
     // returns a non accurate dynamic pressure-like reading
     // that can be used for some contol purposes
     parameter height.
-    parameter velocity.
+    parameter velocity_in.
 
-    return 0.5*velocity^2 - ship:body:mu/(height + ship:body:radius).
+    return 0.5*velocity_in^2 - ship:body:mu/(height + ship:body:radius).
 }
 
 function fetch_and_run {

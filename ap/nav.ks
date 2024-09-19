@@ -44,18 +44,82 @@ function ap_nav_get_vessel_vel {
 }
 
 // NAV TEST START
+local function newton_one_step_intercept {
+    parameter t.
+    parameter init_pos.
+    parameter init_vel.
+    parameter init_acc.
+    parameter dv_C. // available delta v
+
+    if dv_C > 0.1 {
+        local pos is init_pos + init_vel*t + 0.5*init_acc*t*t.
+        local vel is init_vel + init_acc*t.
+        local acc is init_acc.
+
+        local f is pos*pos - dv_C*pos:mag*t.
+        local df is 2*pos*vel - dv_C*pos:mag - dv_C*t*pos*vel/pos:mag.
+
+        return t -f/df.
+    } else {
+        local rt is init_pos/t + init_vel + 0.5*init_acc*t.
+        local dr is -init_pos/(t^2) + 0.5*init_acc.
+        local ddr is 2*init_pos/(t^3).
+
+        local df is dr*rt.
+        local ddf is ddr*rt + dr*dr.
+
+        return t - df/ddf.
+    }
+}
 
 // directly set any nav data here for testing
+local intercept_t is 10.
+local ship_end_mass is 0.29600000.
+local t_last is time:seconds.
+local dv_r is 0.
 local function navtest_wp {
     parameter wp.
 
-    if not (wp["mode"] = "navtest") {
+    // if not (wp["mode"] = "navtest") {
+    //     return false.
+    // }
+
+    local target_ship is -1.
+    if defined UTIL_SHSYS_ENABLED {
+        set target_ship to util_shsys_get_target().
+    } else if HASTARGET {
+        set target_ship to TARGET.
+    }
+
+    if HASTARGET {
+        local pos is ship:position - target_ship:position.
+        local vel is ap_nav_get_vessel_vel()-ap_nav_get_vessel_vel(target_ship).
+        local acc is -9.81*ship:up:vector.
+
+        local dv_c is 265*9.81*ln(ship:mass/ship_end_mass). // available dv
+
+        set intercept_t to intercept_t - (time:seconds - t_last).
+        set intercept_t to newton_one_step_intercept(intercept_t, pos, vel, acc, dv_c).
+        set t_last to time:seconds.
+
+        set dv_r to -(vel + pos/intercept_t + 0.5*acc*intercept_t).
+
+        set AP_NAV_VEL to ap_nav_get_vessel_vel() + dv_r.
+        set AP_NAV_ACC to V(0,0,0).
+        set AP_NAV_ATT to ship:facing.
+        
+        // util_hud_push_left( "navtest",
+        //     "int  " + round_dec(intercept_t,3) + char(10) +
+        //     "dv_c " + round_dec(dv_c,3) + char(10) +
+        //     "dv_r " + round_dec(dv_r:mag,3) + char(10) +
+        //     "dv_r " + round_vec((-ship:facing)*dv_r,3) + char(10) +
+        //     "feas " + (choose "yes" if (dv_c+1 > dv_r:mag and intercept_t > 0) else "no") + char(10)).
+        set nav_debug_vec1 to VECDRAW(V(0,0,0), min(10,dv_r:mag)*(dv_r:normalized), RGB(0,1,1),
+            "", 1.0, true, 0.25, true ).
+        return true.
+    } else {
         return false.
     }
-    set AP_NAV_VEL to ship:velocity:surface.
-    set AP_NAV_ACC to (-(vectorexclude(ship:up:vector,ship:velocity:orbit):mag^2)*ship:up:forevector +
-            + 2*(ship:geoposition:velocity:orbit:mag)*vectorExclude(ship:up:vector,ship:velocity:orbit):normalized*(ship:velocity:orbit*ship:up:vector))/(ship:body:radius + ship:altitude).
-    set AP_NAV_ATT to lookDirUp(ship:velocity:surface,ship:up:vector)*R(-12.5,0,0).
 
     if false {
         util_hud_push_left( "navtest",
@@ -97,7 +161,8 @@ function ap_nav_display {
         set DISPLAY_TAR to true.
 
     } else if cur_wayp["mode"] = "navtest" and navtest_wp(cur_wayp) {
-         set DISPLAY_SRF to AP_NAV_IN_SURFACE.
+    //      set DISPLAY_ORB to AP_NAV_IN_ORBIT.
+    // } else if navtest_wp(cur_wayp) {
          set DISPLAY_ORB to AP_NAV_IN_ORBIT.
 
     } else if AP_NAV_IN_ORBIT and defined AP_NAV_ORB_ENABLED and ap_nav_orb_mannode() {
