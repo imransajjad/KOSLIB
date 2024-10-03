@@ -207,7 +207,7 @@ function get_sus_turn_rate {
 
 local dry_moi is V(1,1,1). // xx, yy, zz
 local dry_moi_cross is V(0,0,0). // xy, yz, xz
-local dry_moi is V(1,1,1).
+local wet_moi is V(1,1,1).
 local wet_moi_cross is V(0,0,0).
 
 local function init_phys_params {
@@ -221,30 +221,29 @@ local function init_phys_params {
     for pt in ship:parts {
 
         local offset is -ship:facing*pt:position.
-
-        set dry_moi to dry_moi +
-            V(pt:drymass*(offset:y^2 + offset:z^2),
-            pt:drymass*(offset:x^2 + offset:z^2),
-            pt:drymass*(offset:x^2 + offset:y^2)).
+        local vdiag is V(0.5*pt:bounds:relmax:y^2 + 0.5*pt:bounds:relmax:z^2 + offset:y^2 + offset:z^2,
+            0.5*pt:bounds:relmax:x^2 + 0.5*pt:bounds:relmax:z^2 + offset:x^2 + offset:z^2,
+            0.5*pt:bounds:relmax:x^2 + 0.5*pt:bounds:relmax:y^2 + offset:x^2 + offset:y^2).
         
-        set dry_moi_cross to dry_moi_cross -
-            V(pt:drymass*(offset:y*offset:x),
-            pt:drymass*(offset:z*offset:y),
-            pt:drymass*(offset:z*offset:x)).
+        local vcross is V(offset:y*offset:z + 0.5*pt:bounds:relmax:y*pt:bounds:relmax:z,
+            offset:x*offset:z + 0.5*pt:bounds:relmax:x*pt:bounds:relmax:z,
+            offset:x*offset:y + 0.5*pt:bounds:relmax:x*pt:bounds:relmax:y).
 
-        set wet_moi to wet_moi +
-            V(pt:wetmass*(offset:y^2 + offset:z^2),
-            pt:wetmass*(offset:x^2 + offset:z^2),
-            pt:wetmass*(offset:x^2 + offset:y^2)).
-        
-        set wet_moi_cross to wet_moi_cross -
-            V(pt:wetmass*(offset:y*offset:x),
-            pt:wetmass*(offset:z*offset:y),
-            pt:wetmass*(offset:z*offset:x)).
+        set dry_moi to dry_moi + pt:drymass*vdiag.
+        set dry_moi_cross to dry_moi_cross - pt:drymass*vcross.
+
+        set wet_moi to wet_moi + pt:wetmass*vdiag.
+        set wet_moi_cross to wet_moi_cross - pt:wetmass*vcross.
     }
 
-    print "dry MOI " + dry_moi.
-    print "wet MOI " + wet_moi.
+    local R2 is (0.3125)^2/2.
+    local L2 is (1.75)^2/12 + R2/2.
+
+    set dry_moi to ship:drymass*V(L2,L2,R2).
+    set wet_moi to ship:wetmass*V(L2,L2,R2).
+
+    print "dry MOI " + round_vec(dry_moi,2).
+    print "wet MOI " + round_vec(wet_moi,2).
 }
 
 function get_moment_of_inertia {

@@ -428,7 +428,7 @@ local function lr_text_info {
 
         set hud_right_label:text to "" +
             round(100*THROTTLE)+
-            ( choose util_shsys_status_string()+char(10) if defined UTIL_SHSYS_ENABLED else "") +
+            ( choose util_shsys_status_string()+char(10) if defined UTIL_SHSYS_ENABLED else char(10)) +
             alt_head_str+char(10) +
             ( choose util_wp_status_string()+char(10) if defined UTIL_WP_ENABLED else "") +
             hud_text_dict_right:values:join(char(10)).
