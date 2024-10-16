@@ -23,17 +23,15 @@
 
                 "K_ORB_ENGINE_FORE", 0.5,
                 
-                "PR_KP",5.0,
-                "PR_KI",7.5,
-                "PR_KD",0.0,
+                "R_KP", 16,
+                "R_KI", 64,
+                "R_KD", 0,
 
-                "RR_KP",1.0,
-                "RR_KI",1.5,
-                "RR_KD",0.0,
 
-                "K_PITCH", 1.0,
-                "K_YAW", 1.0,
-                "K_ROLL", 2.0
+                "K_AERO_PITCH", 10.0,
+                "K_PITCH", 0.5,
+                "K_YAW", 0.5,
+                "K_ROLL", 1.5
             ],
             "$type": "kOS.Safe.Encapsulation.Lexicon"
         },

@@ -35,6 +35,7 @@ until false {
 
     util_shbus_rx_msg().
     util_shsys_spin_check().
+    util_phys_update().
 
     ap_mode_update().
     ap_nav_display().

@@ -6,6 +6,7 @@ local C_SCHED_TYPE is get_param(PARAM, "C_SCHED_TYPE", "FS3T").
 local A_wing is get_param(PARAM, "WING_AREA", 20).
 local A_fues is get_param(PARAM, "FUES_AREA", 2).
 local A_ffactor is get_param(PARAM, "FORGET_FACTOR_AREA", 0.9).
+local MOI_ffactor is get_param(PARAM, "FORGET_FACTOR_MOI", 0.9999).
 
 // global lock GRAV_ACC to -(ship:body:mu/((ship:altitude + ship:body:radius)^2))*ship:up:forevector.
 global lock GRAV_ACC to ship:body:mu/(ship:body:position:mag^2)*(ship:body:position:normalized).
@@ -65,17 +66,23 @@ function cd_sched {
 
 local Tlast is 0.
 local Vlast is V(0,0,0).
+local Olast is V(0,0,0).
 local acc_now is V(0,0,0).
+local ang_acc_now is V(0,0,0).
 local acclast is V(0,0,0).
 local jerk_now is V(0,0,0).
 function get_acc {
     if time:seconds-Tlast > 0.0 {
         set acc_now to 0.5*(ship:velocity:orbit-Vlast)/(time:seconds-Tlast) + 0.5*acc_now.
+        set ang_acc_now to 0.5*(ship:angularvel-Olast)/(time:seconds-Tlast) + 0.5*ang_acc_now.
         set jerk_now to 0.5*(acc_now-acclast)/(time:seconds-Tlast) + 0.5*jerk_now.
         set Vlast to ship:velocity:orbit.
+        set Olast to ship:angularvel.
         set acclast to acc_now.
         set Tlast to time:seconds.
     }
+    // set get_acc_vec1 to VECDRAW(V(0,0,0), (ship:angularvel), RGB(0,0,1),
+    //     "", 1.0, true, 0.25, true ).
     return acc_now.
 }
 
@@ -115,7 +122,10 @@ function get_max_applied_acc {
     return abs_max(get_applied_acc()*ship:facing:topvector, get_applied_acc()*ship:facing:forevector).
 }
 
-
+function get_angular_acc {
+    get_acc().
+    return ang_acc_now.
+}
 
 // RLS matrix elements
 local A_11 is 1.
@@ -205,65 +215,81 @@ function get_sus_turn_rate {
     }
 }
 
-local dry_moi is V(1,1,1). // xx, yy, zz
-local dry_moi_cross is V(0,0,0). // xy, yz, xz
-local wet_moi is V(1,1,1).
-local wet_moi_cross is V(0,0,0).
-
-local function init_phys_params {
-    // some MOI calculations
+local moi_stage is stage:number.
+local moi is V(0,0,0). // V(xx, yy, zz)
+local moi_cross is V(0,0,0). // V(xy, yz, xz)
+local moi_mass is ship:mass.
+local moi_update_acc_2 is V(0,0,0).
+local function init_moi {
+    // some MOI_spec calculations from scratch
     
-    set dry_moi to V(0,0,0).
-    set dry_moi_cross to V(0,0,0).
-    set wet_moi to V(0,0,0).
-    set wet_moi_cross to V(0,0,0).
+    set moi to V(0,0,0).
+    set moi_cross to V(0,0,0).
+    set moi_mass to ship:mass.
 
     for pt in ship:parts {
 
         local offset is -ship:facing*pt:position.
-        local vdiag is V(0.5*pt:bounds:relmax:y^2 + 0.5*pt:bounds:relmax:z^2 + offset:y^2 + offset:z^2,
-            0.5*pt:bounds:relmax:x^2 + 0.5*pt:bounds:relmax:z^2 + offset:x^2 + offset:z^2,
-            0.5*pt:bounds:relmax:x^2 + 0.5*pt:bounds:relmax:y^2 + offset:x^2 + offset:y^2).
-        
-        local vcross is V(offset:y*offset:z + 0.5*pt:bounds:relmax:y*pt:bounds:relmax:z,
-            offset:x*offset:z + 0.5*pt:bounds:relmax:x*pt:bounds:relmax:z,
-            offset:x*offset:y + 0.5*pt:bounds:relmax:x*pt:bounds:relmax:y).
+        local vdiag is V(offset:y^2 + offset:z^2, offset:x^2 + offset:z^2, offset:x^2 + offset:y^2).
+        local vcross is V(offset:y*offset:z, offset:x*offset:z, offset:x*offset:y).
 
-        set dry_moi to dry_moi + pt:drymass*vdiag.
-        set dry_moi_cross to dry_moi_cross - pt:drymass*vcross.
-
-        set wet_moi to wet_moi + pt:wetmass*vdiag.
-        set wet_moi_cross to wet_moi_cross - pt:wetmass*vcross.
+        set moi to moi + pt:mass*vdiag + ship:mass*V(0.05,0.05,0.05).
+        set moi_cross to moi_cross + pt:mass*vcross.
     }
 
-    local R2 is (0.3125)^2/2.
-    local L2 is (1.75)^2/12 + R2/2.
+    print "  MOI " + round_vec(get_moment_of_inertia(),2).
+}
 
-    set dry_moi to ship:drymass*V(L2,L2,R2).
-    set wet_moi to ship:wetmass*V(L2,L2,R2).
+local function moi_update {
 
-    print "dry MOI " + round_vec(dry_moi,2).
-    print "wet MOI " + round_vec(wet_moi,2).
+    if SAS {
+        return.
+    }
+
+    local ang_acc is (-ship:facing)*get_angular_acc(). // angular acc in ship frame
+    local B is ap_get_control_bu().
+
+    if moi:x <= 0 or moi:y <= 0 or moi:z <= 0 {
+        init_moi().
+    }
+
+    if moi_stage <> stage:number {
+        set moi_stage to stage:number.
+        set moi to moi*ship:mass/moi_mass.
+    }
+    set moi_mass to ship:mass.
+
+    local dI is V(0,0,0).
+    if abs(1.03*ang_acc:x) > ang_acc:mag and ang_acc:mag > 0.05*B:x/moi:x {
+        set moi_update_acc_2:x to MOI_ffactor*moi_update_acc_2:x + ang_acc:x^2.
+        set dI:x to (-ang_acc:x*B:x*ship:control:pitch - moi:x*ang_acc:x^2)/moi_update_acc_2:x.
+    }
+    if abs(1.03*ang_acc:y) > ang_acc:mag and ang_acc:mag > 0.05*B:y/moi:y {
+        set moi_update_acc_2:y to MOI_ffactor*moi_update_acc_2:y + ang_acc:y^2.
+        set dI:y to (ang_acc:y*B:y*ship:control:yaw - moi:y*ang_acc:y^2)/moi_update_acc_2:y.
+    }
+    if abs(1.03*ang_acc:z) > ang_acc:mag and ang_acc:mag > 0.05*B:z/moi:z {
+        set moi_update_acc_2:z to MOI_ffactor*moi_update_acc_2:z + ang_acc:z^2.
+        set dI:z to (-ang_acc:z*B:z*ship:control:roll - moi:z*ang_acc:z^2)/moi_update_acc_2:z.
+    }
+    set moi to moi + dI.
+    util_hud_push_left("phys_moi_update",
+                    char(10) + "MOI:x " + round_fig(moi:x,3) +
+                    char(10) + "MOI:y " + round_fig(moi:y,3) +
+                    char(10) + "MOI:z " + round_fig(moi:z,3) +
+                    char(10) + "aw " + round_dec(ang_acc:mag,1)).
 }
 
 function get_moment_of_inertia {
-    local e is (ship:mass-ship:drymass)/(ship:wetmass - ship:drymass).
-    return convex(dry_moi, wet_moi, e).
+    return V(moi:x,moi:y,moi:z).
+    // return V(0.412,0.412,0.291).
 }
 
-function get_dry_moment_of_inertia {
-    return dry_moi.
-}
-
-local last_dry_mass is -2.
 function util_phys_update {
-
-    if abs(ship:drymass - last_dry_mass) > 0.025 {
-        init_phys_params().
-        set last_dry_mass to ship:drymass.
-    }
-
     if ship:q > 0.0003 and not BRAKES and alpha > 0 and alpha < 45 and get_jerk():mag < 1.5 {
         aero_rls_update().
+    }
+    if defined AP_ORB_ENABLED {
+        moi_update().
     }
 }

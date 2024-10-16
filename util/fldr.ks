@@ -4,7 +4,7 @@
 
 global UTIL_FLDR_ENABLED is true.
 
-local Ts is 0.5.
+local Ts is 0.02.
 local Tdur is 0.0.
 local Tdel is 0.
 
@@ -216,7 +216,7 @@ function util_fldr_logging {
         util_shbus_ack("logging " + logdesc + " to " + FILENAME, sender).
 
         local last_log_time is 0.
-        when time:seconds - last_log_time > Ts then {
+        when time:seconds - last_log_time >= Ts then {
             if ((time:seconds-starttime > Tdur) and (Tdur > 0)) or not CORE_IS_LOGGING {
                 util_shbus_ack("log written to "+ FILENAME + char(10), sender).
                 print "stopped logging".

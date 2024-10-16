@@ -4,7 +4,7 @@
 
 GLOBAL UTIL_COMMON_ENABLED is true.
 
-set pi to 3.14159265359.
+set pi to constant:pi.
 set DEG2RAD to pi/180.
 set RAD2DEG to 180/pi.
 set g0 to 9.806.
