@@ -26,8 +26,11 @@ local rratePID is PIDLOOP(
     get_param(PARAM, "RR_KD", KD),
     -1.0,1.0).
 
-local MIN_SEA_Q is 1.0*(50/420)^2.
+local MIN_SEA_Q is 1.0*(10/420)^2.
 local HAVE_FINS is get_param(PARAM,"HAVE_FINS", false).
+
+local CORNER_VELOCITY is get_param(PARAM,"CORNER_VELOCITY", 200).
+local MAXG is get_param(PARAM,"MAXG", 10)*g0.
 
 
 // USES AG6
@@ -63,6 +66,7 @@ local DO_BURN is false.
 local AERO_Q is false.
 local STEER_RCS is false.
 local MOVE_RCS is false.
+local GLIM is false.
 
 local RCSTpos is V(0,0,0). // not really a vector but a list of max
 local RCSTneg is V(0,0,0). // and min values in ship relative axes
@@ -131,13 +135,17 @@ local last_available_thrust is -1.
 local function ap_orb_me_params {
     // Main Engine Stuff
     // return the ME thrust vector and the Isp vector
-    set last_available_thrust to ship:availablethrust.
+    set last_available_thrust to ship:availablethrust + stage:number.
     list engines in engine_list.
     set METvec to V(0,0,0).
     set MEIsp to V(0,0,0).
     set MEMom to V(0,0,0).
 
     for e in engine_list {
+        until e:availablethrust = 0 or (e:availablethrust > 0 and e:isp > 0) {
+            wait 0.
+        }
+
         if e:ignition and e:availablethrust > 0 and e:isp > 0 {
             local evec is e:availablethrust*((-ship:facing)*e:facing:forevector).
             set METvec to METvec + evec.
@@ -150,14 +158,15 @@ local function ap_orb_me_params {
     if MEIsp:z > 0.0001 { set MEIsp:z to METvec:z/MEIsp:z. }
 
     print "ME data" +
-        char(10) +"F (" + round_dec(METvec:x,2) + "," + round_dec(METvec:y,2) + "," + round_dec(METvec:z,2) + ")" +
-        char(10) +"Isp (" + round_dec(MEIsp:x,2) + "," + round_dec(MEIsp:y,2) + "," + round_dec(MEIsp:z,2) + ")" +
-        char(10) +"Mom (" + round_dec(MEMom:x,2) + "," + round_dec(MEMom:y,2) + "," + round_dec(MEMom:z,2) + ")".
+        char(10) +"last " + round_fig(last_available_thrust,3) + 
+        char(10) +"F " + round_vec(METvec,3) +
+        char(10) +"Isp " + round_vec(MEIsp,3) +
+        char(10) +"Mom " + round_vec(MEMom,3).
 }
 
 function ap_orb_get_me_thrust
 {
-    if ( abs(ship:availablethrust - last_available_thrust) > 0.25) {
+    if ( abs(ship:availablethrust + stage:number - last_available_thrust) > 0.25) {
         ap_orb_me_params().
     }
     return METvec.
@@ -165,7 +174,7 @@ function ap_orb_get_me_thrust
 
 function ap_orb_get_me_isp
 {
-    if ( abs(ship:availablethrust - last_available_thrust) > 0.25) {
+    if ( abs(ship:availablethrust + stage:number - last_available_thrust) > 0.25) {
         ap_orb_me_params().
     }
     return MEIsp.
@@ -173,7 +182,7 @@ function ap_orb_get_me_isp
 
 function ap_orb_get_me_mom
 {
-    if ( abs(ship:availablethrust - last_available_thrust) > 0.25) {
+    if ( abs(ship:availablethrust + stage:number - last_available_thrust) > 0.25) {
         ap_orb_me_params().
     }
     return MEMom.
@@ -181,7 +190,7 @@ function ap_orb_get_me_mom
 
 function ap_orb_get_me_dv
 {
-    if ( abs(ship:availablethrust - last_available_thrust) > 0.25) {
+    if ( abs(ship:availablethrust + stage:number - last_available_thrust) > 0.25) {
         ap_orb_me_params().
     }
     local m_engine_prop is 0.
@@ -210,17 +219,44 @@ local function pwm_alivezone {
 
 }
 
+// get the current maximum angular velocity allowed in rad/s
+local function get_max_rrates {
+
+    if ship:q < MIN_SEA_Q {
+        return V(90,90,360)*DEG2RAD.
+    }
+    else
+    {
+        local min_rate is 2.5*DEG2RAD.
+
+        local corner_sea_q is 1.0*(CORNER_VELOCITY/420)^2.
+        local corner_cl is cl_sched(CORNER_VELOCITY).
+
+        local fake_wing_area is (MAXG)/(corner_sea_q*corner_cl)*(ship:drymass).
+        local loadfactor is ship:q*cl_sched(ship:airspeed)/ship:mass.
+
+        local glimited is min(fake_wing_area*loadfactor, MAXG).
+
+        set GLIM to (fake_wing_area*loadfactor > MAXG).
+
+        local prate_max is max(min_rate, (glimited - g0*cos(vel_pitch)*cos(roll))/ship:airspeed ).
+        local yrate_max is max(min_rate, glimited/ship:airspeed ).
+        local rrate_max is 5.0*max(min_rate, glimited/ship:airspeed ).
+        return V(prate_max, yrate_max, rrate_max).
+    }
+}
+
 local function control_aalpha {
     return V(0,0,0).
 }
 
-local last_parts_list is list().
+local ship_num_parts is 0.
 local reaction_wheel_torque is V(0,0,0).
 local function get_reaction_wheel_torque {
-    if last_parts_list:length = ship:parts:length {
+    if ship_num_parts = ship:parts:length {
         return reaction_wheel_torque.
     }
-    set last_parts_list to ship:parts:copy().
+    set ship_num_parts to ship:parts:length.
     set reaction_wheel_torque to V(0,0,0).
 
     for pt in ship:parts {
@@ -247,11 +283,11 @@ function ap_get_control_bu {
 
     if HAVE_FINS {
         local alsat is sat(alpha,35).
-        set B:x to B:x + 0.1*(max(ship:q,MIN_SEA_Q)*cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
+        set B:x to B:x + 350.0*(max(ship:q,MIN_SEA_Q)*cl_sched(max(50,vel))*(cos(alsat)^3 - 1*cos(alsat)*sin(alsat)^2)+
             cd_sched(max(50,vel))*(2*cos(alsat)*sin(alsat)^2)).
         
         local besat is sat(beta,35).
-        set B:y to B:y + 0.1*(max(ship:q,MIN_SEA_Q)*cl_sched(max(50,vel))*(cos(besat)^3 - 1*cos(besat)*sin(besat)^2)+
+        set B:y to B:y + 350.0*(max(ship:q,MIN_SEA_Q)*cl_sched(max(50,vel))*(cos(besat)^3 - 1*cos(besat)*sin(besat)^2)+
             cd_sched(max(50,vel))*(2*cos(besat)*sin(besat)^2)).
         
         set B:z to B:z + (B:x + B:y)/3.
@@ -379,22 +415,28 @@ function ap_orb_nav_do {
         local thrust_vector is ap_orb_get_me_thrust().
         local me_delta_v is (ship:facing*thrust_vector:normalized)*delta_v.
         local me_align is me_delta_v/max(0.0001,delta_v:mag).
+
+        local turn_to_engine is false.
         
         if thrust_vector:mag > 0 and delta_v:mag > 0 {
             // 
             local omega is -1*vcrs(delta_v:normalized, ship:facing*thrust_vector:normalized).
             local omega_mag is vectorAngle(delta_v:normalized, ship:facing*thrust_vector:normalized).
             set head_dir to angleaxis( omega_mag, omega:normalized )*ship:facing.
+            set turn_to_engine to true.
         }
         local me_throttle is choose K_ORB_ENGINE_FORE*me_delta_v if (me_align > 0.9848) else 0.
         // get me_throttle
 
         // dv_aero is part of delta_v that can be "steered" by aero  
         local dv_aero is vectorexclude(ship:velocity:surface, delta_v).
-        local g_max is sat( 100*ship:q/0.416, 100).
-        local a_applied is (K_AERO_PITCH*(g_max/100)*dv_aero + acc_vec).
-        set a_applied to min(g_max,a_applied:mag)*a_applied:normalized.
-        local w_v is (-ship_vel_dir)*vcrs(ship:velocity:surface:normalized, a_applied)/max(0.0001,ship:velocity:surface:mag)*RAD2DEG.
+        local D is abs(ship:q*get_wing_area()*cl_sched(ship:airspeed)*cos(2*alpha)*cos(2*beta)/ship:mass/ship:airspeed).
+        local D_a is abs(ship:q*get_wing_area()*cl_sched(ship:airspeed)/ship:mass).
+
+        local a_applied is D_a*(cos(alpha)*sin(alpha)*ship_vel_dir:topvector + cos(beta)*sin(beta)*ship_vel_dir:starvector).
+
+        local vw is K_AERO_PITCH*(dv_aero - a_applied/max(0.05,D)) + GRAV_ACC.
+        local w_v is (-ship:facing)*vcrs(ship:velocity:surface:normalized, vw)/max(0.001,ship:airspeed)*RAD2DEG.
         // get w_v
 
         // use head_error to figure out how much to turn for orientation
@@ -421,7 +463,7 @@ function ap_orb_nav_do {
 
 
         // now use me_throttle, w_v, w_head, rcs_move
-        local w_error is w_v + w_head.
+        local w_error is choose w_head if turn_to_engine else w_v.
 
         local min_dv is RCS_MAX_DV.
         if (ship:control:mainthrottle > 0) {
@@ -440,14 +482,13 @@ function ap_orb_nav_do {
 
         set last_stage to stage:number.
 
-        if (true) {
+        if (false) {
             util_hud_push_left( "ap_orb_nav_do",
                 "|dv| "  + round_dec(delta_v:mag,1) 
                 + char(10) + "dv " + round_vec((-ship:facing)*delta_v,1)
-                + char(10) + "ma align " + round(me_align,3)
                 + char(10) + "w_v " + round_vec(w_v,1)
                 + char(10) + "w_h " + round_vec(w_head,1)
-                + char(10) + "gmx " + round_fig(g_max,1)
+                + char(10) + "D " + round_fig(D,3)
                 ).
             set orb_debug_vec0 to VECDRAW(V(0,0,0), (min(delta_v:mag,10)*delta_v:normalized), RGB(0,1,0),
                 "", 1.0, true, 0.25, true ).
@@ -462,7 +503,8 @@ function ap_orb_nav_do {
 }
 
 function ap_orb_status_string {
-    return "G "+ round_dec( get_max_applied_acc()/g0, 1) +
+    return "G"+ (choose "L " if GLIM else " ") +
+        round_dec( get_max_applied_acc()/g0, 1) +
         (choose "A" if not ALIGNED else "") +
         (choose "Q" if AERO_Q else "") +
         (choose "M" if MOVE_RCS else "") +
@@ -500,19 +542,17 @@ function ap_orb_w {
         local B is ap_get_control_bu().
         local A is control_aalpha() + 0*vcrs( omega, V(MOI:x*omega:x,MOI:y*omega:y,MOI:z*omega:z) ).
 
-        local prate_max is 90*DEG2RAD.
-        local yrate_max is 90*DEG2RAD.
-        local rrate_max is 360*DEG2RAD.
+        local wmax is get_max_rrates().
 
         if direct_mode {
-            set pratePID:SETPOINT to -sat(DEG2RAD*u1,prate_max).
-            set yratePID:SETPOINT to sat(DEG2RAD*u2,yrate_max).
-            set rratePID:SETPOINT to -sat(DEG2RAD*u3,rrate_max).
+            set pratePID:SETPOINT to -sat(DEG2RAD*u1,wmax:x).
+            set yratePID:SETPOINT to sat(DEG2RAD*u2,wmax:y).
+            set rratePID:SETPOINT to -sat(DEG2RAD*u3,wmax:z).
         } else {
             local omega_v is ap_stick_w(u1,u2,u3).
-            set pratePID:SETPOINT to -omega_v:x*prate_max.
-            set yratePID:SETPOINT to omega_v:y*yrate_max.
-            set rratePID:SETPOINT to -omega_v:z*rrate_max.
+            set pratePID:SETPOINT to -omega_v:x*wmax:x.
+            set yratePID:SETPOINT to omega_v:y*wmax:y.
+            set rratePID:SETPOINT to -omega_v:z*wmax:z.
         }
 
 
@@ -532,24 +572,24 @@ function ap_orb_w {
 
 
         
-        if (true) { // pitch debug
+        if (false) { // pitch debug
             util_hud_push_left( "ap_orb_wx",
                 char(10) + "ppid" + " " + round_dec(pratePID:KP,2) + " " + round_dec(pratePID:KI,2) + " " + round_dec(pratePID:KD,2) +
-                char(10) + "pask" + " " + round_dec(RAD2DEG*pratePID:SETPOINT,1) + "/" + round_dec(RAD2DEG*prate_max,1) +
+                char(10) + "pask" + " " + round_dec(RAD2DEG*pratePID:SETPOINT,1) + "/" + round_dec(RAD2DEG*wmax:x,1) +
                 char(10) + "pact" + " " + round_dec(RAD2DEG*omega:x,1) +
-                char(10) + "perr" + " " + round_fig(RAD2DEG*pratePID:ERROR,1) ).
+                char(10) + "perr" + " " + round_fig(RAD2DEG*pratePID:ERROR,1)).
         }
         if (false) { // yaw debug
             util_hud_push_left( "ap_orb_wy",
                 char(10) + "ypid" + " " + round_dec(yratePID:KP,2) + " " + round_dec(yratePID:KI,2) + " " + round_dec(yratePID:KD,2) +
-                char(10) + "yask" + " " + round_dec(RAD2DEG*yratePID:SETPOINT,1) + "/" + round_dec(RAD2DEG*yrate_max,1) +
+                char(10) + "yask" + " " + round_dec(RAD2DEG*yratePID:SETPOINT,1) + "/" + round_dec(RAD2DEG*wmax:y,1) +
                 char(10) + "yact" + " " + round_dec(RAD2DEG*omega:y,1) +
                 char(10) + "yerr" + " " + round_fig(RAD2DEG*yratePID:ERROR,1) ).
         }
         if (false) { // roll debug
             util_hud_push_left( "ap_orb_wz",
                 char(10) + "rpid" + " " + round_dec(rratePID:KP,2) + " " + round_dec(rratePID:KI,2) + " " + round_dec(rratePID:KD,2) +
-                char(10) + "rask" + " " + round_dec(RAD2DEG*rratePID:SETPOINT,1) + "/" + round_dec(RAD2DEG*rrate_max,1) +
+                char(10) + "rask" + " " + round_dec(RAD2DEG*rratePID:SETPOINT,1) + "/" + round_dec(RAD2DEG*wmax:z,1) +
                 char(10) + "ract" + " " + round_dec(RAD2DEG*omega:z,1) +
                 char(10) + "rerr" + " " + round_fig(RAD2DEG*rratePID:ERROR,1) +
                 char(10) + "rout" + " " + round_fig(rratePID:output,1) ).

@@ -59,7 +59,7 @@ function ap_missile_guide {
 
     if not (target_ship = -1) {
         local pos is ship:position - target_ship:position.
-        local vel is ap_nav_get_vessel_vel()-ap_nav_get_vessel_vel(target_ship).
+        local vel is ap_nav_get_vessel_vel() - ap_nav_get_vessel_vel(target_ship).
         local acc is GRAV_ACC.
 
         local available_dv is 0.
@@ -84,7 +84,7 @@ function ap_missile_guide {
         }
 
         set AP_NAV_VEL to ap_nav_get_vessel_vel() + dv_r.
-        set AP_NAV_ACC to get_frame_accel_orbit().
+        set AP_NAV_ACC to GRAV_ACC.
         set AP_NAV_ATT to ship:facing.
         return true.
     } else {
