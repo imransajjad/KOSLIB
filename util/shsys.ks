@@ -340,7 +340,7 @@ local function display_resource_state {
 
 // main function for ship systems
 // returns true if sys is not blocked.
-local function shsys_check {
+function util_shsys_check {
 
     local cur_wayp is lexicon("mode", "none").
     if defined UTIL_WP_ENABLED {
@@ -443,7 +443,7 @@ local function shsys_check {
 }
 
 function util_shsys_spin_check {
-    until shsys_check() {
+    until util_shsys_check() {
         if defined UTIL_SHBUS_ENABLED {
             util_shbus_rx_msg().
         }
